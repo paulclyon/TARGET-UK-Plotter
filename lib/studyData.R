@@ -2,6 +2,7 @@
 ## studyData is loaded from reloadStudyData.R 
 
 # Return true if the study is a valid TARGET study with at least one patient, false otherwise
+# This function only works with castoRedc 2.1.0 or greater, not 1.1.0 as that would need colnames(studyData) instead
 ifValidTARGETStudy <- function(stopIfNotValid = F) {
   if ("Participant_ID" %in% colnames(studyData$Study)) {
     if (length(studyData$Study$Participant_ID) > 0 ) {

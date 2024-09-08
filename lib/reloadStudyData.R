@@ -68,23 +68,19 @@ getStudyName <- function(id)
 pullPatientData <- function (studyID) {
   studyName <- getStudyName(studyID)
   logger(paste("Loading patient data for study ID '", studyID,"' (",studyName,")",sep=""))
-  if (packageVersion("castoRedc") == '1.1.0')
+  
+  castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version),1,1))
+  if (castorLibMajorVersion < 2)
   {
     patientData <- castor_api$getRecords(studyID) 
     logger (paste ("Found ", nrow(patientData), " patients in study ID '",studyID,"' (",studyName,")", sep=""))
   }
-  else if (packageVersion("castoRedc") == '2.1.0')
+  else # We have castoRedc >2.x.x, so use the updated library
   {
     # The newwer version of castor has different endpoints and this is how you get the participant data
     patientData <- castor_api$getParticipants("YOUR_STUDY_ID")
     logger (paste ("Found ", nrow(patientData), " patients in study ID '",studyID,"' (",studyName,")", sep=""))
   }
-  else
-  {
-    logger(paste("Method castor_api$getRecords(studyID) does not exist for castoRedc library v ",packageVersion("castoRedc")))
-    patientData <- NA
-    stop()
-   }
   return(patientData)
 }
 

@@ -35,17 +35,28 @@ for (pkg in required_pkgs) {
 # Please note that the castorRedc library updated form 1.1.0 to 2.1.0 from 2024...
 githubPkgs <- c("castoredc/castoRedc", "deepanshu88/summaryBox")
 
-if (packageVersion("castoRedc") != '2.1.0')
-{
-  logger(paste("Version of castoRedc is incompatiable, expected 2.1.0, got", packageVersion("castoRedc")))
-  exit
-}
-
 for (pkg in githubPkgs) {
   if (!require(sub(".*/", "", pkg), character.only = TRUE)) {
-    remotes::install_github(pkg, quiet = TRUE)
+    remotes::install_github(pkg, quiet = FALSE,  host = "api.github.com")
   }
   library(sub(".*/", "", pkg), character.only = TRUE)
+}
+
+# Check we have the latest Castor library, if old then force update it!
+castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version),1,1))
+if (castorLibMajorVersion < 2)
+{
+  write(paste("Attempting update of castoRedc library (currently version ", packageVersion("castoRedc"),")..."),stderr())
+  detach(package:castoRedc, unload=TRUE)
+  remove.packages("castoRedc")
+  remotes::install_github("castoredc/castoRedc", host = "api.github.com" , upgrade="always")
+}
+# Now check we have up to date version (at least 2.x.x)
+castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version),1,1))
+if (castorLibMajorVersion < 2)
+{
+  write(paste("Version of castoRedc is incompatiable despite attempted upgrade; expected >2.x.x, got", packageVersion("castoRedc")),stderr())
+  quit(save="no")
 }
 
 # Set the environment up
