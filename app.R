@@ -21,6 +21,7 @@ required_pkgs <- c(
   "survival",
   "survminer",
   "knitr",
+  "kableExtra",
   "RColorBrewer"
   ) # Consider "tinytex" to generate pdf?
 
