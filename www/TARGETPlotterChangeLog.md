@@ -9,7 +9,7 @@ output: html_document
 
 ## TARGET-UK: Change Log
 
-V0.10 First Beta Release of TARGET Plotter (followingn OxTAR Plotter)<br>
-V0.11 Implemented Treatment Volume Plot 
-      Updated to castoRedc library v2.0 using OpenAPI to fix write
-      Updated to castor API URL endpoint data fetching with paging
+V0.10 Aardvark: First Release of TARGET Plotter (followingn OxTAR Plotter)<br>
+V0.20 Badger: Implemented Treatment Volume Plot<br>
+      Updated to castoRedc library v2.0 using OpenAPI to fix write<br>
+      Updated to castor API URL endpoint data fetching with paging<br>
