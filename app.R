@@ -52,6 +52,7 @@ if (castorLibMajorVersion < 2)
   remove.packages("castoRedc")
   remotes::install_github("castoredc/castoRedc", host = "api.github.com" , upgrade="always")
 }
+<<<<<<< Updated upstream
 # Now check we have up to date version (at least 2.x.x)
 castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version),1,1))
 if (castorLibMajorVersion < 2)
@@ -59,6 +60,8 @@ if (castorLibMajorVersion < 2)
   write(paste("Version of castoRedc is incompatiable despite attempted upgrade; expected >2.x.x, got", packageVersion("castoRedc")),stderr())
   quit(save="no")
 }
+=======
+>>>>>>> Stashed changes
 
 # Set the environment up
 source("lib/__init__.R")
@@ -107,7 +110,7 @@ theme <- bslib::bs_theme(version = 4)
 
 # Define UI
 ui <- dashboardPage(
-  dashboardHeader(title = "TARGET Plotter dashboard"),
+  dashboardHeader(title = "TARGET-UK Plotter dashboard"),
   
   dashboardSidebar(
     sidebarMenu(
@@ -122,7 +125,8 @@ ui <- dashboardPage(
         expandedName = "CHARTS",
         menuSubItem("Pathway Plots",   tabName = "rxpathwayplots"),
         menuSubItem("Pathway Pies",    tabName = "rxpathwaypies"),
-        menuSubItem("Activity Plot",   tabName = "operatorplots"),
+        menuSubItem("Operator Plot",   tabName = "operatorplots"),
+        menuSubItem("Volume Plot",     tabName = "volumeplots"),        
         menuSubItem("Recurrence Plot", tabName = "recurrenceplot"),
         menuSubItem("Survival Plot",   tabName = "survivalplot")
       ),
@@ -267,7 +271,7 @@ ui <- dashboardPage(
                   column(
                     width = 6,
                     checkboxGroupInput(
-                      "organPlotCheckbox",
+                      "organRxPlotCheckbox",
                       "Organs to Plot",
                       choices = organFactors,
                       selected = organFactors
@@ -327,6 +331,56 @@ ui <- dashboardPage(
                 plotlyOutput("plotOperators")
               ))),
       
+      tabItem(tabName = "volumeplots",
+              fluidRow(
+                tabPanel(
+                  "VolumePlots",
+                  column(
+                    width = 3,
+                    dateInput(
+                      "volumePlotDate1",
+                      "Start Date:",
+                      format = "dd/mm/yyyy",
+                      value = Sys.Date() - 365
+                    ),
+                    dateInput(
+                      "volumePlotDate2",
+                      "End Date:",
+                      format = "dd/mm/yyyy",
+                      value = Sys.Date()
+                    )
+                  ),
+                  column(
+                    width = 6,
+                    checkboxGroupInput(
+                      "organVolumePlotCheckbox",
+                      "Organs to Plot",
+                      choices = organFactors,
+                      selected = organFactors
+                    ),
+                  ),
+                  
+                  column(
+                    width = 3,
+                    radioButtons(
+                      "volumePlotDurationRadio",
+                      "Duration of Plot",
+                      c("Weekly"  = "week",
+                        "Monthly" = "month",
+                        "Yearly"  = "year")
+                    )
+                  ),
+                  
+                  column(
+                    width = 3,
+                    actionButton(inputId = "refreshVolumePlot", label = "Refresh Plot")
+                  )
+                )
+              ),
+              fluidRow(box(
+                width = 12,
+                plotlyOutput("plotVolume")
+              ))),
       
       tabItem(tabName = "rxpathwaypies",
               fluidRow(
@@ -668,16 +722,24 @@ server <- function(input, output, session) {
     (api$connected)
     if (api$connected)
     {
-      logger("API connected")
+      logger("Getting study names via Castor API...")
       studyNames <<- getStudyNames()
-      updateActionButton(session,
-                         inputId = "reloadData",
-                         label = "Load Study Data",
-                         icon("link", lib = "glyphicon"))
-      updateSelectInput(session,
-                        "studyDropdown",
-                        choices = studyNames,
-                        selected = NULL)
+      if (is.null(studyNames))
+      {
+        showNotification("No studies found! Is Castor API connecting?")
+      }
+      else
+      {
+        logger(paste("API Connected: Found ",length(studyNames[[1]])," studies",sep=""))
+        updateActionButton(session,
+                           inputId = "reloadData",
+                           label = "Load Study Data",
+                           icon("link", lib = "glyphicon"))
+        updateSelectInput(session,
+                          "studyDropdown",
+                          choices = studyNames,
+                          selected = NULL)
+      }
     }
     else
     {
@@ -706,6 +768,10 @@ server <- function(input, output, session) {
   
   finalOperatorPlotInput <- reactive({
      operatorPlot
+  })
+  
+  finalVolumePlotInput <- reactive({
+    volumePlot
   })
   
   finalRxPieInput <- reactive({
@@ -786,7 +852,7 @@ server <- function(input, output, session) {
           input$rxPlotDate1, input$rxPlotDate2
         ), format = "%d/%m/%Y")) +
         theme(legend.position = "bottom")
-      p <- p %+% subset(finalRxDataInput(), Organs %in% input$organPlotCheckbox)
+      p <- p %+% subset(finalRxDataInput(), Organs %in% input$organRxPlotCheckbox)
     }
     plots$activePlot <- p
     plots$activePlot
@@ -810,6 +876,21 @@ server <- function(input, output, session) {
     p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y",
                           limits = as.Date(c(input$operatorPlotDate1, ceiling_date(input$operatorPlotDate2,"month"))))
     
+    plots$activePlot <- p
+    plots$activePlot
+  })
+  
+  # Note plotly vs. plot gives you the tool tip text
+  output$plotVolume <- renderPlotly({
+    filteredRxDoneData <- rxDoneData %>% filter(Organs %in% input$organVolumePlotCheckbox)
+
+    p <- finalVolumePlotInput()
+    p <- p %+% subset(filteredRxDoneData)
+    
+    # We need to round up to get the bin to include the full month otherwise it looses treatmnet data
+    p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y",
+                          limits = as.Date(c(input$volumePlotDate1, ceiling_date(input$volumePlotDate2,"month"))))
+    logger(paste("FIXME Need to implement the bin to : ",input$volumePlotDurationRadio))
     plots$activePlot <- p
     plots$activePlot
   })
@@ -849,11 +930,8 @@ server <- function(input, output, session) {
   output$summaryRxData <- renderPrint({
     summary(rxDoneData)
   })
-  
-  
   output$summarySurvivalData <- renderPrint({
-    paste(print(summary(survivalFitSex)), "\n", print(summary(survivalFitOrgan)), sep =
-            "")
+    paste(print(summary(survivalFitSex)), "\n", print(summary(survivalFitOrgan)), sep = "")
   })
   output$tableRxPathway <- DT::renderDataTable({
     DT::datatable(finalRxTableDataInput())
@@ -891,17 +969,36 @@ server <- function(input, output, session) {
   output$changeLog <- renderUI({
     htmltools::includeMarkdown('www/targetPlotterChangeLog.md')
   })
-  observeEvent(input$connectAPI, {
-    disconnectCastorAPI()
-    api$connected = F
-    api$loaded = F
-    Sys.setenv(CASTOR_USER_KEY = input$inputCastorKey)
-    Sys.setenv(CASTOR_SECRET   = input$inputCastorSecret)
-    connectCastorAPI()
-    if (length(castor_api) != 0)
+  observeEvent(input$connectAPI,
+  {
+    # First check we have up to date version (at least 2.x.x)
+    castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version),1,1))
+    showNotification(paste("Version of castoRedc Library = ",packageVersion("castoRedc")))
+    logger(paste("Version of castoRedc Library = ",packageVersion("castoRedc")))
+    if (castorLibMajorVersion < 2)
     {
-      api$connected = T
-      showNotification("Castor API Connected.")
+      showNotification("Version of castoRedc library incompatiable: Please upgrade")
+      logger(paste("Version of castoRedc is incompatiable despite attempted upgrade; expected >2.x.x, got", packageVersion("castoRedc")),stderr=TRUE)
+    }
+    else
+    {
+      # Disconnect the old before connecting
+      disconnectCastorAPI()
+      api$connected = F
+      api$loaded = F
+      Sys.setenv(CASTOR_USER_KEY = input$inputCastorKey)
+      Sys.setenv(CASTOR_SECRET   = input$inputCastorSecret)
+      connectCastorAPI()
+      if (is.environment(castor_api))
+      {
+        api$connected = T
+        showNotification("Castor API Connected.")
+      }
+      else
+      {
+        api$connected = F
+        showNotification("Could not connect to Castor API with those settings")
+      }
     }
   })
   observeEvent(input$disconnectAPI, {
@@ -942,7 +1039,15 @@ server <- function(input, output, session) {
         # Make sure our Organ tick list matches the data...
         updateCheckboxGroupInput(
           session,
-          "organPlotCheckbox",
+          "organRxPlotCheckbox",
+          "Organs to Plot",
+          choices = organFactors,
+          selected = organFactors
+        )
+        # Make sure our Organ tick list matches the data...
+        updateCheckboxGroupInput(
+          session,
+          "organVolumePlotCheckbox",
           "Organs to Plot",
           choices = organFactors,
           selected = organFactors
@@ -1017,25 +1122,21 @@ server <- function(input, output, session) {
   # This works to a point in that it resets the scale but it doesn't reload the data
   # Not really sure how this works at all if I am honest! I don't assign it to a real plot, weird
   observeEvent(input$refreshRxPlot, {
-    logger("rx plot refresh")
     plots$activePlot <- NA
   })
-  
   observeEvent(input$refreshOperatorPlot, {
-    logger(operator1Factors)
-    logger(anaesthetist1Factors)
+    plots$activePlot <- NA
+  })
+  observeEvent(input$refreshVolumePlot, {
     plots$activePlot <- NA
   })
   observeEvent(input$refreshRxPie, {
-    logger("pie refresh")
     plots$activePlot <- NA
   })
   observeEvent(input$refreshRecurrencePlot, {
-    logger("y2")
     plots$activePlot <- NA
   })
   observeEvent(input$refreshSurvivalPlot, {
-    logger("y3")
     plots$activePlot <- NA
   })
   observeEvent(input$updateAnaesthetistNames, {
@@ -1071,17 +1172,27 @@ server <- function(input, output, session) {
     if (!is.na(textEntered) && textEntered == 'Proceed')
     {
       # Create a Progress object
+      logger(paste("FIXME00"))
+      
       progress <- shiny::Progress$new()
       progress$set(message = "Updating Castor Data...", value = 0.5)
       
       # Close the progress when this reactive exits (even if there's an error)
       on.exit(progress$close())
       
+      logger(paste("FIXME01"))
       updateAnaesthetistNames(targetStudyID,
                           input$anaesthetistNameCheckbox,
                           input$anaesthetistNewName)
-      
+      logger(paste("FIXME02"))
       progress$set(message = "Completed Data Update", value = 1.0)
+      
+      shinyalert(
+        "Completed Data Update: Please reload data to see reflected changes.", type = "input",
+        callbackR = updateOperatorNamesCallback,
+        showCancelButton = FALSE
+      )
+      
     }
     else
     {
@@ -1135,6 +1246,13 @@ server <- function(input, output, session) {
                           input$operatorsNewName)
       
       progress$set(message = "Completed Data Update", value = 1.0)
+      
+      shinyalert(
+        "Completed Data Update: Please reload data to see reflected changes.", type = "input",
+        callbackR = updateOperatorNamesCallback,
+        showCancelButton = FALSE
+      )
+      
     }
     else
     {

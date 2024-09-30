@@ -24,7 +24,6 @@ connectCastorAPI <- function()
       logger(w)
     }
   )
-  
   if (!is.environment(castor_api))
   {
     logger("   Failed to access API with those settings")
@@ -99,26 +98,122 @@ connectCastorOpenAPI <- function()
   return(castor_open_api)
 }
 
-# Write actions using OpenAPI interface - this is the only way I can work out how to write using any API...
-# The Open API method to get the study data, which is in a different format...
-# Its the bare bones of : https://git.lumc.nl/egjvonasmuth/castor-api-tutorial/-/blob/main/example_rapiclient.R?ref_type=heads
-# Interestingly it is very fast to load this way and it may be we switch use this method for all moving forward!
-# To see how to use it just type 'operations$' into the Console of R and it will show you all available methods
-updateStudyDataOpenAPI <- function(studyID, patientID, fieldID, newData, reasonForUpdate="Unspecified Reason")
+# Generic method to fetch any data specified by the URL endpoint provided which should start 'api/...'
+# Original code for this method by Maximiliano of Castor Support (thanks!),
+# but he must have based it on a different library version,
+# as for example he referred to data$data which doesn't exist
+# Fixed and modified for TARGET-UK by Paul Lyon
+# Returns a data frame of all the data returned by URL endpoint
+# Works with the standard (non-open) API but doens't work with open API handle
+# I've no idea where the GET() method is called from... but it works!
+fetchDataWithURL <- function(castorAPI, apiURL)
+{
+  page <- 1
+  limit <- 100
+  all_data <- list()
+  
+  # Sort out the authorisation headers
+  headers <- add_headers(Authorization = paste('Bearer',
+                                               castorAPI$oauth_token$credentials$access_token))
+  
+  # Keep getting pages of data until the data returned is empty, so we know we have got it all
+  # Each time through we increment page by 1 which is embedded in the URL
+  logger(paste("Reading data page by page via URL ('",apiURL,"')...",sep=""))
+  repeat {
+    final_api_url <- paste0(apiURL, "?page=", page, "&limit=", limit)
+    response <- GET((final_api_url), headers)
+    # If we get the normal 200 response code then keep going..
+    if (response$status_code == 200)
+    {
+      # Use charset 'utf-8' if not specified in response headers, avoiding the 'No encoding supplied:..' warning
+      charset <- "utf-8"
+      if("content-type" %in% names(response$headers)) {
+        media <- parse_media(response$headers[['content-type']])
+        if("params" %in% names(media) && "charset" %in% names(media$params)) {
+          charset <- media$params$charset
+        }
+      }
+      data <- fromJSON(content(response, as = "text", encoding = "utf-8"), flatten = TRUE)
+      # This gets to the crux of the data, and its name varies within Castor e.g. could be item or fields hence first embedded field only [[1]]
+      all_data <- rbind.data.frame(all_data, data$`_embedded`[[1]]) 
+      page <- page + 1
+    }
+    else
+    {
+      # Otherwise either we have run out of data, which is fine, or there is a problem...
+      if (response$status_code == 409)
+      {
+        # This is the standard response code when we have run out of data, everything is fine
+        break
+      }
+      else
+      {
+        # Otherwise log the error code, but don't necessarily terminate the thread
+        logger (paste("Error reading endpoint after attempted ",page," page(s) of data, response code = ",response$status_code,sep=""))
+        break
+      }
+    }
+  }
+  return(all_data)
+}
+
+# FIXME this is just an example but you can see how it might work if we added ?page=.. to the URL and looped like the other method
+fetchDataWithURLOpenAPI <- function(castorOpenAPI, apiURL)
 {
   # Connect to the API here
   if (!is.environment(castorOpenAPI))
   {
     castorOpenAPI <<- connectCastorOpenAPI()
   }
-
-  # If have haven't previously pulled in the Open API study data, pull it in now
+  
   if (typeof(studyDataOpenAPI) != "list")
   {
+    logger("Connected to Open API...")
     studyDataOpenAPI <<- openAPIoperations$`get /study/{study_id}/data-points/study`(studyID) |>
       content(as = "text") |>
       fromJSON()
+  }  
+}
+
+# We can get the field names with open API but also easy to do with the traditional API so this code is redundant currently
+# but given I have coded it up I've left it in here! We may move only to OpenAPI in the future!
+getFieldNamesWithOpenAPI <- function(castorOpenAPI)
+{
+  # If have haven't previously pulled in the Open API field data, pull it in now
+  # FIXME: this only gives a page_size of 25 - i.e. only first 25 column or field names, how do I increase this or get next page?
+  if (typeof(fieldDataOpenAPI) != "list")
+  {
+    fieldDataOpenAPI <<- openAPIoperations$`get /study/{study_id}/field`(studyID) |>
+      content(as = "text") |>
+      fromJSON()
   }
+  
+  # Find the fieldID for the fieldName
+  # This seems like an ugly hack but until Castor dev team spill the beans on how to do this...
+  i <- which(fieldDataOpenAPI$`_embedded`$fields$field_variable_name == fieldName)
+  if (is_empty(i) || i==0)
+  {
+    msg <- paste("Field name '", fieldName, "' not found in the field data for the study data! Stopping", sep = '')
+    logger(msg)
+    stop(msg)
+  }
+  
+  fieldID <- fieldDataOpenAPI$`_embedded`$fields$id[i]
+  logger(paste("Field name '", fieldName, "' found in field data with ID='",fieldID,"'", sep = ))
+}
+
+# Write actions using OpenAPI interface - this is the only way I can work out how to write using any API...
+# The Open API method to get the study data, which is in a different format...
+# Its the bare bones of : https://git.lumc.nl/egjvonasmuth/castor-api-tutorial/-/blob/main/example_rapiclient.R?ref_type=heads
+# To see how to use it just type 'operations$' into the Console of R and it will show you all available methods
+updateStudyDataOpenAPI <- function(studyID, patientID, fieldName, newData, reasonForUpdate="Unspecified Reason")
+{
+  # First get the field name
+  fieldID <- getFieldIDForName(castor_api,studyID,fieldName)
+
+  # To update data within Castor we need to use the Castor Open API as I don't know how to do it any other way!
+  # Certainly there is no API Wrapper function
+  castorOpenAPI <- connectCastorOpenAPI()
   
   # Do the magic to update
   openAPIoperations$`post /study/{study_id}/participant/{participant_id}/data-points/study`
@@ -139,22 +234,38 @@ updateStudyDataOpenAPI <- function(studyID, patientID, fieldID, newData, reasonF
   )
   write_result_openapi
   content(write_result_openapi, as = "text") |> fromJSON()
-  logger("<< OpenAPI write completed without error")
+  logger("OpenAPI write completed without error")
 }
 
-# Get field ID for field name using the meta-data which is secretly hidden in with R in the Castor data.frame!
-# Don't know why Castor API couldn't have a few more helping functions like this - surely everyone using API needs this?
-getFieldIDForName <- function(data,fieldName)
+# Get field ID for field name 
+# The meta-data used to be secretly hidden in with R in the Castor data.frame, but this was taken out from castoRedc v2.x
+# So instead I use the API to get the fields, find the right field and return the field ID
+getFieldIDForName <- function(castorAPI,studyID,fieldName)
 {
-  meta <- attr(data,"field_metadata")
-  i <- which (meta$field_variable_name == fieldName)
-  if (!is.na(i) && i==0)
+  # If have haven't previously pulled in the field data, pull it in now
+  if (typeof(fieldData) != "list")
   {
-    msg <- paste("Field name '", fieldName, "' not found in the metadata for the study data!", sep = '')
+    logger("Getting the field data via standard Castor API...")
+    base_url <- Sys.getenv("CASTOR_URL")
+    apiURL <- paste(base_url,"/api/study/",studyID,"/field",sep='')
+    
+    # This works with the standard API, but not with castorOpenAPI
+    # Note default page size is 500, but this uses a method which can pull all the data using fetchDatWithURL
+    fieldData <<- fetchDataWithURL(castorAPI, apiURL)
+  }
+  
+  # Find the fieldID for the fieldName provided using fieldData
+  # This seems like a slightly ugly method but it works and there is no castor api doc I can find for more elegant solution,..
+  i <- which(fieldData$field_variable_name == fieldName)
+  if (is_empty(i) || i==0)
+  {
+    msg <- paste("Field name '", fieldName, "' not found in the field data for the study data! Stopping", sep = '')
     logger(msg)
     stop(msg)
   }
-  return (meta$field_id[i])
+  fieldID <- fieldData$field_id[i]
+  logger(paste("Field name '", fieldName, "' found in open API field data with ID='",fieldID,"'", sep = ""))
+  return(fieldID)
 }
 
 

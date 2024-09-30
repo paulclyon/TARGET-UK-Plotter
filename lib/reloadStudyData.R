@@ -6,15 +6,36 @@
 # Return an array of study name strings
 getStudyNames <- function()
 {
-  if (length(castor_api)==0) {
+  logger(">> IN getStudyNames ")
+  if (length(castor_api)==0)
+  {
     logger("Nothing to do here until we can get into the API...")
-    return()
+    return(NULL)
   }
   
-  studies <- castor_api$getStudies()
-  studies$name
+  # Check castor_api is also not atomic
+  if (is.atomic(castor_api))
+  {
+    logger("Castor API has length but is not atomic, something is wrong, cannot get study names...")
+    return(NULL)
+  }
+  else
+  {
+    studies <- castor_api$getStudies()
+  }
+  
+  logger("<< OUT getStudyNames ")
+  
+  # Check its not atomic, if it is we can't use $name
+  if (is.atomic(studies))
+  {
+    return(NULL)
+  }
+  else
+  {
+    return(studies$name)
+  }
 }
-
 
 # Find study by name and return index of it, if not found return 0
 findStudyIndex <- function(studies, studyName, stopIfNotFound=F) {
@@ -39,10 +60,17 @@ findStudyIndex <- function(studies, studyName, stopIfNotFound=F) {
 #  return(patientData)
 #}
 
-# The basic (and slow!) Castor EDC method to get the data as a data.frame which comes with metadata and field names
+# The basic (and slow!) Castor EDC method to get the data as a data.frame which used to come with metadata and field names in castoRedc v1.x but not in v2.x!
 getStudyData <- function(studyID) {
   studyData <- castor_api$getStudyData(studyID)
   return(studyData)
+}
+
+# The basic (and slow!) Castor EDC method to get the field info as a data.frame which comes with metadata and field names, which we now need to use for castoRedc v2.x!
+# We did not require to do this previously but we do now otherwise I cant get metadata!
+getFieldData <- function(studyID) {
+  fieldData <- castor_api$getFields(studyID)
+  return(fieldData)
 }
 
 # Get the study name for a particular study ID, NA if not found
@@ -64,6 +92,7 @@ getStudyName <- function(id)
 # This method is historical only required for older versions of OxTAR-Plotter pre first TARGET-Plotter release
 # It is tied in with different endpoints for this in castoRedc library 1.1.0 vs newer 2.1.0
 # But actually you don't need it anyway as castor_api$getStudyData(studyID) has everything as a dataframe
+# Everything but the field_id which is missing from the metadata in castoRedc v2.x...
 # TARGET-Plotter was re-written so the getStudyData() method is used for everything and we no longer need to get patient data
 pullPatientData <- function (studyID) {
   studyName <- getStudyName(studyID)

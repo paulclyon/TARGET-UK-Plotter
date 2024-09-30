@@ -115,8 +115,11 @@ processData <- function() {
     local_recurrence <- 0
     date_of_first_local_recurrence <- NA
     
+<<<<<<< Updated upstream
     logger("FIXME3")
     
+=======
+>>>>>>> Stashed changes
     if (!is.na(recurrenceJSON) && str_length(recurrenceJSON) > 0)
     {
       recurrenceMatrix <- jsonlite::fromJSON(recurrenceJSON)
@@ -615,8 +618,7 @@ updateAnaesthetistNames <- function(studyID, oldNames, newName)
   patientCount <- count(studyData$Study)$n
   for (i in 1:patientCount)
   {
-    ptID <- patientData[["id"]][i]
-    
+    ptID <- studyData$Study$Participant_ID[i]
     pt_rx_count  <- getDataEntry("pt_rx_count", i)
     if (!is.na(pt_rx_count) && pt_rx_count >0 )
     {
@@ -631,7 +633,7 @@ updateAnaesthetistNames <- function(studyID, oldNames, newName)
           {
             logger(paste("** Attempting to replace patientID=",ptID," record ",i,"/", patientCount, " '",anaesthetistString, "' with '",newName,"'", sep=""))
             setDataEntry(studyID, ptID, i, fieldName, newName)
-            logger(paste("** Completed replacing patientID=",ptID," record ",i,"/", patientCount, " '",anaesthetistString, "' with '",newName,"'", sep=""))
+            logger(paste("<< Completed replacing patientID=",ptID," record ",i,"/", patientCount, " '",anaesthetistString, "' with '",newName,"'", sep=""))
           }
         }
       }
@@ -647,8 +649,7 @@ updateOperatorNames <- function(studyID, oldNames, newName)
   patientCount <- count(studyData$Study)$n
   for (i in 1:patientCount)
   {
-    ptID <- patientData[["id"]][i]
-    
+    ptID <- studyData$Study$Participant_ID[i]
     pt_rx_count  <- getDataEntry("pt_rx_count", i)
     if (!is.na(pt_rx_count) && pt_rx_count >0 )
     {
@@ -663,7 +664,7 @@ updateOperatorNames <- function(studyID, oldNames, newName)
           {
             logger(paste("** Attempting to replace patientID=",ptID," record ",i,"/", patientCount, " '",operatorString, "' with '",newName,"'", sep=""))
             setDataEntry(studyID, ptID, i, fieldName, newName)
-            logger(paste("** Completed replacing patientID=",ptID," record ",i,"/", patientCount, " '",operatorString, "' with '",newName,"'", sep=""))
+            logger(paste("<< Completed replacing patientID=",ptID," record ",i,"/", patientCount, " '",operatorString, "' with '",newName,"'", sep=""))
           }
         }
       }

@@ -23,8 +23,8 @@ makeRxPathwayPlots <- function()
   if (!is.null(nrow(rxDoneData)))
   {  
     rxdonePlotColors <<- c(
-      "Ref to DTT"           = "red",
-      "DTT to Rx"            = "yellow",
+      "Ref to DTT"           = "yellow",
+      "DTT to Rx"            = "orange",
       "Ref to Rx"            = "green",
       "Clock Stops Pre-DTT"  = "purple",
       "Clock Stops Post-DTT" = "cyan",
@@ -57,6 +57,11 @@ makeRxPathwayPlots <- function()
     names(opColors) <- operator1Factors
     opColScale <- scale_fill_manual(name = "Operators", values = opColors)
     
+    # ... and for the organs
+    orgColors <- brewer.pal(length(organFactors),"Pastel1")
+    names(orgColors) <- organFactors
+    orgColScale <- scale_fill_manual(name = "Organs", values = orgColors) 
+    
     # The operatorPlot gets subsetted to a single operator in app.R
     #operatorPlot <<- ggplot(rxDoneData, aes(x=format(RxDate, "%Y-%m"), text=paste(ID, ' (',paste(Operator1,Operator2,Operator3),')\n'),sep='')) +
 
@@ -87,11 +92,25 @@ makeRxPathwayPlots <- function()
     #  ggtitle("Primary Operator Logbook") +
     #  theme(legend.position="bottom") +
     #  opColScale
+    
+    
+    volumePlot <<- ggplot(rxDoneData, aes(x=lubridate::floor_date(RxDate, "month"), fill=Organs, 
+                                            text=paste(ID, '-', RxDate, '\n',
+                                                       paste('Operators: ',Operator1,Operator2,Operator3)))) +
+      geom_bar() +
+      theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+      scale_y_continuous(breaks = seq(0, 100, by = 1)) +  # Use this to get an integer y-axis, the 100 is the number of max ticks after which x>100 still plots tickless
+      labs(x="Date", y="Ablation Count") +
+      ggtitle("Treatment Volume Plot") +
+      theme(legend.position="bottom") +
+      orgColScale
+    
   }
   else
   {
     rxdonePlot <<- NA
     operatorPlot <<- NA
+    volumePlot <<- NA
   }
   
   if (!is.null(nrow(rxWaitData)))

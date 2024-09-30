@@ -46,7 +46,7 @@ getDataEntry <- function(field, index, stopIfNotFound = F) {
 # It returns 0 if the set is successful
 
 setDataEntry <- function(studyID, patientID, patientIndex, fieldName, newData, stopIfNotFound = T) {
-  if (!fieldName %in% colnames(studyData))
+  if (!fieldName %in% colnames(studyData$Study))
   {
     if (stopIfNotFound == T) {
       msg = paste("Field '", fieldName, "' not found in the data - stopping", sep = '')
@@ -61,17 +61,16 @@ setDataEntry <- function(studyID, patientID, patientIndex, fieldName, newData, s
   }
   else
   {
-    logger(paste(">> Updating record patientID=",patientID, " field='",fieldName,"' old data='",studyData[[fieldName]][patientIndex],"' new data='",newData,"'", sep=""))
+    logger(paste(">> Updating record patientID=",patientID, " field='",fieldName,"' old data='",studyData$Study[[fieldName]][patientIndex],"' new data='",newData,"'", sep=""))
     
     # First update the local study data but this does not update the source Castor EDC data
-    studyData[[fieldName]][patientIndex] = newData
+    studyData$Study[[fieldName]][patientIndex] = newData
 
     # To update the Castor EDC data use we can use the Open API interface, which is the only way I know to do it
     # This heavily borrows from this worked example:
     # https://git.lumc.nl/egjvonasmuth/castor-api-tutorial/-/blob/main/example_rapiclient.R?ref_type=heads
 
-    fieldID <- getFieldIDForName(studyData,fieldName)
-    updateStudyDataOpenAPI(studyID, patientID, fieldID, newData, "TARGET Plotter Update")
+    updateStudyDataOpenAPI(studyID, patientID, fieldName, newData, "TARGET-UK Plotter Update")
   }
   return(0)
 }
