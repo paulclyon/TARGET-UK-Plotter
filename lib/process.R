@@ -108,18 +108,10 @@ processData <- function() {
     survival_organ <- NA # Set this now as null, and check on each referral
     
     # Get recurrence status
-    logger("FIXME1")
     recurrenceJSON <- getDataEntry("fu_image_matrix", i)
-    logger("FIXME2")
-    
     local_recurrence <- 0
     date_of_first_local_recurrence <- NA
     
-<<<<<<< Updated upstream
-    logger("FIXME3")
-    
-=======
->>>>>>> Stashed changes
     if (!is.na(recurrenceJSON) && str_length(recurrenceJSON) > 0)
     {
       recurrenceMatrix <- jsonlite::fromJSON(recurrenceJSON)
@@ -138,9 +130,6 @@ processData <- function() {
         }
       }
     }
-    
-    logger("FIXME4")
-    
     
     # Get these dates...
     date_of_diagnosis <- NA # Reset this each time we enter the referral loop
@@ -234,15 +223,11 @@ processData <- function() {
 
           # Sort Clock Stop
           # Parse the JSON and get it into a nice data frame
-          logger("FIXME5")
-          
           refclockstop.df <- NA
           clockstoppedDaysPreDTT <- 0
           clockstoppedDaysPostDTT <- 0
           clockstoppedReason <- ""
           clockStopJSON <- getDataEntry(paste("ref_clock_stop_", as.integer(iRef), sep = ""), i)
-          
-          logger("FIXME6")
           
           if (!is.na(clockStopJSON) && str_length(clockStopJSON) > 0 )
           {

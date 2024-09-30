@@ -12,23 +12,14 @@ date: "2024-01-29"
 These are some variables you might wish to choose, I had to do an ugly global variable hack to get them visible from this file, but you dont need to worry about that! Thanks Paul
 
 Audit Period from:
-<<<<<<< Updated upstream
-2023-09-13
-2024-09-12
-=======
 2023-09-25
 2024-09-24
->>>>>>> Stashed changes
 
 For organs:
 Kidney, Liver, Lung, Multiple Organs
 
 Generate on date:
-<<<<<<< Updated upstream
-<!--html_preserve--><div id="out42ba040e05eee651" class="shiny-text-output"></div><!--/html_preserve-->
-=======
 <!--html_preserve--><div id="out87719d32eef5bd14" class="shiny-text-output"></div><!--/html_preserve-->
->>>>>>> Stashed changes
 
 Lovely stuff
 
@@ -51,35 +42,17 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Kidney </td>
-<<<<<<< Updated upstream
-   <td style="text-align:right;"> 23.6 </td>
-   <td style="text-align:right;"> 14.0 </td>
-   <td style="text-align:right;"> 9 </td>
-   <td style="text-align:right;"> 19 </td>
-   <td style="text-align:right;"> 32.1 </td>
-   <td style="text-align:right;"> 67.9 </td>
-=======
    <td style="text-align:right;"> 24.4 </td>
    <td style="text-align:right;"> 15.0 </td>
    <td style="text-align:right;"> 8 </td>
    <td style="text-align:right;"> 18 </td>
    <td style="text-align:right;"> 28.6 </td>
    <td style="text-align:right;"> 64.3 </td>
->>>>>>> Stashed changes
    <td style="text-align:right;"> 28 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Liver </td>
-<<<<<<< Updated upstream
-   <td style="text-align:right;"> 16.4 </td>
-   <td style="text-align:right;"> 20.5 </td>
-   <td style="text-align:right;"> 12 </td>
-   <td style="text-align:right;"> 22 </td>
-   <td style="text-align:right;"> 28.6 </td>
-   <td style="text-align:right;"> 52.4 </td>
-   <td style="text-align:right;"> 42 </td>
-=======
    <td style="text-align:right;"> 14.6 </td>
    <td style="text-align:right;"> 19.0 </td>
    <td style="text-align:right;"> 13 </td>
@@ -87,20 +60,10 @@ Lovely stuff
    <td style="text-align:right;"> 31.7 </td>
    <td style="text-align:right;"> 56.1 </td>
    <td style="text-align:right;"> 41 </td>
->>>>>>> Stashed changes
   </tr>
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Lung </td>
-<<<<<<< Updated upstream
-   <td style="text-align:right;"> 21.0 </td>
-   <td style="text-align:right;"> 17.0 </td>
-   <td style="text-align:right;"> 10 </td>
-   <td style="text-align:right;"> 31 </td>
-   <td style="text-align:right;"> 20.0 </td>
-   <td style="text-align:right;"> 62.0 </td>
-   <td style="text-align:right;"> 50 </td>
-=======
    <td style="text-align:right;"> 23.1 </td>
    <td style="text-align:right;"> 18.0 </td>
    <td style="text-align:right;"> 9 </td>
@@ -108,7 +71,6 @@ Lovely stuff
    <td style="text-align:right;"> 18.4 </td>
    <td style="text-align:right;"> 57.1 </td>
    <td style="text-align:right;"> 49 </td>
->>>>>>> Stashed changes
   </tr>
   <tr>
    <td style="text-align:left;"> grouped </td>
@@ -124,15 +86,6 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> ungrouped </td>
    <td style="text-align:left;"> NA </td>
-<<<<<<< Updated upstream
-   <td style="text-align:right;"> 21.3 </td>
-   <td style="text-align:right;"> 18.0 </td>
-   <td style="text-align:right;"> 31 </td>
-   <td style="text-align:right;"> 72 </td>
-   <td style="text-align:right;"> 25.4 </td>
-   <td style="text-align:right;"> 59.0 </td>
-   <td style="text-align:right;"> 122 </td>
-=======
    <td style="text-align:right;"> 21.8 </td>
    <td style="text-align:right;"> 19.0 </td>
    <td style="text-align:right;"> 30 </td>
@@ -140,7 +93,6 @@ Lovely stuff
    <td style="text-align:right;"> 25.0 </td>
    <td style="text-align:right;"> 57.5 </td>
    <td style="text-align:right;"> 120 </td>
->>>>>>> Stashed changes
   </tr>
 </tbody>
 </table>
@@ -167,57 +119,32 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Kidney </td>
-<<<<<<< Updated upstream
-   <td style="text-align:right;"> 66.4 </td>
-   <td style="text-align:right;"> 56.0 </td>
-   <td style="text-align:right;"> 14.3 </td>
-   <td style="text-align:right;"> 35.7 </td>
-=======
    <td style="text-align:right;"> 64.4 </td>
    <td style="text-align:right;"> 53.5 </td>
    <td style="text-align:right;"> 17.9 </td>
    <td style="text-align:right;"> 39.3 </td>
->>>>>>> Stashed changes
    <td style="text-align:right;"> 60.7 </td>
    <td style="text-align:right;"> 28 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Liver </td>
-<<<<<<< Updated upstream
-   <td style="text-align:right;"> 39.8 </td>
-   <td style="text-align:right;"> 42.5 </td>
-   <td style="text-align:right;"> 38.1 </td>
-   <td style="text-align:right;"> 57.1 </td>
-   <td style="text-align:right;"> 83.3 </td>
-   <td style="text-align:right;"> 42 </td>
-=======
    <td style="text-align:right;"> 40.1 </td>
    <td style="text-align:right;"> 43.0 </td>
    <td style="text-align:right;"> 36.6 </td>
    <td style="text-align:right;"> 56.1 </td>
    <td style="text-align:right;"> 85.4 </td>
    <td style="text-align:right;"> 41 </td>
->>>>>>> Stashed changes
   </tr>
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Lung </td>
-<<<<<<< Updated upstream
-   <td style="text-align:right;"> 52.4 </td>
-   <td style="text-align:right;"> 57.0 </td>
-   <td style="text-align:right;"> 18.0 </td>
-   <td style="text-align:right;"> 42.0 </td>
-   <td style="text-align:right;"> 56.0 </td>
-   <td style="text-align:right;"> 50 </td>
-=======
    <td style="text-align:right;"> 48.7 </td>
    <td style="text-align:right;"> 49.0 </td>
    <td style="text-align:right;"> 24.5 </td>
    <td style="text-align:right;"> 46.9 </td>
    <td style="text-align:right;"> 59.2 </td>
    <td style="text-align:right;"> 49 </td>
->>>>>>> Stashed changes
   </tr>
   <tr>
    <td style="text-align:left;"> grouped </td>
@@ -232,21 +159,12 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> ungrouped </td>
    <td style="text-align:left;"> NA </td>
-<<<<<<< Updated upstream
-   <td style="text-align:right;"> 50.4 </td>
-   <td style="text-align:right;"> 50.0 </td>
-   <td style="text-align:right;"> 25.4 </td>
-   <td style="text-align:right;"> 46.7 </td>
-   <td style="text-align:right;"> 67.2 </td>
-   <td style="text-align:right;"> 122 </td>
-=======
    <td style="text-align:right;"> 48.6 </td>
    <td style="text-align:right;"> 48.5 </td>
    <td style="text-align:right;"> 28.3 </td>
    <td style="text-align:right;"> 49.2 </td>
    <td style="text-align:right;"> 69.2 </td>
    <td style="text-align:right;"> 120 </td>
->>>>>>> Stashed changes
   </tr>
 </tbody>
 </table>
@@ -263,27 +181,11 @@ Lovely stuff
 <tbody>
   <tr>
    <td style="text-align:left;"> Kidney (N=28) </td>
-<<<<<<< Updated upstream
-   <td style="text-align:right;"> 90.0 </td>
-=======
    <td style="text-align:right;"> 88.8 </td>
->>>>>>> Stashed changes
    <td style="text-align:right;"> 74.0 </td>
    <td style="text-align:right;"> 64.3 </td>
   </tr>
   <tr>
-<<<<<<< Updated upstream
-   <td style="text-align:left;"> Liver (N=42) </td>
-   <td style="text-align:right;"> 56.3 </td>
-   <td style="text-align:right;"> 62.5 </td>
-   <td style="text-align:right;"> 88.1 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Lung (N=50) </td>
-   <td style="text-align:right;"> 73.4 </td>
-   <td style="text-align:right;"> 72.5 </td>
-   <td style="text-align:right;"> 72.0 </td>
-=======
    <td style="text-align:left;"> Liver (N=41) </td>
    <td style="text-align:right;"> 54.7 </td>
    <td style="text-align:right;"> 58.0 </td>
@@ -294,7 +196,6 @@ Lovely stuff
    <td style="text-align:right;"> 71.9 </td>
    <td style="text-align:right;"> 70.0 </td>
    <td style="text-align:right;"> 73.5 </td>
->>>>>>> Stashed changes
   </tr>
   <tr>
    <td style="text-align:left;"> All Organs (N=2) </td>
@@ -303,17 +204,10 @@ Lovely stuff
    <td style="text-align:right;"> 50.0 </td>
   </tr>
   <tr>
-<<<<<<< Updated upstream
-   <td style="text-align:left;"> All Organs (N=122) </td>
-   <td style="text-align:right;"> 71.7 </td>
-   <td style="text-align:right;"> 69.5 </td>
-   <td style="text-align:right;"> 75.4 </td>
-=======
    <td style="text-align:left;"> All Organs (N=120) </td>
    <td style="text-align:right;"> 70.4 </td>
    <td style="text-align:right;"> 69.0 </td>
    <td style="text-align:right;"> 76.7 </td>
->>>>>>> Stashed changes
   </tr>
 </tbody>
 </table>
@@ -331,9 +225,6 @@ Lovely stuff
 <tbody>
   <tr>
    <td style="text-align:left;"> Not Stopped </td>
-<<<<<<< Updated upstream
-   <td style="text-align:right;"> 111 </td>
-=======
    <td style="text-align:right;"> 110 </td>
    <td style="text-align:right;"> 0.0 </td>
    <td style="text-align:right;"> 0.0 </td>
@@ -361,49 +252,10 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> Not Stopped </td>
    <td style="text-align:right;"> 110 </td>
->>>>>>> Stashed changes
    <td style="text-align:right;"> 0.0 </td>
    <td style="text-align:right;"> 0 </td>
   </tr>
   <tr>
-<<<<<<< Updated upstream
-   <td style="text-align:left;"> Stopped </td>
-   <td style="text-align:right;"> 11 </td>
-   <td style="text-align:right;"> -41.6 </td>
-   <td style="text-align:right;"> -39 </td>
-  </tr>
-</tbody>
-</table>
-
-
-<table class="table" style="margin-left: auto; margin-right: auto;">
- <thead>
-  <tr>
-   <th style="text-align:left;"> clockstopped </th>
-   <th style="text-align:right;"> n </th>
-   <th style="text-align:right;"> mean </th>
-   <th style="text-align:right;"> median </th>
-  </tr>
- </thead>
-<tbody>
-  <tr>
-   <td style="text-align:left;"> Not Stopped </td>
-   <td style="text-align:right;"> 111 </td>
-   <td style="text-align:right;"> 0.0 </td>
-   <td style="text-align:right;"> 0.0 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Stopped Post </td>
-   <td style="text-align:right;"> 5 </td>
-   <td style="text-align:right;"> -83.0 </td>
-   <td style="text-align:right;"> -52.0 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Stopped Pre </td>
-   <td style="text-align:right;"> 6 </td>
-   <td style="text-align:right;"> -7.2 </td>
-   <td style="text-align:right;"> -33.5 </td>
-=======
    <td style="text-align:left;"> Stopped Post </td>
    <td style="text-align:right;"> 5 </td>
    <td style="text-align:right;"> -85.4 </td>
@@ -414,7 +266,6 @@ Lovely stuff
    <td style="text-align:right;"> 5 </td>
    <td style="text-align:right;"> -6.2 </td>
    <td style="text-align:right;"> -39 </td>
->>>>>>> Stashed changes
   </tr>
 </tbody>
 </table>
@@ -454,11 +305,7 @@ Lovely stuff
   </tr>
   <tr>
    <td style="text-align:left;"> 10989311-1 </td>
-<<<<<<< Updated upstream
-   <td style="text-align:left;"> Clock Stops: 1:DNA clinic x 2 new address* (-233 days pre-DTT, 0 days post-DTT) </td>
-=======
    <td style="text-align:left;"> Clock Stops: 1:DNA clinic x 2 new address* (-245 days pre-DTT, 0 days post-DTT) </td>
->>>>>>> Stashed changes
   </tr>
   <tr>
    <td style="text-align:left;"> 128716-1 </td>
@@ -471,13 +318,6 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> 243837-4 </td>
    <td style="text-align:left;"> Clock Stops: 1:Letter went to wrong P. Lyon in radiotherapy (-89 days pre-DTT, 0 days post-DTT) </td>
-<<<<<<< Updated upstream
-  </tr>
-  <tr>
-   <td style="text-align:left;"> 815570-1 </td>
-   <td style="text-align:left;"> Clock Stops: 1:Delay due to decision by patient re: SABR or Ablation. (0 days pre-DTT, -12 days post-DTT) </td>
-=======
->>>>>>> Stashed changes
   </tr>
 </tbody>
 </table>
@@ -488,18 +328,10 @@ Lovely stuff
 
 
 ```
-<<<<<<< Updated upstream
-## Warning: Removed 117 rows containing missing values or values outside the scale range (`geom_point()`).
-```
-
-```
-## Warning: Removed 116 rows containing missing values or values outside the scale range (`geom_point()`).
-=======
 ## Warning: Removed 115 rows containing missing values or values outside the scale range
 ## (`geom_point()`).
 ## Removed 115 rows containing missing values or values outside the scale range
 ## (`geom_point()`).
->>>>>>> Stashed changes
 ```
 
 ![plot of chunk ttt_plot](figure/ttt_plot-1.png)

@@ -1,7 +1,7 @@
 ---
 title: "About"
 author: "Paul Lyon"
-date: "2024-09-30"
+date: "2024-09-01"
 output: html_document
 ---
 
@@ -15,6 +15,6 @@ It uses the Castor EDC platform and can be accessed using this link: <https://uk
 
 This Graphical User Inferface uses the EDC Application Programmers Interface (API) to access the live Castor EDC data via the R scripting language. It can be used to used to generate plots of time to treatment (based on referral data), local recurrence and survial (based on the imaging and follow-up data).
 
-V0.2 (c) Sept 2024
+V0.11 (c) Sept 2024
 Conception, Design, Implementation: Dr. Paul C. Lyon (<paul.lyon@ouh.nhs.uk>)
 Primary Test Team: Dr. Mark Anderson, Dr. Yan Li

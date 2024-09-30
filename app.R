@@ -52,16 +52,6 @@ if (castorLibMajorVersion < 2)
   remove.packages("castoRedc")
   remotes::install_github("castoredc/castoRedc", host = "api.github.com" , upgrade="always")
 }
-<<<<<<< Updated upstream
-# Now check we have up to date version (at least 2.x.x)
-castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version),1,1))
-if (castorLibMajorVersion < 2)
-{
-  write(paste("Version of castoRedc is incompatiable despite attempted upgrade; expected >2.x.x, got", packageVersion("castoRedc")),stderr())
-  quit(save="no")
-}
-=======
->>>>>>> Stashed changes
 
 # Set the environment up
 source("lib/__init__.R")
