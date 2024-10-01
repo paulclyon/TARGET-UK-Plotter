@@ -6,7 +6,6 @@
 # Return an array of study name strings
 getStudyNames <- function()
 {
-  logger(">> IN getStudyNames ")
   if (length(castor_api)==0)
   {
     logger("Nothing to do here until we can get into the API...")
@@ -23,8 +22,6 @@ getStudyNames <- function()
   {
     studies <- castor_api$getStudies()
   }
-  
-  logger("<< OUT getStudyNames ")
   
   # Check its not atomic, if it is we can't use $name
   if (is.atomic(studies))
