@@ -5,3 +5,5 @@ userkey.txt
 www/.DS_Store
 www/.Rhistory
 install instructions.txt
+.Rhistory
+.RData

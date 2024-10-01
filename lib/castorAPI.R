@@ -53,7 +53,9 @@ connectCastorOpenAPI <- function()
       app <- oauth_app("CastorEDC", key = Sys.getenv("CASTOR_USER_KEY"), secret = Sys.getenv("CASTOR_SECRET"))
       endpoint <- oauth_endpoint(request = NULL, base_url = paste0(base_url, "/oauth"), access = "token", "authorize")
       token <- httr::oauth2.0_token(endpoint, app, client_credentials = TRUE, cache = FALSE)
-      castor_open_api <<- get_api(paste0(base_url, "/api/swagger"), httr::config(token = token))
+      URLforCastor <- paste0(base_url, "/api/swagger")
+      # Note that since later versions of the yaml package, the ext='yaml' is required otherwise it crashes!
+      castor_open_api <<- get_api(URLforCastor, httr::config(token = token), ext='yaml')
     },
     
     error=function(e) {
@@ -230,10 +232,51 @@ updateStudyDataOpenAPI <- function(studyID, patientID, fieldName, newData, reaso
       )
     )
   )
+  
+  # FIXME this used to work with ealier version of yaml library but now doesn't seem to do any update... but no error! So annoying!
   write_result_openapi
   content(write_result_openapi, as = "text") |> fromJSON()
-  logger("OpenAPI write completed without error")
+
+  logger(paste("OpenAPI write completed without error ", patientID, fieldName, fieldID, newData, sep=" "))
 }
+
+
+# An alternative R wrapper example which was provided by Castor level 2 support Maximiliano Senestrari (and he wrote, not on web)
+#R wrapper:
+#  
+#  Authentication: Ensure you are authenticated using your Castor API credentials.
+#Identify the Study and Record: Obtain the study ID and record ID for the data you wish to update.
+#Prepare the Data: Structure the data payload you need to update in the required format.
+#Send the Request: Use the POST or PUT method to update the data field in the specified study/record.
+#Here is an example of how you might set up a function to update a data field using the
+#
+#castor_api
+# Function to update a data field
+#update_data_field <- function(api, study_id, record_id, field_id, new_value)
+#{ url <- paste0(api$base_url, "/study/", study_id, "/record/", record_id, "/data-point")
+# Structure the data payload
+#payload <- list( "field_id" = field_id, "field_value" = new_value )
+# Convert the payload to JSON
+#json_payload <- jsonlite::toJSON(payload)
+# Send the POST request 
+#response <- httr::POST( url, body = json_payload, encode = "json", httr::add_headers("Authorization" = paste("Bearer", api$token)) )
+#return(response)
+#} 
+# Example usage api <- castor_api$new("your_api_base_url", "your_api_token")
+#study_id <- "your_study_id"
+#record_id <- "your_record_id"
+#field_id <- "your_field_id"
+#new_value <- "new_value"
+#response <- update_data_field(api, study_id, record_id, field_id, new_value)
+#if (response$status_code == 200)
+#{
+#  print("Data field updated successfully!")
+#}
+#else
+#{
+#  print("Failed to update data field.")
+#}
+
 
 # Get field ID for field name 
 # The meta-data used to be secretly hidden in with R in the Castor data.frame, but this was taken out from castoRedc v2.x
@@ -266,39 +309,3 @@ getFieldIDForName <- function(castorAPI,studyID,fieldName)
   return(fieldID)
 }
 
-
-# An alternative R wrapper example which was provided by Castor level 2 support Maximiliano Senestrari (and he wrote, not on web)
-#R wrapper:
-#  
-#  Authentication: Ensure you are authenticated using your Castor API credentials.
-#Identify the Study and Record: Obtain the study ID and record ID for the data you wish to update.
-#Prepare the Data: Structure the data payload you need to update in the required format.
-#Send the Request: Use the POST or PUT method to update the data field in the specified study/record.
-#Here is an example of how you might set up a function to update a data field using the
-#
-#castor_api
-# Function to update a data field
-#update_data_field <- function(api, study_id, record_id, field_id, new_value)
-#{ url <- paste0(api$base_url, "/study/", study_id, "/record/", record_id, "/data-point")
-  # Structure the data payload
-  #payload <- list( "field_id" = field_id, "field_value" = new_value )
-  # Convert the payload to JSON
-  #json_payload <- jsonlite::toJSON(payload)
-  # Send the POST request 
-  #response <- httr::POST( url, body = json_payload, encode = "json", httr::add_headers("Authorization" = paste("Bearer", api$token)) )
-  #return(response)
-#} 
-# Example usage api <- castor_api$new("your_api_base_url", "your_api_token")
-#study_id <- "your_study_id"
-#record_id <- "your_record_id"
-#field_id <- "your_field_id"
-#new_value <- "new_value"
-#response <- update_data_field(api, study_id, record_id, field_id, new_value)
-#if (response$status_code == 200)
-#{
-#  print("Data field updated successfully!")
-#}
-#else
-#{
-#  print("Failed to update data field.")
-#}

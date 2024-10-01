@@ -1172,12 +1172,7 @@ server <- function(input, output, session) {
                           input$anaesthetistNameCheckbox,
                           input$anaesthetistNewName)
       progress$set(message = "Completed Data Update", value = 1.0)
-      
-      shinyalert(
-        "Completed Data Update: Please reload data to see reflected changes.", type = "text",
-        showCancelButton = FALSE
-      )
-      
+      shinyalert(title = "Completed Data Update: Please reload data to see reflected changes.", type = "success")
     }
     else
     {
@@ -1186,7 +1181,9 @@ server <- function(input, output, session) {
         textEntered <- ""
       }
       # Do nothing
-      logger(paste("The anaesthetists were not updated as the user typed '",textEntered,"'",sep=""))
+      errMsg <- paste("The anaesthetists were not updated as the user typed '",textEntered,"'",sep="")
+      logger(errMsg)
+      shinyalert(title = errMsg, type = "error")
     }
   }
   
@@ -1231,12 +1228,7 @@ server <- function(input, output, session) {
                           input$operatorsNewName)
       
       progress$set(message = "Completed Data Update", value = 1.0)
-      
-      shinyalert(
-        "Completed Data Update: Please reload data to see reflected changes.", type = "text",
-        showCancelButton = FALSE
-      )
-      
+      shinyalert(title = "Completed Data Update: Please reload data to see reflected changes.", type = "success")
     }
     else
     {
@@ -1245,7 +1237,9 @@ server <- function(input, output, session) {
         textEntered <- ""
       }
       # Do nothing
-      logger(paste("The operators were not updated as the user typed '",textEntered,"'",sep=""))
+      errMsg <- paste("The operators were not updated as the user typed '",textEntered,"'",sep="")
+      logger(errMsg)
+      shinyalert(title = errMsg, type = "error")
     }
   }
   
