@@ -20,17 +20,17 @@ connectCastorAPI <- function()
     
     #if a warning occurs, tell me the warning
     warning=function(w) {
-      logger(paste("   A warning occurred during access to Castor API"))
+      logger(paste("A warning occurred during access to Castor API"))
       logger(w)
     }
   )
   if (!is.environment(castor_api))
   {
-    logger("   Failed to access API with those settings")
+    logger("Failed to access API with those settings")
   }
   else
   {
-    logger("   Accessed Castor API successfully")
+    logger("Accessed Castor API successfully")
   }
   return(castor_api)
 }
@@ -38,8 +38,6 @@ connectCastorAPI <- function()
 # Disconnect from the Castor API...
 disconnectCastorAPI <- function()
 {
-  logger("Disconnecting from Castor API...")
-  castor_api <<- new.env()
   castor_open_api <<- new.env()
 }
 
