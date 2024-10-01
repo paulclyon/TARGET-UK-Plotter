@@ -1162,24 +1162,19 @@ server <- function(input, output, session) {
     if (!is.na(textEntered) && textEntered == 'Proceed')
     {
       # Create a Progress object
-      logger(paste("FIXME00"))
-      
       progress <- shiny::Progress$new()
       progress$set(message = "Updating Castor Data...", value = 0.5)
       
       # Close the progress when this reactive exits (even if there's an error)
       on.exit(progress$close())
       
-      logger(paste("FIXME01"))
       updateAnaesthetistNames(targetStudyID,
                           input$anaesthetistNameCheckbox,
                           input$anaesthetistNewName)
-      logger(paste("FIXME02"))
       progress$set(message = "Completed Data Update", value = 1.0)
       
       shinyalert(
-        "Completed Data Update: Please reload data to see reflected changes.", type = "input",
-        callbackR = updateOperatorNamesCallback,
+        "Completed Data Update: Please reload data to see reflected changes.", type = "text",
         showCancelButton = FALSE
       )
       
@@ -1238,8 +1233,7 @@ server <- function(input, output, session) {
       progress$set(message = "Completed Data Update", value = 1.0)
       
       shinyalert(
-        "Completed Data Update: Please reload data to see reflected changes.", type = "input",
-        callbackR = updateOperatorNamesCallback,
+        "Completed Data Update: Please reload data to see reflected changes.", type = "text",
         showCancelButton = FALSE
       )
       
