@@ -90,6 +90,7 @@ castor_api      <<- new.env()
 
 # Initialise these global variable as required to render to UI
 organFactors           <<- c()
+modalityFactors        <<- c('Microwave','Cryotherapy','Radiofrequency')
 operator1Factors       <<- c()
 anaesthetist1Factors   <<- c()
 operatorAllFactors     <<- c()
@@ -341,12 +342,21 @@ ui <- dashboardPage(
                     )
                   ),
                   column(
-                    width = 6,
+                    width = 3,
                     checkboxGroupInput(
                       "organVolumePlotCheckbox",
                       "Organs to Plot",
                       choices = organFactors,
                       selected = organFactors
+                    ),
+                  ),
+                  column(
+                    width = 3,
+                    checkboxGroupInput(
+                      "modalityVolumePlotCheckbox",
+                      "Modalities to Plot",
+                      choices = modalityFactors,
+                      selected = modalityFactors
                     ),
                   ),
                   
@@ -873,6 +883,7 @@ server <- function(input, output, session) {
   # Note plotly vs. plot gives you the tool tip text
   output$plotVolume <- renderPlotly({
     filteredRxDoneData <- rxDoneData %>% filter(Organs %in% input$organVolumePlotCheckbox)
+    filteredRxDoneData <- filteredRxDoneData %>% filter(Modality %in% input$modalityVolumePlotCheckbox)
 
     p <- finalVolumePlotInput()
     p <- p %+% subset(filteredRxDoneData)

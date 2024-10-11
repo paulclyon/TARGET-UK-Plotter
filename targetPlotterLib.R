@@ -96,7 +96,9 @@ makeRxPathwayPlots <- function()
     
     volumePlot <<- ggplot(rxDoneData, aes(x=lubridate::floor_date(RxDate, "month"), fill=Organs, 
                                             text=paste(ID, '-', RxDate, '\n',
-                                                       paste('Operators: ',Operator1,Operator2,Operator3)))) +
+                                                       paste('Operators: ',Operator1,Operator2,Operator3,'\n'),
+                                                       paste('Rx Modality: ',Modality)
+                                                       ))) +
       geom_bar() +
       theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
       scale_y_continuous(breaks = seq(0, 100, by = 1)) +  # Use this to get an integer y-axis, the 100 is the number of max ticks after which x>100 still plots tickless

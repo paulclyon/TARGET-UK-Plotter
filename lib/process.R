@@ -327,6 +327,31 @@ processData <- function() {
             anaesthetistString2[anaesthetistString2 == ''] <- NA
             anaesthetistString3[anaesthetistString3 == ''] <- NA
             
+            # Get the modality of the treatment (for cost code purposes)
+            rxTableJSON <- getDataEntry(paste("rx_tumour_rx_matrix_", as.integer(iRef), sep = ""), i, T)
+            if (!is.na(rxTableJSON) && str_length(rxTableJSON) > 0 )
+            {
+              rxTableMatrix <- jsonlite::fromJSON(rxTableJSON)
+              rxTable.df <- data.frame(matrix(unlist(rxTableMatrix), ncol = 12, byrow = T))
+              colnames(rxTable.df) <- rxTableColNames
+              
+              # For each row in the matrix find out which modality has been used
+              # once a modality has been found we are done
+              # If there are multiple modalities for different tumours, the code is not that clever yet...
+              modalityForRx <- NA
+              for (j in 1:nrow(rxTable.df))
+              {
+                modalityForRx <- rxTable.df$modality[j]
+                if (!is.na(modalityForRx))
+                {
+                  # These must match the modality radiobutton options is app.R
+                  modalityForRx <- switch(modalityForRx, "M"="Microwave", "C"="Cryotherapy", "R"="Radiofrequency", "Other/Unknown")
+                  logger(paste("got modality :",modalityForRx))
+                  break
+                }
+              }
+            }
+            
             ref_rx_days = as.numeric(difftime(ref_rx_date, ref_date, units = "days"), units = "days")
             if (ref_rx_days < 0)
             {
@@ -359,6 +384,7 @@ processData <- function() {
             }
             rxdone_pt_list                     <<- append(rxdone_pt_list,                       paste(ptID, "-", iRef, sep = ""))
             rxdone_organ_list                  <<- append(rxdone_organ_list,                    organForRx)
+            rxdone_modality_list               <<- append(rxdone_modality_list,                 modalityForRx)
             rxdone_refdate_list                <<- append(rxdone_refdate_list,                  ref_date)
             rxdone_dttdate_list                <<- append(rxdone_dttdate_list,                  ref_dtt_date)
             rxdone_rxdate_list                 <<- append(rxdone_rxdate_list,                   ref_rx_date)
@@ -485,6 +511,7 @@ processData <- function() {
       DTT_Rx = as.numeric(rxdone_dtt_rx_days_list),
       Ref_RxDone = as.numeric(rxdone_rx_days_list),
       Organs = rxdone_organ_list,
+      Modality = rxdone_modality_list,
       Operator1 = rxdone_operator1_list,
       Operator2 = rxdone_operator2_list,
       Operator3 = rxdone_operator3_list,

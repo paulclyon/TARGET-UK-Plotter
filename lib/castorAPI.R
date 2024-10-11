@@ -53,9 +53,17 @@ connectCastorOpenAPI <- function()
       app <- oauth_app("CastorEDC", key = Sys.getenv("CASTOR_USER_KEY"), secret = Sys.getenv("CASTOR_SECRET"))
       endpoint <- oauth_endpoint(request = NULL, base_url = paste0(base_url, "/oauth"), access = "token", "authorize")
       token <- httr::oauth2.0_token(endpoint, app, client_credentials = TRUE, cache = FALSE)
-      URLforCastor <- paste0(base_url, "/api/swagger")
-      # Note that since later versions of the yaml package, the ext='yaml' is required otherwise it crashes!
-      castor_open_api <<- get_api(URLforCastor, httr::config(token = token), ext='yaml')
+      URLforCastor <- paste0(base_url, "/api/swagger?format=json")
+      # FIXME: since update of Yaml package to 2.3.x, this complains of URL not being YAML or JSON and fails...
+      # Also of note rapiclient version is 0.1.8, httr version is 1.4.7, yaml version is 2.3.10
+      # Note URL has format=json, otherwise remove that and its yaml, so would need ext='yaml' in that case
+      # Since this update the data is no longer updated on attempts to write via OpenAPI
+      castor_open_api <<- get_api(url=URLforCastor, config=httr::config(token = token), ext='json')
+      
+      # This is an alternative for test purposes, and this does work...
+      #URLforDemo <- "https://petstore.swagger.io/v2/swagger.json" 
+      #demo_api <<- get_api(url=URLforDemo)
+      
     },
     
     error=function(e) {
@@ -202,7 +210,40 @@ getFieldNamesWithOpenAPI <- function(castorOpenAPI)
   logger(paste("Field name '", fieldName, "' found in field data with ID='",fieldID,"'", sep = ))
 }
 
-# Write actions using OpenAPI interface - this is the only way I can work out how to write using any API...
+
+# We can use the standard Castor API to write data. Largely borrowed from end of this example:
+# https://git.lumc.nl/egjvonasmuth/castor-api-tutorial/-/blob/main/example_rapiclient.R?ref_type=heads
+updateStudyDataByField <- function(studyID, patientID, fieldName, newData, reasonForUpdate="Unspecified Reason")
+{
+  # First get the field name
+  fieldID <- getFieldIDForName(castor_api,studyID,fieldName)
+  
+  base_url <- Sys.getenv("CASTOR_URL")
+  #set_config(config(token = token))
+  participant_id <- patientID
+  write_result_manual = POST(
+    glue::glue("{base_url}/api/study/{studyID}/participant/{patientID}/data-points/study"),
+    body = list(
+      common = list(
+        change_reason = reasonForUpdate,
+        confirmed_changes = "true"
+      ),
+      data = list(
+        list(
+          field_id = fieldID,
+          field_value = newData
+        )
+      )
+    ),
+    encode = "json"
+  )
+  # FIXME this used to work with ealier version of yaml library but now doesn't seem to do any update... but no error! So annoying!
+  write_result_manual
+  content(write_result_manual, as = "text") |> fromJSON()
+  logger(paste("API write completed without error ", patientID, fieldName, fieldID, newData, sep=" "))
+}
+
+# Write actions using OpenAPI interface
 # The Open API method to get the study data, which is in a different format...
 # Its the bare bones of : https://git.lumc.nl/egjvonasmuth/castor-api-tutorial/-/blob/main/example_rapiclient.R?ref_type=heads
 # To see how to use it just type 'operations$' into the Console of R and it will show you all available methods
@@ -236,32 +277,29 @@ updateStudyDataOpenAPI <- function(studyID, patientID, fieldName, newData, reaso
   # FIXME this used to work with ealier version of yaml library but now doesn't seem to do any update... but no error! So annoying!
   write_result_openapi
   content(write_result_openapi, as = "text") |> fromJSON()
-
   logger(paste("OpenAPI write completed without error ", patientID, fieldName, fieldID, newData, sep=" "))
 }
 
-
 # An alternative R wrapper example which was provided by Castor level 2 support Maximiliano Senestrari (and he wrote, not on web)
-#R wrapper:
-#  
-#  Authentication: Ensure you are authenticated using your Castor API credentials.
-#Identify the Study and Record: Obtain the study ID and record ID for the data you wish to update.
-#Prepare the Data: Structure the data payload you need to update in the required format.
-#Send the Request: Use the POST or PUT method to update the data field in the specified study/record.
-#Here is an example of how you might set up a function to update a data field using the
-#
-#castor_api
+# Authentication: Ensure you are authenticated using your Castor API credentials.
+# Identify the Study and Record: Obtain the study ID and record ID for the data you wish to update.
+# Prepare the Data: Structure the data payload you need to update in the required format.
+# Send the Request: Use the POST or PUT method to update the data field in the specified study/record.
+# Here is an example of how you might set up a function to update a data field using the castor_api
 # Function to update a data field
-#update_data_field <- function(api, study_id, record_id, field_id, new_value)
-#{ url <- paste0(api$base_url, "/study/", study_id, "/record/", record_id, "/data-point")
-# Structure the data payload
-#payload <- list( "field_id" = field_id, "field_value" = new_value )
-# Convert the payload to JSON
-#json_payload <- jsonlite::toJSON(payload)
-# Send the POST request 
-#response <- httr::POST( url, body = json_payload, encode = "json", httr::add_headers("Authorization" = paste("Bearer", api$token)) )
-#return(response)
-#} 
+updateStudyDataByRecord <- function(api, study_id, record_id, field_id, new_value)
+{
+  url <- paste0(api$base_url, "/study/", study_id, "/record/", record_id, "/data-point")
+  # Structure the data payload
+  payload <- list( "field_id" = field_id, "field_value" = new_value )
+  
+  # Convert the payload to JSON
+  json_payload <- jsonlite::toJSON(payload)
+  
+  # Send the POST request
+  response <- httr::POST( url, body = json_payload, encode = "json", httr::add_headers("Authorization" = paste("Bearer", api$token)) )
+  return(response)
+}
 # Example usage api <- castor_api$new("your_api_base_url", "your_api_token")
 #study_id <- "your_study_id"
 #record_id <- "your_record_id"
@@ -276,6 +314,7 @@ updateStudyDataOpenAPI <- function(studyID, patientID, fieldName, newData, reaso
 #{
 #  print("Failed to update data field.")
 #}
+
 
 
 # Get field ID for field name 

@@ -70,7 +70,10 @@ setDataEntry <- function(studyID, patientID, patientIndex, fieldName, newData, s
     # This heavily borrows from this worked example:
     # https://git.lumc.nl/egjvonasmuth/castor-api-tutorial/-/blob/main/example_rapiclient.R?ref_type=heads
 
-    updateStudyDataOpenAPI(studyID, patientID, fieldName, newData, "TARGET-UK Plotter Update")
+    # Two methods to update data - both execute but neither work! The openAPI one used to work before package updates e.g. Yaml...
+    # Castor also give another method to try via record ID but I have not tried that yet
+    #updateStudyDataOpenAPI(studyID, patientID, fieldName, newData, "TARGET-UK Plotter Update")
+    updateStudyDataByField(studyID, patientID, fieldName, newData, "TARGET-UK Plotter Update")
   }
   return(0)
 }

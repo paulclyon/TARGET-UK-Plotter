@@ -29,8 +29,10 @@ initialiseGlobals <- function() {
   
   # This is the order of the clock stop columns
   clockStopColNames              <<- c("date.stopped","date.restart","reason","free.text")
+  rxTableColNames                <<- c("rx.organ","lesion.size","max.depth","closest.serosa","punctures","no.applicators.or.postitions","modality","max.power","min.power","rx.time","new.or.rec","free.text")
   recurrenceColNames             <<- c("imaging.date","exam.type","local.recurrence","new.in.target.organ","distant.progression","disease.status","free-text")
   rxdone_organ_list              <<- c()
+  rxdone_modality_list           <<- c()
   rxdone_pt_list                 <<- c()
   rxdone_refdate_list            <<- c()
   rxdone_dttdate_list            <<- c()

@@ -12,14 +12,14 @@ date: "2024-01-29"
 These are some variables you might wish to choose, I had to do an ugly global variable hack to get them visible from this file, but you dont need to worry about that! Thanks Paul
 
 Audit Period from:
-2023-09-25
-2024-09-24
+2023-10-09
+2024-10-08
 
 For organs:
 Kidney, Liver, Lung, Multiple Organs
 
 Generate on date:
-<!--html_preserve--><div id="out87719d32eef5bd14" class="shiny-text-output"></div><!--/html_preserve-->
+<!--html_preserve--><div id="out63b44c21f1c0c963" class="shiny-text-output"></div><!--/html_preserve-->
 
 Lovely stuff
 
@@ -42,7 +42,7 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Kidney </td>
-   <td style="text-align:right;"> 24.4 </td>
+   <td style="text-align:right;"> 23.6 </td>
    <td style="text-align:right;"> 15.0 </td>
    <td style="text-align:right;"> 8 </td>
    <td style="text-align:right;"> 18 </td>
@@ -53,24 +53,24 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Liver </td>
-   <td style="text-align:right;"> 14.6 </td>
-   <td style="text-align:right;"> 19.0 </td>
-   <td style="text-align:right;"> 13 </td>
-   <td style="text-align:right;"> 23 </td>
-   <td style="text-align:right;"> 31.7 </td>
-   <td style="text-align:right;"> 56.1 </td>
-   <td style="text-align:right;"> 41 </td>
+   <td style="text-align:right;"> 14.8 </td>
+   <td style="text-align:right;"> 19.5 </td>
+   <td style="text-align:right;"> 12 </td>
+   <td style="text-align:right;"> 22 </td>
+   <td style="text-align:right;"> 30.0 </td>
+   <td style="text-align:right;"> 55.0 </td>
+   <td style="text-align:right;"> 40 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Lung </td>
-   <td style="text-align:right;"> 23.1 </td>
-   <td style="text-align:right;"> 18.0 </td>
+   <td style="text-align:right;"> 22.6 </td>
+   <td style="text-align:right;"> 17.0 </td>
    <td style="text-align:right;"> 9 </td>
-   <td style="text-align:right;"> 28 </td>
-   <td style="text-align:right;"> 18.4 </td>
-   <td style="text-align:right;"> 57.1 </td>
-   <td style="text-align:right;"> 49 </td>
+   <td style="text-align:right;"> 29 </td>
+   <td style="text-align:right;"> 18.8 </td>
+   <td style="text-align:right;"> 60.4 </td>
+   <td style="text-align:right;"> 48 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> grouped </td>
@@ -86,13 +86,13 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> ungrouped </td>
    <td style="text-align:left;"> NA </td>
-   <td style="text-align:right;"> 21.8 </td>
+   <td style="text-align:right;"> 21.4 </td>
    <td style="text-align:right;"> 19.0 </td>
-   <td style="text-align:right;"> 30 </td>
+   <td style="text-align:right;"> 29 </td>
    <td style="text-align:right;"> 69 </td>
-   <td style="text-align:right;"> 25.0 </td>
-   <td style="text-align:right;"> 57.5 </td>
-   <td style="text-align:right;"> 120 </td>
+   <td style="text-align:right;"> 24.6 </td>
+   <td style="text-align:right;"> 58.5 </td>
+   <td style="text-align:right;"> 118 </td>
   </tr>
 </tbody>
 </table>
@@ -119,9 +119,9 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Kidney </td>
-   <td style="text-align:right;"> 64.4 </td>
+   <td style="text-align:right;"> 63.2 </td>
    <td style="text-align:right;"> 53.5 </td>
-   <td style="text-align:right;"> 17.9 </td>
+   <td style="text-align:right;"> 21.4 </td>
    <td style="text-align:right;"> 39.3 </td>
    <td style="text-align:right;"> 60.7 </td>
    <td style="text-align:right;"> 28 </td>
@@ -129,22 +129,22 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Liver </td>
-   <td style="text-align:right;"> 40.1 </td>
-   <td style="text-align:right;"> 43.0 </td>
-   <td style="text-align:right;"> 36.6 </td>
-   <td style="text-align:right;"> 56.1 </td>
-   <td style="text-align:right;"> 85.4 </td>
-   <td style="text-align:right;"> 41 </td>
+   <td style="text-align:right;"> 37.7 </td>
+   <td style="text-align:right;"> 39.5 </td>
+   <td style="text-align:right;"> 40.0 </td>
+   <td style="text-align:right;"> 60.0 </td>
+   <td style="text-align:right;"> 90.0 </td>
+   <td style="text-align:right;"> 40 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> grouped </td>
    <td style="text-align:left;"> Lung </td>
-   <td style="text-align:right;"> 48.7 </td>
-   <td style="text-align:right;"> 49.0 </td>
-   <td style="text-align:right;"> 24.5 </td>
-   <td style="text-align:right;"> 46.9 </td>
-   <td style="text-align:right;"> 59.2 </td>
-   <td style="text-align:right;"> 49 </td>
+   <td style="text-align:right;"> 47.4 </td>
+   <td style="text-align:right;"> 46.0 </td>
+   <td style="text-align:right;"> 27.1 </td>
+   <td style="text-align:right;"> 50.0 </td>
+   <td style="text-align:right;"> 62.5 </td>
+   <td style="text-align:right;"> 48 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> grouped </td>
@@ -159,12 +159,12 @@ Lovely stuff
   <tr>
    <td style="text-align:left;"> ungrouped </td>
    <td style="text-align:left;"> NA </td>
-   <td style="text-align:right;"> 48.6 </td>
-   <td style="text-align:right;"> 48.5 </td>
-   <td style="text-align:right;"> 28.3 </td>
-   <td style="text-align:right;"> 49.2 </td>
-   <td style="text-align:right;"> 69.2 </td>
-   <td style="text-align:right;"> 120 </td>
+   <td style="text-align:right;"> 47.0 </td>
+   <td style="text-align:right;"> 44.0 </td>
+   <td style="text-align:right;"> 31.4 </td>
+   <td style="text-align:right;"> 51.7 </td>
+   <td style="text-align:right;"> 72.0 </td>
+   <td style="text-align:right;"> 118 </td>
   </tr>
 </tbody>
 </table>
@@ -181,21 +181,21 @@ Lovely stuff
 <tbody>
   <tr>
    <td style="text-align:left;"> Kidney (N=28) </td>
-   <td style="text-align:right;"> 88.8 </td>
-   <td style="text-align:right;"> 74.0 </td>
-   <td style="text-align:right;"> 64.3 </td>
+   <td style="text-align:right;"> 86.8 </td>
+   <td style="text-align:right;"> 72.5 </td>
+   <td style="text-align:right;"> 67.9 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> Liver (N=41) </td>
-   <td style="text-align:right;"> 54.7 </td>
+   <td style="text-align:left;"> Liver (N=40) </td>
+   <td style="text-align:right;"> 52.5 </td>
    <td style="text-align:right;"> 58.0 </td>
-   <td style="text-align:right;"> 90.2 </td>
+   <td style="text-align:right;"> 92.5 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> Lung (N=49) </td>
-   <td style="text-align:right;"> 71.9 </td>
-   <td style="text-align:right;"> 70.0 </td>
-   <td style="text-align:right;"> 73.5 </td>
+   <td style="text-align:left;"> Lung (N=48) </td>
+   <td style="text-align:right;"> 69.9 </td>
+   <td style="text-align:right;"> 69.5 </td>
+   <td style="text-align:right;"> 77.1 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> All Organs (N=2) </td>
@@ -204,10 +204,10 @@ Lovely stuff
    <td style="text-align:right;"> 50.0 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> All Organs (N=120) </td>
-   <td style="text-align:right;"> 70.4 </td>
-   <td style="text-align:right;"> 69.0 </td>
-   <td style="text-align:right;"> 76.7 </td>
+   <td style="text-align:left;"> All Organs (N=118) </td>
+   <td style="text-align:right;"> 68.5 </td>
+   <td style="text-align:right;"> 64.0 </td>
+   <td style="text-align:right;"> 79.7 </td>
   </tr>
 </tbody>
 </table>
@@ -231,9 +231,9 @@ Lovely stuff
   </tr>
   <tr>
    <td style="text-align:left;"> Stopped </td>
-   <td style="text-align:right;"> 10 </td>
-   <td style="text-align:right;"> -45.8 </td>
-   <td style="text-align:right;"> -45.5 </td>
+   <td style="text-align:right;"> 8 </td>
+   <td style="text-align:right;"> -49.9 </td>
+   <td style="text-align:right;"> -50.5 </td>
   </tr>
 </tbody>
 </table>
@@ -257,9 +257,9 @@ Lovely stuff
   </tr>
   <tr>
    <td style="text-align:left;"> Stopped Post </td>
-   <td style="text-align:right;"> 5 </td>
-   <td style="text-align:right;"> -85.4 </td>
-   <td style="text-align:right;"> -52 </td>
+   <td style="text-align:right;"> 3 </td>
+   <td style="text-align:right;"> -122.7 </td>
+   <td style="text-align:right;"> -89 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> Stopped Pre </td>
@@ -288,10 +288,6 @@ Lovely stuff
    <td style="text-align:left;"> Clock Stops: 1:Needed imaging (-20 days pre-DTT, 0 days post-DTT) </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> 1076896-1 </td>
-   <td style="text-align:left;"> Clock Stops: 1:Patient Choice (-21 days pre-DTT, 0 days post-DTT) </td>
-  </tr>
-  <tr>
    <td style="text-align:left;"> 10792357-1 </td>
    <td style="text-align:left;"> Clock Stops: 1:Pt - Stroke.  Paused from waiting list &amp; referrer informed.  (0 days pre-DTT, 188 days post-DTT) </td>
   </tr>
@@ -300,12 +296,8 @@ Lovely stuff
    <td style="text-align:left;"> Clock Stops: 1:Patient DNA (0 days pre-DTT, -62 days post-DTT) </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> 10976753-1 </td>
-   <td style="text-align:left;"> Clock Stops: 1:Had to wait for VATs and Histology (-52 days pre-DTT, 0 days post-DTT) </td>
-  </tr>
-  <tr>
    <td style="text-align:left;"> 10989311-1 </td>
-   <td style="text-align:left;"> Clock Stops: 1:DNA clinic x 2 new address* (-245 days pre-DTT, 0 days post-DTT) </td>
+   <td style="text-align:left;"> Clock Stops: 1:DNA clinic x 2 new address* (-259 days pre-DTT, 0 days post-DTT) </td>
   </tr>
   <tr>
    <td style="text-align:left;"> 128716-1 </td>
@@ -328,10 +320,11 @@ Lovely stuff
 
 
 ```
-## Warning: Removed 115 rows containing missing values or values outside the scale range
-## (`geom_point()`).
-## Removed 115 rows containing missing values or values outside the scale range
-## (`geom_point()`).
+## Warning: Removed 115 rows containing missing values or values outside the scale range (`geom_point()`).
+```
+
+```
+## Warning: Removed 113 rows containing missing values or values outside the scale range (`geom_point()`).
 ```
 
 ![plot of chunk ttt_plot](figure/ttt_plot-1.png)
