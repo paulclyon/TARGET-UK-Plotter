@@ -33,6 +33,7 @@ initialiseGlobals <- function() {
   recurrenceColNames             <<- c("imaging.date","exam.type","local.recurrence","new.in.target.organ","distant.progression","disease.status","free-text")
   rxdone_organ_list              <<- c()
   rxdone_modality_list           <<- c()
+  rxdone_tariff_list             <<- c()
   rxdone_pt_list                 <<- c()
   rxdone_refdate_list            <<- c()
   rxdone_dttdate_list            <<- c()
@@ -118,6 +119,24 @@ initialiseGlobals <- function() {
   fieldDataOpenAPI             <<- NA
   openAPIoperations            <<- NA
   openAPIschemas               <<- NA
+  
+  # The HRG Codes for tariff calculations based on 2022/3 Workbook
+  tariffCodes <<- data.frame (
+    Code =       c("YD01Z",      "Lung_Cryo",   "YG01A",     "YG01B",     "YL02Z",     "YL01Z",       "YH20Z",     "YH20Z"),
+    Organ =      c("Lung",       "Lung",        "Liver",     "Liver",     "Kidney",    "Kidney",      "Bone",      "Bone"),
+    Modality =   c("Microwave",  "Cryotherapy", "Microwave", "Microwave", "Microwave", "Cryotherapy", "Microwave", "Cryotherapy"),
+    MaxCCScore = c(20,           20,             20,          1,           20,          20,            20,          20),
+    MinCCScore = c( 0,           0,              2,           0,           0,           0,             0,           0),
+    Tariff =     c(4703,         0,              6564,        5254,        4669,        5253,          2029,        2029),
+    Description = c("Percutaneous Ablation of Lesion of Respiratory Tract (MWA)",
+                    "Percutaneous Ablation of Lesion of Respiratory Tract (Cryo)",
+                    "Percutaneous Ablation of Lesion of, Liver or Pancreas, with CC Score 2+",
+                    "Percutaneous Ablation of Lesion of, Liver or Pancreas, with CC Score 0-1",
+                    "Standard Percutaneous Ablation of Lesion of Kidney (MWA)",
+                    "Complex Percutaneous Ablation of Lesion of Kidney (Cryo)",
+                    "Bone ablation (MWA)",
+                    "Bone ablation (Cryo)")
+  )
   
   logger("System information:")
   logger(Sys.info(), TRUE)

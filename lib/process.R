@@ -163,7 +163,10 @@ processData <- function() {
               "LIV" = "Liver",
               "L" = "Lung",
               "K" = "Kidney",
+              "P" = "Pancreas",
               "A" = "Adrenal",
+              "M" = "MSK",
+              "B" = "Bone",
               "MO" = "Multiple Organs",
               "STMO" = "ST Multiple Organs",
               "Other/Unspecified" #This is the catch-all default
@@ -352,6 +355,9 @@ processData <- function() {
               }
             }
             
+            # Get the tariff for the Rx
+            tariffForRx <- getTariffForRx(organForRx, modalityForRx)
+            
             ref_rx_days = as.numeric(difftime(ref_rx_date, ref_date, units = "days"), units = "days")
             if (ref_rx_days < 0)
             {
@@ -379,12 +385,15 @@ processData <- function() {
                 ref_rx_date,
                 date_of_first_rx
               )
-            } else {
+            }
+            else
+            {
               date_of_first_rx <- ref_rx_date
             }
             rxdone_pt_list                     <<- append(rxdone_pt_list,                       paste(ptID, "-", iRef, sep = ""))
             rxdone_organ_list                  <<- append(rxdone_organ_list,                    organForRx)
             rxdone_modality_list               <<- append(rxdone_modality_list,                 modalityForRx)
+            rxdone_tariff_list                 <<- append(rxdone_tariff_list,                   tariffForRx)
             rxdone_refdate_list                <<- append(rxdone_refdate_list,                  ref_date)
             rxdone_dttdate_list                <<- append(rxdone_dttdate_list,                  ref_dtt_date)
             rxdone_rxdate_list                 <<- append(rxdone_rxdate_list,                   ref_rx_date)
@@ -400,7 +409,6 @@ processData <- function() {
             rxdone_anaesthetist1_list          <<- append(rxdone_anaesthetist1_list,            anaesthetistString1)
             rxdone_anaesthetist2_list          <<- append(rxdone_anaesthetist2_list,            anaesthetistString2)
             rxdone_anaesthetist3_list          <<- append(rxdone_anaesthetist3_list,            anaesthetistString3)
-            
           }
           else
           {
@@ -512,6 +520,7 @@ processData <- function() {
       Ref_RxDone = as.numeric(rxdone_rx_days_list),
       Organs = rxdone_organ_list,
       Modality = rxdone_modality_list,
+      Tariff = rxdone_tariff_list,
       Operator1 = rxdone_operator1_list,
       Operator2 = rxdone_operator2_list,
       Operator3 = rxdone_operator3_list,
@@ -682,5 +691,30 @@ updateOperatorNames <- function(studyID, oldNames, newName)
       }
     }
   }
+}
+
+# Get the tariff for the modality in the given organ
+getTariffForRx <- function(organForRx, modalityForRx)
+{
+  GBP <- 0
+  # Returns list of index rows for matching organs and matching modalities
+  matches <- intersect(which(tariffCodes$Organ==organForRx), which(tariffCodes$Modality == modalityForRx))
+  if (length(matches) > 0)
+  {
+    # We can only return the first match... FIXME the CS Score is not yet used
+    GBP <- tariffCodes$Tariff[matches[1]]
+  }
+  return (GBP)
+}
+
+# Calculate total tariff for the filtered Rx data supplied
+calculateTotalTariff <- function(rxData)
+{
+  totalTariff <- 0
+  for (j in 1:nrow(rxData))
+  {
+    totalTariff <- totalTariff + rxData$Tariff[j]
+  }
+  return(totalTariff) 
 }
 
