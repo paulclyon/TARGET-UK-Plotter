@@ -1,4 +1,3 @@
-
 secret.txt
 userkey.txt
 userkey.txt
@@ -8,7 +7,6 @@ install instructions.txt
 .Rhistory
 .RData
 .DS_Store
-figure/organ_pie-1.png
 figure/ttt_plot-1.png
-audit-pathway.md
+figure/organ_pie-1.png
 audit-pathway.md
