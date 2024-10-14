@@ -1028,10 +1028,10 @@ server <- function(input, output, session) {
     }, prefix = '')
   })
   output$about <- renderUI({
-    htmltools::includeMarkdown('www/targetPlotterAbout.md')
+    htmltools::includeMarkdown('www/TARGETPlotterAbout.md')
   })
   output$changeLog <- renderUI({
-    htmltools::includeMarkdown('www/targetPlotterChangeLog.md')
+    htmltools::includeMarkdown('www/TARGETPlotterChangeLog.md')
   })
   observeEvent(input$connectAPI,
   {
