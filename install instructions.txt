@@ -16,15 +16,17 @@ If you delete the local repository from your desktop and restore it using Finder
 GitHub will tell you it is no longer a repository
 The thing that makes it a repository is the .git/ directory so restore this and it becomes a respository again.
 
-To create an initial Release using GitHub:
+To create an initial/new Release using GitHub:
 ==========================================
 Repository > View in GitHub to open it on the web
+Make sure you sign in otherwise it won't work...
 From the GitHub Web Page
 To create a first GitHub release
-Releases > Create a new release
+Releases > Create a new release if first time
 Click on TARGET-UK-Plotter
 Draft a new release
-Tag e.g. 0.1b (b for beta)
+Target main (avoid beta releases as you end up with forks hard to manage)
+Tag e.g. 0.1
 Release title = animal name e.g. Ardvark
 Description = First release of TARGET-Plotter which replaces OxTAR Plotter (Beta Release)
 Publish Release
@@ -49,7 +51,7 @@ Run app.R and you are golden
 
 
 To get Docker working on Synology
-=============================
+=================================
 Go to WebStation and Web Service Portal
 Look for Docker customised portal with hostname *, port - and alias oxtar
 Its NOT a virtual host
