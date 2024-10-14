@@ -64,6 +64,7 @@ Sys.setenv(DEBUG_MODE        = TRUE)
 Sys.setenv(DATE_FORMAT       = "%d-%m-%Y")
 Sys.setenv(AUDIT_PATHWAY_RMD = "audit/audit-pathway.rmd")
 Sys.setenv(AUDIT_PATHWAY_MD  = "audit-pathway.md")
+theTotalTariff <- 0
 
 if (file.exists("secret.txt")) {
   # Load from the secret.txt if present.
@@ -90,6 +91,7 @@ castor_api      <<- new.env()
 
 # Initialise these global variable as required to render to UI
 organFactors           <<- c()
+modalityFactors        <<- c('Microwave','Cryotherapy','Radiofrequency')
 operator1Factors       <<- c()
 anaesthetist1Factors   <<- c()
 operatorAllFactors     <<- c()
@@ -101,7 +103,6 @@ theme <- bslib::bs_theme(version = 4)
 # Define UI
 ui <- dashboardPage(
   dashboardHeader(title = "TARGET-UK Plotter dashboard"),
-  
   dashboardSidebar(
     sidebarMenu(
       id = "sidebarID",
@@ -338,15 +339,25 @@ ui <- dashboardPage(
                       "End Date:",
                       format = "dd/mm/yyyy",
                       value = Sys.Date()
-                    )
+                    ),
+                    actionButton(inputId = "refreshVolumePlot", label = "Refresh Plot")
                   ),
                   column(
-                    width = 6,
+                    width = 3,
                     checkboxGroupInput(
                       "organVolumePlotCheckbox",
                       "Organs to Plot",
                       choices = organFactors,
                       selected = organFactors
+                    ),
+                  ),
+                  column(
+                    width = 3,
+                    checkboxGroupInput(
+                      "modalityVolumePlotCheckbox",
+                      "Modalities to Plot",
+                      choices = modalityFactors,
+                      selected = modalityFactors
                     ),
                   ),
                   
@@ -360,10 +371,12 @@ ui <- dashboardPage(
                         "Yearly"  = "year")
                     )
                   ),
-                  
                   column(
                     width = 3,
-                    actionButton(inputId = "refreshVolumePlot", label = "Refresh Plot")
+                  ),
+                  column(
+                    width = 6,
+                     uiOutput("totalTariff"),
                   )
                 )
               ),
@@ -651,8 +664,10 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
   plots <- reactiveValues(activePlot = NULL)
   api   <- reactiveValues(connected = FALSE)
+  tariff <- reactiveValues(theTotalTariff = 0)
   
-  output$apiStatus <- renderUI({
+  output$apiStatus <- renderUI(
+  {
     if (api$connected)
     {
       if (api$loaded)
@@ -688,6 +703,44 @@ server <- function(input, output, session) {
     }
   })
   
+  # This is the income generated from the volume of ablations which have taken place on the volume plot
+  output$totalTariff <- renderUI(
+  {
+    if (tariff$theTotalTariff > 1000000)
+    {
+      totalTariffText <- paste("£", round(tariff$theTotalTariff/1000000,2), "M", sep="")
+    }
+    else if (tariff$theTotalTariff > 10000)
+    {
+      totalTariffText <- paste("£", round(tariff$theTotalTariff/1000,2), "K", sep="")
+    }
+    else
+    {
+      totalTariffText <- paste("£", tariff$theTotalTariff, sep="")
+    }
+    
+    if (api$connected && api$loaded)
+    {
+      summaryBox2(
+        "HRG-coded Total Tariff",
+        totalTariffText,
+        width = 6,
+        icon = "fas fa-pound-sign",
+        style = "success"
+      )
+    }
+    else
+    {
+      summaryBox2(
+        "Load Data for Income",
+        "£0",
+        width = 5,
+        icon = "fas fa-pound-sign",
+        style = "primary"
+      )
+    }
+  })
+
   # Keeps sidebar Charts submenu expanded rather than instant collapse
   observeEvent(input$sidebarItemExpanded, {
     if (input$sidebarItemExpanded == "CHARTS") {
@@ -873,13 +926,34 @@ server <- function(input, output, session) {
   # Note plotly vs. plot gives you the tool tip text
   output$plotVolume <- renderPlotly({
     filteredRxDoneData <- rxDoneData %>% filter(Organs %in% input$organVolumePlotCheckbox)
-
-    p <- finalVolumePlotInput()
+    filteredRxDoneData <- filteredRxDoneData %>% filter(Modality %in% input$modalityVolumePlotCheckbox)
+    filteredRxDoneData <- filteredRxDoneData %>% filter(RxDate >= input$volumePlotDate1)
+    filteredRxDoneData <- filteredRxDoneData %>% filter(RxDate <= input$volumePlotDate2)
+    
+    # We need to call this as if the duration radiobutton changes, it otherwise doesn't trigger a replot
+    p <- makeRxVolumePlot(filteredRxDoneData, input$volumePlotDurationRadio)
     p <- p %+% subset(filteredRxDoneData)
     
+    # Work out the tariff
+    tariff$theTotalTariff <<- calculateTotalTariff(filteredRxDoneData)
+
     # We need to round up to get the bin to include the full month otherwise it looses treatmnet data
-    p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y",
-                          limits = as.Date(c(input$volumePlotDate1, ceiling_date(input$volumePlotDate2,"month"))))
+    #p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y",
+    #                      limits = as.Date(c(input$volumePlotDate1, ceiling_date(input$volumePlotDate2,"month"))))
+
+    if (input$volumePlotDurationRadio == "week")
+    {
+      p <- p + scale_x_date(date_breaks = "1 week", date_labels = "%e %b %y")
+    }
+    else if (input$volumePlotDurationRadio == "month")
+    {
+      p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y")
+    }
+    else if (input$volumePlotDurationRadio == "year")
+    {
+      p <- p + scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+    }
+    
     logger(paste("FIXME Need to implement the bin to : ",input$volumePlotDurationRadio))
     plots$activePlot <- p
     plots$activePlot
@@ -1081,10 +1155,12 @@ server <- function(input, output, session) {
           selected = organFactors
         )
         
+        # Make the plots
         makeRxPathwayPlots()
         makeRxPathwayPies(input$rxPieDate1,
                           input$rxPieDate2,
                           input$organPieCheckbox)
+        makeRxVolumePlot(rxDoneData, input$volumePlotDurationRadio)
         
         progress$set(message = "Completed loading & processing.", value = 1.0)
         showNotification("Completed data processing, plot/tables should now be available to view...")
