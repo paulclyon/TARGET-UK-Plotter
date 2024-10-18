@@ -47,6 +47,7 @@ initialiseGlobals <- function() {
   rxdone_anaesthetist1_list      <<- c()
   rxdone_anaesthetist2_list      <<- c()
   rxdone_anaesthetist3_list      <<- c()
+  rxdone_postcode_list           <<- c()
   rxwait_organ_list              <<- c()
   rxwait_pt_list                 <<- c()
   rxwait_ref_date_list           <<- c()
@@ -90,14 +91,25 @@ initialiseGlobals <- function() {
   anaesthetist2Factors         <<- c()
   anaesthetist3Factors         <<- c()
   anaesthetistAllFactors       <<- c()
-  organFactors                 <<- c()
-  organCounts                  <<- c()
-  organPercents                <<- c()
-  Organs                       <<- NA
-  OrganPercents                <<- NA
-  organPie.df                  <<- NA
+
   rxDoneData                   <<- NA
   rxWaitData                   <<- NA
+  referralMap                  <<- NA
+  
+  rxDoneOrganFactors           <<- c()
+  rxDoneOrganFactors.filtered  <<- c()
+  rxDoneOrganFactors.final     <<- c()  
+  rxDoneOrganCounts            <<- c()
+  rxDoneOrganPercents          <<- c()
+  rxDoneOrganPie.df            <<- NA
+  
+  rxWaitOrganFactors           <<- c()
+  rxWaitOrganFactors.filtered  <<- c()
+  rxWaitOrganFactors.final     <<- c()  
+  rxWaitOrganCounts            <<- c()
+  rxWaitOrganPercents          <<- c()
+  rxWaitOrganPie.df            <<- NA
+  
   refclockstop.df              <<- NA
   recurrence.df                <<- NA
   rxdonePlot                   <<- ggplot()

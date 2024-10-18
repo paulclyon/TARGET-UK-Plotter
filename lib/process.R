@@ -1,5 +1,6 @@
 # Uses global variables to reprocess the referral data
-processData <- function() {
+processData <- function()
+{
   # Crunch the Referral Data
   deceased = as.integer()
   iRef = as.integer()
@@ -21,6 +22,7 @@ processData <- function() {
     #}
     
     logger(paste("\n", i, "/", patientCount, " Pt=", ptID, " performing referral analysis...", sep = ""))
+    postcode <- getDataEntry("pt_postcode", i)
     sex <- getDataEntry("sex", i)
     birth_year <- getDataEntry("birth_year", i)
     if (!is.na(birth_year) && !is.integer(birth_year)) {
@@ -409,6 +411,7 @@ processData <- function() {
             rxdone_anaesthetist1_list          <<- append(rxdone_anaesthetist1_list,            anaesthetistString1)
             rxdone_anaesthetist2_list          <<- append(rxdone_anaesthetist2_list,            anaesthetistString2)
             rxdone_anaesthetist3_list          <<- append(rxdone_anaesthetist3_list,            anaesthetistString3)
+            rxdone_postcode_list               <<- append(rxdone_postcode_list,                 postcode)
           }
           else
           {
@@ -529,7 +532,8 @@ processData <- function() {
       Anaesthetist3 = rxdone_anaesthetist3_list,
       ClockStopDaysPreDTT = as.numeric(rxdone_clockstop_days_predtt_list),
       ClockStopDaysPostDTT = as.numeric(rxdone_clockstop_days_postdtt_list),
-      ClockStopWhy = rxdone_clockstop_reason_list
+      ClockStopWhy = rxdone_clockstop_reason_list,
+      Postcode = rxdone_postcode_list
     )
     
   } else {

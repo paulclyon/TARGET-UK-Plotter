@@ -23,8 +23,8 @@ makeRxPathwayPlots <- function()
   if (!is.null(nrow(rxDoneData)))
   {  
     rxdonePlotColors <<- c(
-      "Ref to DTT"           = "yellow",
-      "DTT to Rx"            = "orange",
+      "Ref to DTT"           = "pink",
+      "DTT to Rx"            = "yellow",
       "Ref to Rx"            = "green",
       "Clock Stops Pre-DTT"  = "purple",
       "Clock Stops Post-DTT" = "cyan",
@@ -115,66 +115,148 @@ makeRxPathwayPlots <- function()
   }
   else
   {
-    rxwaitPlot <<- NA
+    rxwaitPlot <<- ggplot()
   }
 }
 
 makeRxPathwayPies <- function(inputStartDate, inputEndDate, inputOrganList)
 {
   # Initialise some stuff
-  startDate=as.Date(inputStartDate, format = "%d/%m/%Y")
-  endDate=as.Date(inputEndDate, format = "%d/%m/%Y")
-  organCounts <<- c()
-  organPercents <<- c()
-  rxdonePie <<- NA
+  startDate = as.Date(inputStartDate, format = "%d/%m/%Y")
+  endDate   = as.Date(inputEndDate, format = "%d/%m/%Y")
+  rxDoneOrganCounts   <<- c()
+  rxDoneOrganPercents <<- c()
+  rxWaitOrganCounts   <<- c()
+  rxWaitOrganPercents <<- c()
   
+
   if (is.data.frame(rxDoneData) && nrow(rxDoneData>0))
   {
-    logger(paste("FIXME: Need to filter the audit report to get it from ",startDate,endDate))
-    logger(paste("FIXME: Need to filter the audit report to get just organs ",inputOrganList))  
-    
     # Filter just the dates we need from rxDoneData
-    rxDoneData.filtered <- rxDoneData
+    rxDoneData.filtered <<- rxDoneData %>% filter(between(RxDate, as.Date(inputStartDate, format = "%d/%m/%Y"), 
+                                                                  as.Date(inputEndDate,   format = "%d/%m/%Y")))
+    rxDoneData.filtered <<- rxDoneData.filtered %>% filter(rxDoneData.filtered$Organs %in% inputOrganList)
+    rxDoneOrganFactors.filtered <<- levels(factor(rxDoneData.filtered$Organs))
+    rxDoneOrganFactors.final <<- c()
     
-    #rxDoneData.filtered <- rxDoneData %>% filter(between(RxDate, as.Date(inputStartDate, format = "%d/%m/%Y"), 
-    #                                                             as.Date(inputEndDate, format = "%d/%m/%Y")))
-    #rxDoneData.filtered <- rxDoneData.filtered %>% filter(Organs %in% inputOrganList)
-    organFactors.filtered = levels(rxDoneData$Organs)
-    
-    # Get the data for the Organ Pie Chart
-
-    for (organ in organFactors)
+    # Get the data for the Rx Done Organ Pie Chart
+    for (organ in rxDoneOrganFactors.filtered)
     {
-      count = length(which(rxDoneData$Organs==organ))
-      organCounts <<- c(organCounts,count)
-      organPercents <<- c(organPercents,count)
+      count = length(which(rxDoneData.filtered$Organs==organ))
+      if (count > 0)
+      {
+        rxDoneOrganFactors.final <<- c(rxDoneOrganFactors.final, organ)
+        rxDoneOrganCounts        <<- c(rxDoneOrganCounts,count)
+        rxDoneOrganPercents      <<- c(rxDoneOrganPercents,count)
+      }
     }
     
-    treatedTotal=sum(organCounts)
-    organPercents <<- organPercents/treatedTotal
-    organPie.df <<- data.frame(
-      Organs = organFactors,
-      OrganRxCounts = organCounts,
-      OrganRxPercents = organPercents
+    treatedTotal  <- sum(rxDoneOrganCounts)
+    rxDoneOrganPercents <<- rxDoneOrganPercents/treatedTotal
+    rxDoneOrganPie.df   <<- data.frame(
+      OrganRxFactors = rxDoneOrganFactors.final,
+      OrganRxCounts = rxDoneOrganCounts,
+      OrganRxPercents = rxDoneOrganPercents
     )
     
-    # Make and label the pie chart
-    organPie.df2 <<- organPie.df %>% 
-      mutate(csum = rev(cumsum(rev(OrganRxCounts))), 
-             pos = OrganRxCounts/2 + lead(csum, 1),
-             pos = if_else(is.na(pos), OrganRxCounts/2, pos))
-             
-    rxdonePie <<- ggplot(organPie.df2, aes(x = "", y = OrganRxCounts, fill = fct_inorder(Organs))) + 
-      geom_col(width = 1, color = 1) +
-      coord_polar(theta = "y") +
-      scale_fill_brewer(palette = "Pastel1") +
-      geom_label_repel(data = organPie.df2,
-                       aes(y = pos,
-                           label = glue::glue("{OrganRxCounts} ({scales::percent(organPercents)})"), 
-                           fill = Organs),
-                       size = 4, nudge_x = 3, show.legend = FALSE) +
-      guides(fill = guide_legend(title = "Group")) +
-      theme_void()
+    logger(paste("FIXME4",rxDoneOrganCounts))
+    logger(paste("FIXME5",rxDoneOrganFactors.final))
+    logger(paste("FIXME6",treatedTotal))
+    logger(paste("FIXME7",rxDoneOrganPercents))
+    logger(paste(glue::glue("{rxDoneOrganPie.df$OrganRxCounts} ({scales::percent(rxDoneOrganPie.df$OrganRxPercents)})")))
+    logger(paste(glue::glue("{rxDoneOrganCounts} ({scales::percent(rxDoneOrganPercents)})")))
+    
+    if (treatedTotal > 0)
+    {
+      # Make and label the pie chart
+      rxDoneOrganPie.df <<- rxDoneOrganPie.df %>% 
+        mutate(csum = rev(cumsum(rev(OrganRxCounts))), 
+               pos = OrganRxCounts/2 + lead(csum, 1),
+               pos = if_else(is.na(pos), OrganRxCounts/2, pos))
+               
+      p <- ggplot(rxDoneOrganPie.df, aes(x = "", y = OrganRxCounts, fill = fct_inorder(OrganRxFactors))) + 
+           geom_col(width = 1, color = "grey") +
+           coord_polar(theta = "y") +
+           scale_fill_brewer(palette = "Pastel1") +
+           guides(fill = guide_legend(title = "Treated Organs Piechart")) +
+           theme_void()
+      
+      # Weirdly the labelling is tied in with the dynamic refresh, without this line the pie doesn't refresh itself
+      # The label glue attribute is interesting: if you replace with OrganRxCounts and OrganPercents automatic update is lost
+      p <- p + geom_label_repel(data = rxDoneOrganPie.df,
+                         aes(y = pos,
+                             label = glue::glue("{rxDoneOrganCounts} ({scales::percent(rxDoneOrganPercents)})"), 
+                             fill = OrganRxFactors),
+                         size = 5, nudge_x = 3, show.legend = FALSE)
+        
+      rxdonePie <<- p
+    }
+    else
+    {
+      rxdonePie <<- ggplot()
+    }
+  }
+  
+  # Now for the Rx waiting Pie...
+  if (is.data.frame(rxWaitData) && nrow(rxWaitData>0))
+  {
+    # Filter just the organs we need from rxWaitData
+    rxWaitData.filtered <<- rxWaitData %>% filter(rxWaitData$Organs %in% inputOrganList)
+    
+    # Now just because the user asked for an organ doesn't mean we have any of that organ on waiting list, so need to factor...
+    rxWaitOrganFactors.filtered <<- levels(factor(rxWaitData.filtered$Organs))
+    rxWaitOrganFactors.final <<- c()
+    
+    # Get the data for the Rx Wait Organ Pie Chart
+    for (organ in rxWaitOrganFactors.filtered)
+    {
+      count = length(which(rxWaitData.filtered$Organs==organ))
+      if (count > 0)
+      {
+        rxWaitOrganFactors.final <<- c(rxWaitOrganFactors.final, organ)
+        rxWaitOrganCounts        <<- c(rxWaitOrganCounts,count)
+        rxWaitOrganPercents      <<- c(rxWaitOrganPercents,count)
+      }
+    }
+    
+    waitingTotal  <- sum(rxWaitOrganCounts)
+    rxWaitOrganPercents <<- rxWaitOrganPercents/waitingTotal
+    rxWaitOrganPie.df   <<- data.frame(
+      OrganRxFactors = rxWaitOrganFactors.final,
+      OrganRxCounts = rxWaitOrganCounts,
+      OrganRxPercents = rxWaitOrganPercents
+    ) 
+    
+    if (waitingTotal > 0)
+    {
+      # Make and label the pie chart
+      rxWaitOrganPie.df <<- rxWaitOrganPie.df %>% 
+        mutate(csum = rev(cumsum(rev(OrganRxCounts))), 
+               pos = OrganRxCounts/2 + lead(csum, 1),
+               pos = if_else(is.na(pos), OrganRxCounts/2, pos))
+      
+      logger(paste("FIXME123",length(rxWaitOrganPie.df$OrganRxCounts),length(fct_inorder(rxWaitOrganPie.df$OrganRxFactors)),length(rxWaitOrganCounts),length(rxWaitOrganPercents)))
+      
+      p <- ggplot(rxWaitOrganPie.df, aes(x = "", y = OrganRxCounts, fill = fct_inorder(OrganRxFactors))) + 
+        geom_col(width = 1, color = "grey") +
+        coord_polar(theta = "y") +
+        scale_fill_brewer(palette = "Pastel1") +
+        guides(fill = guide_legend(title = "Waiting List Piechart")) +
+        theme_void()
+      
+      # Weridly the labelling is tied in with the dynamic refresh, without this line the pie doesn't refresh itself
+      # The label glue attribute is interesting: if you replace with OrganRxCounts and OrganPercents automatic update is lost
+      p <- p + geom_label_repel(data = rxWaitOrganPie.df,
+                                aes(y = pos,
+                                    label = glue::glue("{rxWaitOrganCounts} ({scales::percent(rxWaitOrganPercents)})"), 
+                                    fill = OrganRxFactors),
+                                size = 5, nudge_x = 3, show.legend = FALSE)
+      rxwaitPie <<- p
+    }
+    else
+    {
+      rxwaitPie <<- ggplot()
+    }
   }
 }
 
@@ -187,8 +269,6 @@ makeRxVolumePlot <- function(filteredRxDoneData, volumePlotDuration)
   
   if (!is.null(nrow(filteredRxDoneData)))
   {
-    logger(paste("FIXME makeRxVolumePlot",volumePlotDuration))
-    
     if(volumePlotDuration == "year")
     {
       yAxisFreq <- 5
@@ -221,7 +301,3 @@ makeRxVolumePlot <- function(filteredRxDoneData, volumePlotDuration)
   }
   return(volumePlot)
 }
-
-
-
-

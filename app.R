@@ -9,7 +9,6 @@ required_pkgs <- c(
   "shinyjs",
   "shinydashboard",
   "shinyalert",
-  #"spsComps",
   "markdown",
   "DT",
   "ggplot2",
@@ -22,7 +21,12 @@ required_pkgs <- c(
   "survminer",
   "knitr",
   "kableExtra",
-  "RColorBrewer"
+  "RColorBrewer",
+  "sf",           # for mapping
+  "mapview",
+  "PostcodesioR",
+  "leaflet" # to render the mapview
+  
   ) # Consider "tinytex" to generate pdf?
 
 for (pkg in required_pkgs) {
@@ -52,6 +56,11 @@ if (castorLibMajorVersion < 2)
   remove.packages("castoRedc")
   remotes::install_github("castoredc/castoRedc", host = "api.github.com" , upgrade="always")
 }
+
+# If we ever need to back date a library e.g. compatability, this is how we do it:
+#remove.packages("yaml")
+#install.packages("https://cran.r-project.org/src/contrib/Archive/yaml/yaml_2.3.8.tar.gz", repos = NULL, type = "source")
+
 
 # Set the environment up
 source("lib/__init__.R")
@@ -97,6 +106,7 @@ anaesthetist1Factors   <<- c()
 operatorAllFactors     <<- c()
 anaesthetistAllFactors <<- c()
 studyNames             <<- c()
+#referralMap            <<- NULL
 
 theme <- bslib::bs_theme(version = 4)
 
@@ -117,9 +127,10 @@ ui <- dashboardPage(
         menuSubItem("Pathway Plots",   tabName = "rxpathwayplots"),
         menuSubItem("Pathway Pies",    tabName = "rxpathwaypies"),
         menuSubItem("Operator Plot",   tabName = "operatorplots"),
-        menuSubItem("Volume Plot",     tabName = "volumeplots"),        
+        menuSubItem("Volume Plot",     tabName = "volumeplots"),      
         menuSubItem("Recurrence Plot", tabName = "recurrenceplot"),
-        menuSubItem("Survival Plot",   tabName = "survivalplot")
+        menuSubItem("Survival Plot",   tabName = "survivalplot"),
+        menuSubItem("Referral Maps",   tabName = "referralmaps")
       ),
       
       menuItem(
@@ -466,6 +477,28 @@ ui <- dashboardPage(
                          plotOutput("plotSurvivalCurve"))
               )),
       
+      tabItem("referralmaps",
+              fluidRow(
+                column(
+                  width = 3,
+                  dateInput(
+                    "refMapDate1",
+                    "Start Date:",
+                    format = "dd/mm/yyyy",
+                    value = Sys.Date() - 365*5
+                  ),
+                  dateInput(
+                    "refMapDate2",
+                    "End Date:",
+                    format = "dd/mm/yyyy",
+                    value = Sys.Date()
+                  )
+                ),
+                tabPanel("ReferralMap",
+                  leafletOutput("plotReferralMap", height = "550px"),
+                )
+              )),
+      
       tabItem("rxpathwaytab",
               fluidRow(box(
                 width = 12,
@@ -663,7 +696,8 @@ ui <- dashboardPage(
 
 server <- function(input, output, session) {
   plots <- reactiveValues(activePlot = NULL)
-  api   <- reactiveValues(connected = FALSE)
+  api   <- reactiveValues(connected = FALSE, loaded = FALSE)
+  map   <- reactiveValues(generating = FALSE) 
   tariff <- reactiveValues(theTotalTariff = 0)
   
   output$apiStatus <- renderUI(
@@ -702,7 +736,7 @@ server <- function(input, output, session) {
       )
     }
   })
-  
+    
   # This is the income generated from the volume of ablations which have taken place on the volume plot
   output$totalTariff <- renderUI(
   {
@@ -820,7 +854,7 @@ server <- function(input, output, session) {
   finalRxPieInput <- reactive({
     switch(input$rxTimesPieRadio,
            "rxdonePie" = rxdonePie,
-           "rxwaitPie" = rxwaitPlot)
+           "rxwaitPie" = rxwaitPie)
   })
   
   finalRxDataInput <- reactive({
@@ -846,6 +880,29 @@ server <- function(input, output, session) {
   finalRecurrencePlotInput <- reactive({
     recurrencePlotOrgan
   })
+  
+  referralMapInput <- reactive({
+    referralMap
+  })
+  
+  regenerateReferralMap <- function(force = F)
+  {
+    logger(">>> FIXME111")
+    if (force == T || is.null(referralMap))
+    {
+      logger("FIXME111 here")
+      showNotification("Generating Map...")
+      makeReferralMap(rxDoneData,input$refMapDate1,input$refMapDate2)
+      showNotification("Completed Map Generation.")
+    }
+    else
+    {
+      logger("FIXME111 else here")
+      #showNotification("Map has not been updated.")
+    }
+    logger("<<< FIXME111")
+    
+  }
   
   finalRefAuditInput <- reactive({
     # This does the knitting bit ready to make the HTML by running the knit function
@@ -953,20 +1010,22 @@ server <- function(input, output, session) {
     {
       p <- p + scale_x_date(date_breaks = "1 year", date_labels = "%Y")
     }
-    
-    logger(paste("FIXME Need to implement the bin to : ",input$volumePlotDurationRadio))
     plots$activePlot <- p
     plots$activePlot
   })
   
   # Chart the Rx pathway pie using the date range and organ filters
-  output$pieRxPathway <- renderPlot({
+  output$pieRxPathway <- renderPlot(
+  {
     if (!is.list(finalRxTableDataInput()))
     {
       p <- plot.new()
     }
     else
     {
+      makeRxPathwayPies(input$rxPieDate1,
+                        input$rxPieDate2,
+                        input$organPieCheckbox)
       p <- finalRxPieInput()
     }
     plots$activePlot <- p
@@ -987,7 +1046,17 @@ server <- function(input, output, session) {
     plots$activePlot <- p
     plots$activePlot
   })
-  
+  output$plotReferralMap <- renderLeaflet({
+    # See : https://stackoverflow.com/questions/36679944/mapview-for-shiny
+    plots$activePlot <- NULL
+    regenerateReferralMap(T)
+    if (!is.null(referralMapInput()))
+    {
+      plots$activePlot <- referralMapInput()@map
+      showNotification("Completed Mapping.")
+    }
+    plots$activePlot
+  })
   output$summaryWaitData <- renderPrint({
     summary(rxWaitData)
   })
@@ -1155,11 +1224,8 @@ server <- function(input, output, session) {
           selected = organFactors
         )
         
-        # Make the plots
+        # Make the pathway plots...
         makeRxPathwayPlots()
-        makeRxPathwayPies(input$rxPieDate1,
-                          input$rxPieDate2,
-                          input$organPieCheckbox)
         makeRxVolumePlot(rxDoneData, input$volumePlotDurationRadio)
         
         progress$set(message = "Completed loading & processing.", value = 1.0)
@@ -1188,27 +1254,35 @@ server <- function(input, output, session) {
   # This works to a point in that it resets the scale but it doesn't reload the data
   # Not really sure how this works at all if I am honest! I don't assign it to a real plot, weird
   observeEvent(input$refreshRxPlot, {
-    plots$activePlot <- NA
+    plots$activePlot <- ggplot()
   })
   observeEvent(input$refreshOperatorPlot, {
-    plots$activePlot <- NA
+    plots$activePlot <- ggplot()
   })
   observeEvent(input$refreshVolumePlot, {
-    plots$activePlot <- NA
+    plots$activePlot <- ggplot()
   })
   observeEvent(input$refreshRxPie, {
-    plots$activePlot <- NA
+    plots$activePlot <- ggplot()
   })
   observeEvent(input$refreshRecurrencePlot, {
-    plots$activePlot <- NA
+    plots$activePlot <- ggplot()
   })
   observeEvent(input$refreshSurvivalPlot, {
-    plots$activePlot <- NA
+    plots$activePlot <- ggplot()
   })
+  observeEvent(input$refMapDate1, {
+    if (api$loaded == T) regenerateReferralMap(T)
+    plots$activePlot <- referralMapInput()
+  })
+  observeEvent(input$refMapDate2, {
+    if (api$loaded == T) regenerateReferralMap(T)
+    plots$activePlot <- referralMapInput()
+  })
+  
   observeEvent(input$updateAnaesthetistNames, {
     updateAnaesthetistNames(input$anaesthetistNameCheckbox,
       input$anaesthetistNewName)
-    
     if (length(input$anaesthetistNameCheckbox)==0)
     {
       shinyCatch({

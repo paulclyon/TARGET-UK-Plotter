@@ -11,6 +11,8 @@ output: html_document
 
 V0.10 Aardvark: First Beta Release of TARGET Plotter (based on OxTAR Plotter)<br>
 V0.20 Badger: Implemented Treatment Volume Plot<br>
-      Updated to castoRedc library v2.0 using OpenAPI to fix write<br>
-      Updated to castor API URL endpoint data fetching with paging<br>
-V0.21 Cheetah: Implemented Tariff for Volume Plot<br>
+              Updated to castoRedc library v2.0 using OpenAPI to fix write<br>
+              Updated to castor API URL endpoint data fetching with paging<br>
+V0.3 Cheetah: Implemented Tariff for Volume Plot<br>
+              Implemented the waiting pie chart<br>
+              Implemented the Referral Mapping<br>
