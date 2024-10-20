@@ -23,12 +23,19 @@ getGeoForPostcode <- function(postcode)
   }
   
   # Now we have a full post code
-  postcodeGeo <- PostcodesioR::postcode_lookup(postcodeFull)
-  return(c(postcodeGeo$latitude,postcodeGeo$longitude))
+  if (postcode_validation(postcodeFull))
+  {
+    postcodeGeo <- PostcodesioR::postcode_lookup(postcodeFull)
+    returnVal <- c(postcodeGeo$latitude,postcodeGeo$longitude)
+  }
+  else
+  {
+    returnVal <- c(0,0)
+  }
+  return(returnVal)
 }
 
-
-makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate)
+makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate, progressBar)
 {
   # Initialise some stuff
   startDate = as.Date(inputStartDate, format = "%d/%m/%Y")
@@ -47,22 +54,28 @@ makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate)
     organ <- c()
     geoRx <- NA
     
-    for (i in 1:nrow(rxDoneData.filtered))
+    logger(paste("Generating the postcode geo-locations ",inputStartDate,"-",inputEndDate,"...",sep=""))
+
+    if (nrow(rxDoneData.filtered >0))
     {
-      thisPostcode <- rxDoneData.filtered$Postcode[i]
-      if (is.na(thisPostcode))
+      for (i in 1:nrow(rxDoneData.filtered))
       {
-        # Don't add to geoRx if no postcode, as we can't plot anything, just skip!
-      }
-      else
-      {
-        geo <- getGeoForPostcode(thisPostcode)
-        ID <- c(ID, rxDoneData.filtered$ID)
-        latitude  <- c(latitude, geo[1])
-        longitude <- c(longitude, geo[2])
-        postcode <- c(postcode, thisPostcode)
-        rxdate <- c(rxdate, format(rxDoneData.filtered$RxDate, format = "%d %B, %Y"))
-        organ <- c(organ, rxDoneData.filtered$Organs)
+        progressBar$set(message = "Geolocating postcodes...", value = i/nrow(rxDoneData.filtered))
+        thisPostcode <- rxDoneData.filtered$Postcode[i]
+        if (is.na(thisPostcode) || is.null(thisPostcode) || thisPostcode == "" || thisPostcode == " ")
+        {
+          # Don't add to geoRx if no postcode, as we can't plot anything, just skip!
+        }
+        else
+        {
+          geo <- getGeoForPostcode(thisPostcode)
+          ID <- c(ID, rxDoneData.filtered$ID)
+          latitude  <- c(latitude, geo[1])
+          longitude <- c(longitude, geo[2])
+          postcode <- c(postcode, thisPostcode)
+          rxdate <- c(rxdate, format(rxDoneData.filtered$RxDate, format = "%d %B, %Y"))
+          organ <- c(organ, rxDoneData.filtered$Organs)
+        }
       }
     }
     
@@ -78,9 +91,16 @@ makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate)
   }
   logger(paste("Generating the referral map from ",inputStartDate,"-",inputEndDate,"...",sep=""))
   mapviewOptions(basemaps = "OpenStreetMap")
-  referralMap <<- mapview(geoRx, xcol = "Longitude", ycol = "Latitude", crs = 4269, grid = FALSE)
-  logger("Completed the referral map.")
-  
+  if (nrow(geoRx)>0)
+  {
+    referralMap <<- mapview(geoRx, xcol = "Longitude", ycol = "Latitude", crs = 4269, grid = FALSE)
+  }
+  else
+  {
+    # If we haven't got any data, just plot a single point for fun
+    referralMap <<- mapview(data.frame(ID=c("Alcatraz"),Longitude=c(-122.422844),Latitude=c(37.827)), xcol = "Longitude", ycol = "Latitude", crs = 4269, grid = FALSE)
+    logger("No valid treatment data between dates; go to jail, do not pass go, do not collect £200.")
+  }
   return(referralMap)
 }
 

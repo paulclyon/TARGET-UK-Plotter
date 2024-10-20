@@ -25,8 +25,8 @@ asDateWithOrigin <- function(thisDate)
 
 # initialiseGlobals sets all of the default values
 
-initialiseGlobals <- function() {
-  
+initialiseGlobals <- function()
+{
   # This is the order of the clock stop columns
   clockStopColNames              <<- c("date.stopped","date.restart","reason","free.text")
   rxTableColNames                <<- c("rx.organ","lesion.size","max.depth","closest.serosa","punctures","no.applicators.or.postitions","modality","max.power","min.power","rx.time","new.or.rec","free.text")
@@ -92,9 +92,9 @@ initialiseGlobals <- function() {
   anaesthetist3Factors         <<- c()
   anaesthetistAllFactors       <<- c()
 
+  # The major dataframes
   rxDoneData                   <<- NA
   rxWaitData                   <<- NA
-  referralMap                  <<- NA
   
   rxDoneOrganFactors           <<- c()
   rxDoneOrganFactors.filtered  <<- c()
@@ -125,6 +125,8 @@ initialiseGlobals <- function() {
   survivalFitOrgan             <<- NA
   targetStudyID                <<- NA
   fieldData                    <<- NA
+  referralMap                  <<- NULL
+  
   # The Open API stuff is used to write to Castor...
   castorOpenAPI                <<- NA
   studyDataOpenAPI             <<- NA
