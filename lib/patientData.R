@@ -15,6 +15,7 @@ getPatientIndex <- function(ptID, ignoreIfArchived = TRUE)
 
 # Return true only if the patient is found and the patient is archived, otherwise false
 # This will only work with paientData from castoRedc v1.1.0 its been deprecated in later versions of the library
+# FIXME fix for castoRedc v2.x
 patientArchived <- function(ptID)
 {
   archived <- patientData$archived[patientData$id == ptID]

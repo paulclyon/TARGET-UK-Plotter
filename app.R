@@ -928,10 +928,7 @@ server <- function(input, output, session) {
     #  envir = parent.frame()
     #)
     #})
-    
   })
-  
-  
   
   # Plot the Rx pathway plot using the date range and organ filters
   # Note plotly vs. plot gives you the tool tip text
@@ -1009,23 +1006,38 @@ server <- function(input, output, session) {
     plots$activePlot
   })
   
-  # Chart the Rx pathway pie using the date range and organ filters
-  output$pieRxPathway <- renderPlot(
-  {
-    if (!is.list(finalRxTableDataInput()))
-    {
-      p <- plot.new()
-    }
-    else
-    {
-      makeRxPathwayPies(input$rxPieDate1,
-                        input$rxPieDate2,
-                        input$organPieCheckbox)
-      p <- finalRxPieInput()
-    }
-    plots$activePlot <- p
+  # This is another method to make a pie chart, but from memory I had similar refresh issues
+  observeEvent(input$refreshRxPieAnotherWay, {
+    logger("FIMXE Refresh Pie Another Example Method")
+    output$pieRxPathwayAnotherWay <- renderPieChart(div_id="pie", data=data.frame(name=c("A","B","C"),value=c(1,2,3)))
     plots$activePlot
   })
+  
+  # Chart the Rx pathway pie using the date range and organ filters
+  # If you put the output$ in the observeEvent it won't refresh on loading, only when hit refresh button
+  observeEvent(input$refreshRxPie, {
+   logger("FIXME Refresh Pie")
+  })
+  
+  output$pieRxPathway <- renderPlot(
+    {
+      if (!is.list(finalRxTableDataInput()))
+      {
+        p <- plot.new()
+      }
+      else
+      {
+        makeRxDonePie(input$rxPieDate1,
+                      input$rxPieDate2,
+                      input$organPieCheckbox)
+        makeRxWaitPie(input$rxPieDate1,
+                      input$rxPieDate2,
+                      input$organPieCheckbox)
+        p <- finalRxPieInput()
+      }
+      plots$activePlot <- p
+      plots$activePlot
+    })
   
   output$plotRecurrenceCurve <- renderPlot({
     # See this for dynmaic survival curves in shiny
@@ -1034,6 +1046,7 @@ server <- function(input, output, session) {
     plots$activePlot <- p
     plots$activePlot
   })
+  
   output$plotSurvivalCurve <- renderPlot({
     # See this for dynmaic survival curves in shiny
     #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots

@@ -95,7 +95,7 @@ initialiseGlobals <- function()
   # The major dataframes
   rxDoneData                   <<- NA
   rxWaitData                   <<- NA
-  
+
   rxDoneOrganFactors           <<- c()
   rxDoneOrganFactors.filtered  <<- c()
   rxDoneOrganFactors.final     <<- c()  
