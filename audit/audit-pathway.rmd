@@ -113,7 +113,7 @@ rxDoneAuditData %>%
 ```
 
 
-<h2>Ablation Referral Days Stopped (Pre- or Post-DDT)</h2>
+<h2>Ablation Referral Days Stopped (Pre- or Post-DTT)</h2>
 ```{r daystopped_pre_or_post_dtt}
 rxDoneAuditData %>% 
   mutate(
@@ -135,7 +135,7 @@ rxDoneAuditData %>%
 ```
 
 
-<h2>Ablation Referral Days Stopped (Pre- and Post-DDT Combined)</h2>
+<h2>Ablation Referral Days Stopped (Pre- and Post-DTT Combined)</h2>
 ```{r daystopped_pre_and_post_dtt}
 # This groups clock stops before and after DTT all into the same group
 rxDoneAuditData %>% 
