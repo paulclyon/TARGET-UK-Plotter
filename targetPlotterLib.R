@@ -23,8 +23,8 @@ makeRxPathwayPlots <- function()
   if (!is.null(nrow(rxDoneData)))
   {  
     rxdonePlotColors <<- c(
-      "Ref to DTT"           = "yellow",
-      "DTT to Rx"            = "orange",
+      "Ref to DTT"           = "red",
+      "DTT to Rx"            = "yellow",
       "Ref to Rx"            = "green",
       "Clock Stops Pre-DTT"  = "purple",
       "Clock Stops Post-DTT" = "cyan",

@@ -1,5 +1,5 @@
 ---
-title: "Stats-2023"
+title: "Ablation Waiting Time Audit Report"
 output:
   pdf_document: default
   html_document: default
@@ -12,52 +12,46 @@ options(knitr.table.format = "html")
 library(dplyr)
 library(kableExtra)
 
-
-
-
+# This is a way of generating an All Organs stats and individual organ stats in single table
 overall_group = function(data, col_name)
 {
-  
   d1 = data %>%
     mutate(summary_level = "grouped")
   
   d2 = data %>%
     mutate(summary_level = "ungrouped") %>%
-    mutate(!!sym(col_name) := NA)
+    mutate(!!sym(col_name) := "All Organs")
   
   d12 = rbind(d1, d2) %>%
     group_by(summary_level, !!sym(col_name))
   
-  return(d12)
+  # Loose the summary_level column from the final return data frame as it isn't necessary
+  return(subset(d12,select = -c(summary_level)))
 }
 
-done2023 <- rxDoneData %>% 
+# Remove Dummy patient numbers from the data
+rxDoneAuditData <- rxDoneData %>% 
   filter((ID != "000-1" & ID != "00000-1")) %>%
   filter(RxDate >= as.Date(audit_start_date) & RxDate < as.Date(audit_end_date)) 
 ```
 
 
-These are some variables you might wish to choose, I had to do an ugly global variable hack to get them visible from this file, but you dont need to worry about that! Thanks Paul
-
-Audit Period from:
-`r audit_start_date`
-`r audit_end_date`
-
-For organs:
-`r paste(audit_organs)`
-
-Generate on date:
+<!-- PCL: I had to do an ugly global variable hack to get audit_start_date and audit_end_date visible from this file, but it works-->
+<h1>Ablation Waiting Time Audit</h1>
+<br>
+Audit Generated on: 
 ```{r}
 renderText({
   format(Sys.time(), "%a %b %d %X %Y")
 })
 ```
+<br>
+Audit Period from: `r audit_start_date` to: `r audit_end_date`<br><br>
+Organs included in audit: `r paste(audit_organs)`<br>
 
-Lovely stuff
-
-
+<h2>Ablation Referral to DTT Times</h2>
 ```{r ref_dtt}
-done2023 %>%
+rxDoneAuditData %>%
   mutate(within10=ifelse(Ref_DTT<=10, 1,0),
          within21=ifelse(Ref_DTT<=21, 1, 0)) %>%
   overall_group("Organs") %>%
@@ -68,13 +62,18 @@ done2023 %>%
             'w10%'=round(sum(within10, na.rm=T)/n()*100, 1),
             'w21%'=round(sum(within21, na.rm=T)/n()*100, 1), 
             n=n()) %>%
+  
+  mutate(Organs=if_else(is.na(Organs), 'All Organs', Organs),
+    'Organ (n)'=paste(Organs, ' (N=', n,')', sep='')) %>%
+  ungroup()%>%
+  select('Organ (n)', mean, median, 'w10', 'w21', 'w10%', 'w21%') %>%
   kbl %>%
   kable_styling()
-
 ```
 
+<h2>Ablation DTT to Rx Times</h2>
 ```{r dtt_rx}
-done2023 %>%
+rxDoneAuditData %>%
   mutate(within31=ifelse(DTT_Rx<=31, 1,0), within45=ifelse(DTT_Rx<=45, 1,0), within60=ifelse(DTT_Rx<=60, 1, 0)) %>%
   overall_group("Organs") %>%
   summarise(mean=round(mean(DTT_Rx, na.rm=T), 1),
@@ -85,13 +84,17 @@ done2023 %>%
             'w45%'=round(sum(within45, na.rm=T)/n()*100, 1),
             'w60%'=round(sum(within60, na.rm=T)/n()*100, 1), 
             n=n()) %>%
-  select(Organs, mean, median, 'w31%', 'w45%', 'w60%', n) %>%
+  mutate(Organs=if_else(is.na(Organs), 'All Organs', Organs),
+    'Organ (n)'=paste(Organs, ' (N=', n,')', sep='')) %>%
+  ungroup()%>%
+  select('Organ (n)', mean, median, 'w31%', 'w45%', 'w60%', n) %>%
   kbl %>%
   kable_styling()
 ```
 
+<h2>Ablation Referral to Rx Times</h2>
 ```{r ref_rx}
-done2023 %>%
+rxDoneAuditData %>%
   mutate(within90=ifelse(Ref_RxDone<=90, 1,0)) %>%
   overall_group("Organs") %>%
   summarise(mean=round(mean(Ref_RxDone, na.rm=T), 1),
@@ -101,17 +104,41 @@ done2023 %>%
             n=n(),
             ) %>%
   mutate(Organs=if_else(is.na(Organs), 'All Organs', Organs),
-    'Tumour Type'=paste(Organs, ' (N=', n,')', sep='')) %>%
+    'Organ (n)'=paste(Organs, ' (N=', n,')', sep='')) %>%
   ungroup()%>%
   filter(Organs != 'Multiple Organs') %>%
-  select('Tumour Type', mean, median, 'w90%') %>%
+  select('Organ (n)', mean, median, 'w90%') %>%
   kbl %>%
   kable_styling()
 ```
 
 
-```{r daystopped_nopre}
-done2023 %>% 
+<h2>Ablation Referral Days Stopped (Pre- or Post-DDT)</h2>
+```{r daystopped_pre_or_post_dtt}
+rxDoneAuditData %>% 
+  mutate(
+    clockstopped=if_else(
+      is.na(ClockStopDaysPreDTT), 
+      if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped Post DTT'),
+      if_else(is.na(ClockStopDaysPostDTT), 'Stopped Pre DTT', 'Stopped Both Pre and Post DTT')),
+    daysStopped=if_else(
+      is.na(ClockStopDaysPreDTT),
+      if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT),
+      if_else(is.na(ClockStopDaysPostDTT), ClockStopDaysPreDTT, ClockStopDaysPreDTT+ClockStopDaysPostDTT),
+    ),
+  ) %>% 
+  group_by(clockstopped) %>% 
+  #mutate(clockstopped=paste(clockstopped, ' (N=', n,')', sep='')) %>%
+  summarise(n=n(), mean=round(mean(daysStopped), 1), median=round(median(daysStopped), 1))%>%
+  kbl %>%
+  kable_styling()
+```
+
+
+<h2>Ablation Referral Days Stopped (Pre- and Post-DDT Combined)</h2>
+```{r daystopped_pre_and_post_dtt}
+# This groups clock stops before and after DTT all into the same group
+rxDoneAuditData %>% 
   mutate(
     clockstopped=if_else(
       is.na(ClockStopDaysPreDTT), 
@@ -130,32 +157,13 @@ done2023 %>%
 ```
 
 
-```{r daystopped}
-done2023 %>% 
-  mutate(
-    clockstopped=if_else(
-      is.na(ClockStopDaysPreDTT), 
-      if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped Pre'),
-      if_else(is.na(ClockStopDaysPostDTT), 'Stopped Post', 'Stopped Both')),
-    daysStopped=if_else(
-      is.na(ClockStopDaysPreDTT),
-      if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT),
-      if_else(is.na(ClockStopDaysPostDTT), ClockStopDaysPreDTT, ClockStopDaysPreDTT+ClockStopDaysPostDTT),
-    ),
-  ) %>% 
-  group_by(clockstopped) %>% 
-  summarise(n=n(), mean=round(mean(daysStopped), 1), median=round(median(daysStopped), 1))%>%
-  kbl %>%
-  kable_styling()
-```
-
-
+<h2>Ablation Referral Clockstops</h2>
 ```{r clockstop}
-  done2023 %>% mutate(
+  rxDoneAuditData %>% mutate(
     clockstopped=if_else(
       is.na(ClockStopDaysPreDTT), 
-      if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped Post'),
-      if_else(is.na(ClockStopDaysPostDTT), 'Stopped Pre', 'Stopped Both')),
+      if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped Post DTT'),
+      if_else(is.na(ClockStopDaysPostDTT), 'Stopped Pre DTT', 'Stopped Both Pre and Post DTT')),
     daysStopped=if_else(
       is.na(ClockStopDaysPreDTT),
       if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT),
@@ -168,35 +176,35 @@ done2023 %>%
 
 
 ## Including Plots
-
-
 ```{r ttt_plot, echo=FALSE}
-done2023plot <- ggplot(done2023, aes(x=RxDate, text=paste(ID, Organs, ClockStopWhy))) +
-    geom_point( aes(y=Ref_DTT,              color="Ref to DTT")) + 
-    geom_point( aes(y=DTT_Rx,               color="DTT to Rx")) + 
-    geom_point( aes(y=Ref_RxDone,           color="Ref to Rx")) +
-    geom_point( aes(y=ClockStopDaysPreDTT,  color="Clock Stops Pre-DTT")) +
-    geom_point( aes(y=ClockStopDaysPostDTT, color="Clock Stops Post-DTT")) +
-    theme(legend.position="bottom") +
-    scale_color_manual(values = rxdonePlotColors) +
-    guides(color=guide_legend("Treated Patients...")) +
-    labs(y="Number of Days", x="Treatment Date") +
-    ggtitle("Time to Treatment") 
+
+rxDoneAuditDataplot <- ggplot(rxDoneAuditData, aes(x=RxDate, text=paste(ID, ' (',Organs,')\n', ClockStopWhy, sep=''))) +
+      geom_point( aes(y=Ref_DTT,              color="Ref to DTT")) + 
+      geom_point( aes(y=DTT_Rx,               color="DTT to Rx")) + 
+      geom_point( aes(y=Ref_RxDone,           color="Ref to Rx")) +
+      geom_point( aes(y=ClockStopDaysPreDTT,  color="Clock Stops Pre-DTT")) +
+      geom_point( aes(y=ClockStopDaysPostDTT, color="Clock Stops Post-DTT")) +
+      theme(legend.position="bottom") +
+      scale_color_manual(values = rxdonePlotColors) +
+      guides(color=guide_legend("Treated Patients...")) +
+      labs(y="Number of Days") +
+      ggtitle("Time to Treatment")
   
-  break.vec <- seq(from = as.Date("2023-01-01"), to = as.Date("2024-01-01"),
-                     by = "month")
-  labels.vec <- strftime(break.vec, "%b")
-  labels.vec[1] <- "Jan '23"
-  labels.vec[13] <- "Jan '24"
+  # PCL: Not sure this makes sense now we can change dates of audit dynamically
+  #break.vec <- seq(from = as.Date("2023-01-01"), to = as.Date("2024-01-01"),
+  #                   by = "month")
+  #labels.vec <- strftime(break.vec, "%b")
+  #labels.vec[1] <- "Jan '23"
+  #labels.vec[13] <- "Jan '24"
     
- done2023plot + 
-    scale_x_date(limits = as.Date(c('2022-12-31', '2023-12-31'), format = "%d/%m/%Y", origin='1970-01-01'), breaks=break.vec,  labels=labels.vec, expand=c(0.1,0)) +
-    theme(legend.position="bottom")
+ rxDoneAuditDataplot 
+ #    scale_x_date(limits = as.Date(c('2022-12-31', '2023-12-31'), format = "%d/%m/%Y", origin='1970-01-01'), #breaks=break.vec,  labels=labels.vec, expand=c(0.1,0)) +
+ #    theme(legend.position="bottom")
  
 ```
 
 ```{r organ_pie}
-done2023 %>% 
+rxDoneAuditData %>% 
   group_by(Organs) %>%
   summarise(n=n()) %>% 
   mutate(prop=n/sum(.$n) *100,
@@ -211,10 +219,9 @@ done2023 %>%
 ```
 
 ## Long waits
-
-
+<h2>Ablation Long Waits</h2>
 ```{r longwaits}
-done2023 %>% 
+rxDoneAuditData %>% 
   filter(Ref_RxDone > 120) %>%
   select(ID, Ref_RxDone, ClockStopDaysPreDTT, ClockStopDaysPostDTT) %>%
   kbl %>%

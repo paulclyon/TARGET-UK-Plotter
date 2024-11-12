@@ -22,7 +22,9 @@ processData <- function()
     #}
     # Also see patientArchived() function which needs fixing up for latest castoRedc
     
-    logger(paste("\n", i, "/", patientCount, " Pt=", ptID, " performing referral analysis...", sep = ""))
+    #logger(paste("\n", i, "/", patientCount, " Pt=", ptID, " performing referral analysis...", sep = ""))
+    logger(paste(i, "/", patientCount, " Pt=", ptID, " performing referral analysis...", sep = ""))
+    
     postcode <- getDataEntry("pt_postcode", i)
     sex <- getDataEntry("sex", i)
     birth_year <- getDataEntry("birth_year", i)
