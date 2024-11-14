@@ -121,8 +121,7 @@ ui <- dashboardPage(
     sidebarMenu(
       id = "sidebarID",
       menuItem("API Connection", tabName = "api", icon = icon("cog")),
-      
-      menuItem(
+      hidden(tagAppendAttributes(menuItem(
         "Charts",
         id = "chartsID",
         tabName = "charts",
@@ -131,13 +130,12 @@ ui <- dashboardPage(
         menuSubItem("Pathway Plots",   tabName = "rxpathwayplots"),
         menuSubItem("Pathway Pies",    tabName = "rxpathwaypies"),
         menuSubItem("Operator Plot",   tabName = "operatorplots"),
-        menuSubItem("Volume Plot",     tabName = "volumeplots"),      
+        menuSubItem("Volume Plot",     tabName = "volumeplots"),
         menuSubItem("Recurrence Plot", tabName = "recurrenceplot"),
         menuSubItem("Survival Plot",   tabName = "survivalplot"),
         menuSubItem("Referral Maps",   tabName = "referralmaps")
-      ),
-      
-      menuItem(
+      ), id='chartsMenuItem')),
+      hidden(tagAppendAttributes(menuItem(
         "Data Tables",
         id = "tablesID",
         tabName = "tables",
@@ -146,9 +144,8 @@ ui <- dashboardPage(
         menuSubItem("Pathway Table",    tabName = "rxpathwaytab"),
         menuSubItem("Recurrence Table", tabName = "recurrencetab"),
         menuSubItem("Survival Table",   tabName = "survivaltab")
-      ),
-      
-      menuItem(
+      ), id='tablesMenuITem')), 
+      hidden(tagAppendAttributes(menuItem(
         "Data Validation",
         id = "validationID",
         tabName = "validation",
@@ -156,18 +153,16 @@ ui <- dashboardPage(
         expandedName = "VALIDATION",
         menuSubItem("Operator Names",      tabName = "operatorNames"),
         menuSubItem("Anaesthetists Names", tabName = "anaesthetistNames")
-      ),
-      
-      menuItem(
+      ), id='validationMenuItem')),
+      hidden(tagAppendAttributes(menuItem(
         "Audit Reports",
         id = "auditID",
         tabName = "audit",
         icon = icon("clipboard-list"),
         expandedName = "AUDIT",
         menuSubItem("Referral Audit Report",   tabName = "audit-pathway")
-      ),
-      
-      menuItem(
+      ), id='auditMenuItem')),
+      hidden(tagAppendAttributes(menuItem(
         "Summary Data",
         id = "summaryID",
         tabName = "summary",
@@ -176,13 +171,13 @@ ui <- dashboardPage(
         menuSubItem("Pathway Summary Data",    tabName = "rxpathwaysummary"),
         menuSubItem("Recurrence Summary Data", tabName = "recurrencesummary"),
         menuSubItem("Survival Summary Data",   tabName = "survivalsummary")
-      ),
-      
-      menuItem(
+      ), id='summaryMenuItem')),
+      hidden(tagAppendAttributes(menuItem(
         "Pathway Summary",
+        id = "pathwaySummaryID",
         tabName = "summary",
         icon = icon("clipboard-list")
-      ),
+      ), id='pathwaySummaryMenuItem')),
       menuItem("Test", tabName = "test", icon = icon("code")),
       menuItem("Change Log", tabName = "changeLog", icon = icon("list")),
       menuItem("About", tabName = "about", icon = icon("address-card")),
@@ -216,11 +211,11 @@ ui <- dashboardPage(
                     placeholder = NULL
                   ),
                   
-                  selectInput(
+                  hidden(tagAppendAttributes(selectInput(
                     inputId = "studyDropdown",
                     label = "Choose TARGET-compatible Study To Load",
                     choices = c()
-                  ),
+                  ), id="studyDropdownGroup")),
                   hr(),
                   
                   column(
@@ -231,12 +226,12 @@ ui <- dashboardPage(
                     actionButton(inputId = "disconnectAPI", label = "Disconnect API"),
                     br(),
                     br(),
-                    actionButton(
+                    hidden(actionButton(
                       inputId = "reloadData",
                       label = "No API for Loading",
                       icon("remove-circle", lib = "glyphicon"),
                       style = "color: #ddd; background-color: #337ab7; border-color: #2e6da4"
-                    ) ,
+                    )),
                     br(),
                   ),
                   column(width = 8,
@@ -815,6 +810,8 @@ server <- function(input, output, session) {
       else
       {
         logger(paste("API Connected: Found ",length(studyNames[[1]])," studies",sep=""))
+        shinyjs::show('studyDropdownGroup')
+        shinyjs::show('reloadData')
         updateActionButton(session,
                            inputId = "reloadData",
                            label = "Load Study Data",
@@ -841,6 +838,8 @@ server <- function(input, output, session) {
         choices = c("No API Connection"),
         selected = NULL
       )
+      shinyjs::hide('studyDropdownGroup')
+      shinyjs::hide('reloadData')
     }
   })
   
@@ -1130,6 +1129,8 @@ server <- function(input, output, session) {
   })
   observeEvent(input$connectAPI,
   {
+    shinyjs::hide('studyDropdownGroup')
+    shinyjs::hide('reloadData')
     # First check we have up to date version (at least 2.x.x)
     castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version),1,1))
     showNotification(paste("Version of castoRedc Library = ",packageVersion("castoRedc")))
@@ -1156,6 +1157,8 @@ server <- function(input, output, session) {
       else
       {
         api$connected = F
+        shinyjs::hide('studyDropdownGroup')
+        shinyjs::hide('reloadData')
         showNotification("Could not connect to Castor API with those settings")
       }
     }
@@ -1164,6 +1167,8 @@ server <- function(input, output, session) {
     disconnectCastorAPI()
     api$connected = F
     api$loaded = F
+    shinyjs::hide('studyDropdownGroup')
+    shinyjs::hide('reloadData')
     showNotification("Castor API Disconnected.")
   })
   observeEvent(input$reloadData, {
@@ -1249,7 +1254,7 @@ server <- function(input, output, session) {
           choices = organFactors,
           selected = organFactors
         )
-        
+        sapply(c('chartsMenuItem', 'tablesMenuItem', 'validationMenuItem', 'auditMenuItem', 'summaryMenuItem', 'pathwaySummaryMenuItem'), shinyjs::show)
         # Make the pathway plots...
         makeRxPathwayPlots()
         makeRxVolumePlot(rxDoneData, input$volumePlotDurationRadio)
