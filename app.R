@@ -1,73 +1,7 @@
-# Install the required packages if not already installed
-required_pkgs <- c(
-  "remotes",
-  "httr",
-  "rapiclient",
-  "dplyr",
-  "jsonlite",
-  "shiny",
-  "shinyjs",
-  "shinydashboard",
-  "shinyalert",
-  "markdown",
-  "DT",
-  "ggplot2",
-  "plotly",
-  "ggrepel",
-  "tidyverse",
-  "rmarkdown",
-  "here",
-  "survival",
-  "survminer",
-  "knitr",
-  "kableExtra",
-  "RColorBrewer",
-  "sf",           # for mapping
-  "mapview",
-  "PostcodesioR",
-  "leaflet" # to render the mapview
-  
-  ) # Consider "tinytex" to generate pdf?
-
-for (pkg in required_pkgs) {
-  if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg, dependencies = TRUE)
-    library(pkg, character.only = TRUE)
-  }
-}
-
-# Install github packages
-# Please note that the castorRedc library updated form 1.1.0 to 2.1.0 from 2024...
-githubPkgs <- c("castoredc/castoRedc", "deepanshu88/summaryBox")
-
-for (pkg in githubPkgs) {
-  if (!require(sub(".*/", "", pkg), character.only = TRUE)) {
-    remotes::install_github(pkg, quiet = FALSE,  host = "api.github.com")
-  }
-  library(sub(".*/", "", pkg), character.only = TRUE)
-}
-
-# Check we have the latest Castor library, if old then force update it!
-castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version),1,1))
-if (castorLibMajorVersion < 2)
-{
-  write(paste("Attempting update of castoRedc library (currently version ", packageVersion("castoRedc"),")..."),stderr())
-  detach(package:castoRedc, unload=TRUE)
-  remove.packages("castoRedc")
-  remotes::install_github("castoredc/castoRedc", host = "api.github.com" , upgrade="always")
-}
-
-# If we ever need to back date a library e.g. compatability, this is how we do it:
-#remove.packages("yaml")
-#install.packages("https://cran.r-project.org/src/contrib/Archive/yaml/yaml_2.3.8.tar.gz", repos = NULL, type = "source")
-
-
 # Set the environment up
-source("lib/__init__.R")
-source("targetPlotterLib.R") # This can't be in lib folder as it sources all .R files in there
+source("lib/__init__.R", .GlobalEnv)
 
 # Clear out any old global variables
-rm(list = ls())
 initialiseGlobals()
 
 Sys.setenv(CASTOR_USER_KEY   = "?")
@@ -144,7 +78,7 @@ ui <- dashboardPage(
         menuSubItem("Pathway Table",    tabName = "rxpathwaytab"),
         menuSubItem("Recurrence Table", tabName = "recurrencetab"),
         menuSubItem("Survival Table",   tabName = "survivaltab")
-      ), id='tablesMenuITem')), 
+      ), id='tablesMenuITem')),
       hidden(tagAppendAttributes(menuItem(
         "Data Validation",
         id = "validationID",
@@ -181,13 +115,13 @@ ui <- dashboardPage(
       menuItem("Test", tabName = "test", icon = icon("code")),
       menuItem("Change Log", tabName = "changeLog", icon = icon("list")),
       menuItem("About", tabName = "about", icon = icon("address-card")),
-      
+
       hidden(menuItem("hiddenCharts",  tabName = "hiddenCharts")),
       hidden(menuItem("hiddenTables",  tabName = "hiddenTables")),
       hidden(menuItem("hiddenSummary", tabName = "hiddenSummary"))
     )
   ),
-  
+
   dashboardBody(
     useShinyjs(),
     tabItems(
@@ -195,7 +129,7 @@ ui <- dashboardPage(
               fluidRow(
                 box(
                   width = 12,
-                  
+
                   textInput(
                     "inputCastorKey",
                     "User Key",
@@ -210,14 +144,14 @@ ui <- dashboardPage(
                     width = NULL,
                     placeholder = NULL
                   ),
-                  
+
                   hidden(tagAppendAttributes(selectInput(
                     inputId = "studyDropdown",
                     label = "Choose TARGET-compatible Study To Load",
                     choices = c()
                   ), id="studyDropdownGroup")),
                   hr(),
-                  
+
                   column(
                     width = 4,
                     actionButton(inputId = "connectAPI",   label = "Connect to API"),
@@ -237,10 +171,10 @@ ui <- dashboardPage(
                   column(width = 8,
                          uiOutput("apiStatus")),
                   br()
-                  
+
                 )
               )),
-      
+
       tabItem(tabName = "rxpathwayplots",
               fluidRow(
                 tabPanel(
@@ -288,7 +222,7 @@ ui <- dashboardPage(
                 width = 12,
                 plotlyOutput("plotRxPathway")
               ))),
-      
+
       tabItem(tabName = "operatorplots",
               fluidRow(
                 tabPanel(
@@ -331,7 +265,7 @@ ui <- dashboardPage(
                 width = 12,
                 plotlyOutput("plotOperators")
               ))),
-      
+
       tabItem(tabName = "volumeplots",
               fluidRow(
                 tabPanel(
@@ -370,7 +304,7 @@ ui <- dashboardPage(
                       selected = modalityFactors
                     ),
                   ),
-                  
+
                   column(
                     width = 3,
                     radioButtons(
@@ -394,7 +328,7 @@ ui <- dashboardPage(
                 width = 12,
                 plotlyOutput("plotVolume")
               ))),
-      
+
       tabItem(tabName = "rxpathwaypies",
               fluidRow(
                 tabPanel(
@@ -442,7 +376,7 @@ ui <- dashboardPage(
                 width = 12,
                 plotOutput("pieRxPathway")
               ))),
-      
+
       tabItem("recurrenceplot",
               fluidRow(
                 box(
@@ -454,7 +388,7 @@ ui <- dashboardPage(
                         "recurrencePlotOrgan")
                   ),
                   actionButton(inputId = "refreshRecurrencePlot", label = "Refresh Plot")
-                  
+
                 ),
                 tabPanel("RecurrencePlot",
                          plotOutput("plotRecurrenceCurve"))
@@ -470,12 +404,12 @@ ui <- dashboardPage(
                         "survivalPlotOrgan")
                   ),
                   actionButton(inputId = "refreshSurvivalPlot", label = "Refresh Plot"),
-                  
+
                 ),
                 tabPanel("SurvivalPlot",
                          plotOutput("plotSurvivalCurve"))
               )),
-      
+
       tabItem("referralmaps",
               wellPanel(fluidRow(
                 column(3,
@@ -501,7 +435,7 @@ ui <- dashboardPage(
                          leafletOutput("plotReferralMap", height = "550px")
                 ))
       ),
-      
+
       tabItem("rxpathwaytab",
               fluidRow(box(
                 width = 12,
@@ -523,7 +457,7 @@ ui <- dashboardPage(
                 width = 12,
                 DT::dataTableOutput("tableRxPathway")
               ))),
-      
+
       tabItem("recurrencetab",
               fluidRow(box(
                 width = 12,
@@ -533,12 +467,12 @@ ui <- dashboardPage(
                   actionButton("buttonSaveRecurrenceData",  "Save Data to File")
                 )
               )),
-              
+
               fluidRow(box(
                 width = 12,
                 DT::dataTableOutput("tableRecurrence")
               ))),
-      
+
       tabItem("survivaltab",
               fluidRow(box(
                 width = 12,
@@ -548,17 +482,17 @@ ui <- dashboardPage(
                   actionButton("buttonSaveSurvivalData",  "Save Data to File")
                 )
               )),
-              
+
               fluidRow(box(
                 width = 12,
                 DT::dataTableOutput("tableSurvival")
               ))),
-      
+
       tabItem(
         "audit-pathway",
         fluidRow(tabPanel(
           "AuditPathway",
-          
+
           column(
             width = 3,
             dateInput(
@@ -593,7 +527,7 @@ ui <- dashboardPage(
                     htmlOutput("summaryRefAudit")
                   )))
       ),
-      
+
       tabItem("rxpathwaysummary",
               fluidRow(
                 tabPanel("Waiting List Summary",
@@ -606,24 +540,24 @@ ui <- dashboardPage(
         "survivalsummary",
         verbatimTextOutput("summarySurvivalData")
       ),
-      
+
       tabItem(
         tabName = "test",
         actionButton("msg", "msg"),
         actionButton("warn", "warn"),
         actionButton("err", "err"),
       ),
-      
+
       tabItem(tabName = "changeLog",
               fluidRow(column(
                 12, uiOutput('changeLog')
               ))),
-      
+
       tabItem(tabName = "about",
               fluidRow(column(
                 12, uiOutput('about')
               ))),
-      
+
       tabItem(tabName = "operatorNames",
               fluidRow(
                 tabPanel(
@@ -646,9 +580,9 @@ ui <- dashboardPage(
                       "Warning! This cannot be reversed; ensure you really want to do this and have selected correctly before clicking\n"
                     ),
                     actionButton(inputId = "updateOperatorNames", label = "!!",
-                                 style = "color: white; 
-                       background-color: #EE4B2B; 
-                       position: relative; 
+                                 style = "color: white;
+                       background-color: #EE4B2B;
+                       position: relative;
                        left: 3%;
                        height: 35px;
                        width: 35px;
@@ -658,7 +592,7 @@ ui <- dashboardPage(
                 )
               )
       ),
-      
+
       tabItem(tabName = "anaesthetistNames",
               fluidRow(
                 tabPanel(
@@ -681,9 +615,9 @@ ui <- dashboardPage(
                       "Warning! This cannot be reversed; ensure you really want to do this and have selected correctly before clicking\n"
                     ),
                     actionButton(inputId = "updateAnaesthetistNames", label = "!!",
-                       style = "color: white; 
-                       background-color: #EE4B2B; 
-                       position: relative; 
+                       style = "color: white;
+                       background-color: #EE4B2B;
+                       position: relative;
                        left: 3%;
                        height: 35px;
                        width: 35px;
@@ -701,7 +635,7 @@ server <- function(input, output, session) {
   plots <- reactiveValues(activePlot = NULL)
   api   <- reactiveValues(connected = FALSE, loaded = FALSE)
   tariff <- reactiveValues(theTotalTariff = 0)
-  
+
   output$apiStatus <- renderUI(
   {
     if (api$connected)
@@ -738,7 +672,7 @@ server <- function(input, output, session) {
       )
     }
   })
-    
+
   # This is the income generated from the volume of ablations which have taken place on the volume plot
   output$totalTariff <- renderUI(
   {
@@ -754,7 +688,7 @@ server <- function(input, output, session) {
     {
       totalTariffText <- paste("£", tariff$theTotalTariff, sep="")
     }
-    
+
     if (api$connected && api$loaded)
     {
       summaryBox2(
@@ -795,7 +729,7 @@ server <- function(input, output, session) {
       updateTabItems(session, "sidebarID", selected = "hiddenSummary")
     }
   })
-  
+
   # Update the Load Data button
   observe({
     (api$connected)
@@ -842,39 +776,39 @@ server <- function(input, output, session) {
       shinyjs::hide('reloadData')
     }
   })
-  
+
   finalRxPlotInput <- reactive({
     switch(input$rxTimesPlotRadio,
            "rxdonePlot" = rxdonePlot,
            "rxwaitPlot" = rxwaitPlot)
   })
-  
+
   finalOperatorPlotInput <- reactive({
      operatorPlot
   })
-  
+
   finalVolumePlotInput <- reactive({
     volumePlot
   })
-  
+
   finalRxPieInput <- reactive({
     switch(input$rxTimesPieRadio,
            "rxdonePie" = rxdonePie,
            "rxwaitPie" = rxwaitPie)
   })
-  
+
   finalRxDataInput <- reactive({
     switch(input$rxTimesPlotRadio,
            "rxdonePlot" = rxDoneData,
            "rxwaitPlot" = rxWaitData)
   })
-  
+
   finalRxTableDataInput <- reactive({
     switch(input$rxTimesTableRadio,
            "rxdoneTable" = rxDoneData,
            "rxwaitTable" = rxWaitData)
   })
-  
+
   finalSurvivalPlotInput <- reactive({
     switch(
       input$survivalPlotRadio,
@@ -882,11 +816,11 @@ server <- function(input, output, session) {
       "survivalPlotOrgan" = survivalPlotOrgan
     )
   })
-  
+
   finalRecurrencePlotInput <- reactive({
     recurrencePlotOrgan
   })
-  
+
   regenerateReferralMap <- function(force = F)
   {
     showNotification("Generating/Refreshing treatment map ...")
@@ -897,29 +831,29 @@ server <- function(input, output, session) {
     makeReferralMap(rxDoneData,input$refMapDate1,input$refMapDate2,progress)
     showNotification("Completed update of treatment map.")
   }
-  
+
   finalRefAuditInput <- reactive({
     # This does the knitting bit ready to make the HTML by running the knit function
     sapply(rmdAuditFiles, knit, quiet = T)
 
     # This makes the MD file which is basically just HTML in a file
     htmltools::includeMarkdown(Sys.getenv("AUDIT_PATHWAY_MD"))
-    
+
     # There seem to be many ways to skin this particular cat...
-    
+
     # This makes PDF (badly)
     #rmarkdown::render(Sys.getenv("AUDIT_PATHWAY_MD"), params = list(audit_start_date=input$auditDate1))
-    
+
     # This doesn't seem to make a file...
     #markdownToHTML(Sys.getenv("AUDIT_PATHWAY_MD", 'test.html'))
-    
+
     # This falls over with app within an app
     #rmarkdown::run(Sys.getenv("AUDIT_PATHWAY_MD"))
-    
+
     # This generates a PDF but it doesn't have same format at HTML and has missing plots etc...
     # The refresh doesn't seem to work either... sigh
     #markdown::render(Sys.getenv("AUDIT_PATHWAY_MD"), output_format = "pdf_document")
-    
+
     # This is for PDFs rather than HTML
     #rmarkdown::render(
     #  Sys.getenv("AUDIT_PATHWAY_MD"),
@@ -928,7 +862,7 @@ server <- function(input, output, session) {
     #)
     #})
   })
-  
+
   # Plot the Rx pathway plot using the date range and organ filters
   # Note plotly vs. plot gives you the tool tip text
   output$plotRxPathway <- renderPlotly({
@@ -948,7 +882,7 @@ server <- function(input, output, session) {
     plots$activePlot <- p
     plots$activePlot
   })
-  
+
   # Note plotly vs. plot gives you the tool tip text
   output$plotOperators <- renderPlotly({
     filteredRxDoneData <- rxDoneData
@@ -962,26 +896,26 @@ server <- function(input, output, session) {
     }
     p <- finalOperatorPlotInput()
     p <- p %+% subset(filteredRxDoneData)
-    
+
     # We need to round up to get the bin to include the full month otherwise it looses treatmnet data
     p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y",
                           limits = as.Date(c(input$operatorPlotDate1, ceiling_date(input$operatorPlotDate2,"month"))))
-    
+
     plots$activePlot <- p
     plots$activePlot
   })
-  
+
   # Note plotly vs. plot gives you the tool tip text
   output$plotVolume <- renderPlotly({
     filteredRxDoneData <- rxDoneData %>% filter(Organs %in% input$organVolumePlotCheckbox)
     filteredRxDoneData <- filteredRxDoneData %>% filter(Modality %in% input$modalityVolumePlotCheckbox)
     filteredRxDoneData <- filteredRxDoneData %>% filter(RxDate >= input$volumePlotDate1)
     filteredRxDoneData <- filteredRxDoneData %>% filter(RxDate <= input$volumePlotDate2)
-    
+
     # We need to call this as if the duration radiobutton changes, it otherwise doesn't trigger a replot
     p <- makeRxVolumePlot(filteredRxDoneData, input$volumePlotDurationRadio)
     p <- p %+% subset(filteredRxDoneData)
-    
+
     # Work out the tariff
     tariff$theTotalTariff <<- calculateTotalTariff(filteredRxDoneData)
 
@@ -1004,20 +938,20 @@ server <- function(input, output, session) {
     plots$activePlot <- p
     plots$activePlot
   })
-  
+
   # This is another method to make a pie chart, but from memory I had similar refresh issues
   observeEvent(input$refreshRxPieAnotherWay, {
     logger("FIMXE Refresh Pie Another Example Method")
     output$pieRxPathwayAnotherWay <- renderPieChart(div_id="pie", data=data.frame(name=c("A","B","C"),value=c(1,2,3)))
     plots$activePlot
   })
-  
+
   # Chart the Rx pathway pie using the date range and organ filters
   # If you put the output$ in the observeEvent it won't refresh on loading, only when hit refresh button
   observeEvent(input$refreshRxPie, {
    logger("FIXME Refresh Pie")
   })
-  
+
   output$pieRxPathway <- renderPlot(
     {
       if (!is.list(finalRxTableDataInput()))
@@ -1037,7 +971,7 @@ server <- function(input, output, session) {
       plots$activePlot <- p
       plots$activePlot
     })
-  
+
   output$plotRecurrenceCurve <- renderPlot({
     # See this for dynmaic survival curves in shiny
     #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots
@@ -1045,7 +979,7 @@ server <- function(input, output, session) {
     plots$activePlot <- p
     plots$activePlot
   })
-  
+
   output$plotSurvivalCurve <- renderPlot({
     # See this for dynmaic survival curves in shiny
     #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots
@@ -1053,7 +987,7 @@ server <- function(input, output, session) {
     plots$activePlot <- p
     plots$activePlot
   })
-  
+
   # This is the one when we hit the refresh button!
   observeEvent(input$RefreshReferralMap, {
     output$plotReferralMap <- renderLeaflet({
@@ -1065,7 +999,7 @@ server <- function(input, output, session) {
       plots$activePlot
     })
   })
-  
+
   # This is a common function to generate the referral treated map to avoid duplicating code
   generateMap <- function(force = F)
   {
@@ -1081,7 +1015,7 @@ server <- function(input, output, session) {
       showNotification("No treatment data available to generate map- please reload data.")
     }
   }
-  
+
   output$summaryWaitData <- renderPrint({
     summary(rxWaitData)
   })
@@ -1177,16 +1111,16 @@ server <- function(input, output, session) {
       # Create a Progress object
       progress <- shiny::Progress$new()
       progress$set(message = "Loading & Computing study data...", value = 0.0)
-      
+
       # Close the progress when this reactive exits (even if there's an error)
       on.exit(progress$close())
-      
+
       progress$set(message = "Initialising...", value = 0.2)
       initialiseGlobals()
-      
+
       progress$set(message = "Loading study data...", value = 0.4)
       reloadStudyData(input$studyDropdown)
-      
+
       if (ifValidTARGETStudy())
       {
         api$loaded = T
@@ -1196,7 +1130,7 @@ server <- function(input, output, session) {
           input$studyDropdown,
           "'..."
         ))
-        
+
         progress$set(message = "Processing study data...", value = 0.7)
         processData()
 
@@ -1258,7 +1192,7 @@ server <- function(input, output, session) {
         # Make the pathway plots...
         makeRxPathwayPlots()
         makeRxVolumePlot(rxDoneData, input$volumePlotDurationRadio)
-        
+
         progress$set(message = "Completed loading & processing.", value = 1.0)
         showNotification("Completed data processing, plot/tables should now be available to view...")
       }
@@ -1280,7 +1214,7 @@ server <- function(input, output, session) {
       logger("Nothing to do without API Connection...")
     }
   })
-  
+
   # When we hit refresh button we want to reset the plot
   # This works to a point in that it resets the scale but it doesn't reload the data
   # Not really sure how this works at all if I am honest! I don't assign it to a real plot, weird
@@ -1302,7 +1236,7 @@ server <- function(input, output, session) {
   observeEvent(input$refreshSurvivalPlot, {
     plots$activePlot <- ggplot()
   })
-  
+
   observeEvent(input$updateAnaesthetistNames, {
     updateAnaesthetistNames(input$anaesthetistNameCheckbox,
       input$anaesthetistNewName)
@@ -1328,7 +1262,7 @@ server <- function(input, output, session) {
       )
     }
   })
-  
+
   # This is the callback to ensure we are definately going to update the anaesthetist data
   updateAnaesthetistNamesCallback <- function(textEntered)
   {
@@ -1337,10 +1271,10 @@ server <- function(input, output, session) {
       # Create a Progress object
       progress <- shiny::Progress$new()
       progress$set(message = "Updating Castor Data...", value = 0.5)
-      
+
       # Close the progress when this reactive exits (even if there's an error)
       on.exit(progress$close())
-      
+
       updateAnaesthetistNames(targetStudyID,
                           input$anaesthetistNameCheckbox,
                           input$anaesthetistNewName)
@@ -1359,7 +1293,7 @@ server <- function(input, output, session) {
       shinyalert(title = errMsg, type = "error")
     }
   }
-  
+
   observeEvent(input$updateOperatorNames, {
     if (length(input$operatorNameCheckbox)==0)
     {
@@ -1383,7 +1317,7 @@ server <- function(input, output, session) {
       )
     }
   })
-  
+
   # This is the callback to ensure we are definately going to update the operator data
   updateOperatorNamesCallback <- function(textEntered)
   {
@@ -1392,14 +1326,14 @@ server <- function(input, output, session) {
       # Create a Progress object
       progress <- shiny::Progress$new()
       progress$set(message = "Updating Castor Data...", value = 0.5)
-      
+
       # Close the progress when this reactive exits (even if there's an error)
       on.exit(progress$close())
-      
+
       updateOperatorNames(targetStudyID,
                           input$operatorNameCheckbox,
                           input$operatorsNewName)
-      
+
       progress$set(message = "Completed Data Update", value = 1.0)
       shinyalert(title = "Completed Data Update: Please reload data to see reflected changes.", type = "success")
     }
@@ -1415,17 +1349,17 @@ server <- function(input, output, session) {
       shinyalert(title = errMsg, type = "error")
     }
   }
-  
+
   observeEvent(input$runAuditReport, {
     logger(paste("Running audit for dates: ", input$auditDate1,"-", input$auditDate2, sep=""))
     logger(paste("Running audit for organs:", input$organAuditCheckbox))
     plots$activePlot <- NA
-    
+
     # This is a bit of an ugly hack to allow markdown to see global vars but it doesn't appear to work FIXME
     audit_start_date <<- input$auditDate1
     audit_end_date   <<- input$auditDate2
     audit_organs     <<- input$organAuditCheckbox
-    
+
     # This is the magic - embed the output into the observe event to allow refresh!
     # So simple but still not quite working - maybe make something reactive ... keep working Paul
     output$summaryRefAudit <- renderPrint({
@@ -1441,7 +1375,7 @@ server <- function(input, output, session) {
       thisHTML
     })
   })
-  
+
   observeEvent(input$buttonSaveRxTimesData, {
     shinyCatch({
       message("Choose a file to export to...")
@@ -1471,14 +1405,14 @@ server <- function(input, output, session) {
       }, prefix = '')
     }
   })
-  
+
   observeEvent(input$buttonPasteRxTimesData, {
     copyDataToClipboard(finalRxTableDataInput())
     shinyCatch({
       message("Copied data to the clipboard, please paste into Excel")
     }, prefix = '')
   })
-  
+
   observeEvent(input$buttonSaveRecurrenceData, {
     shinyCatch({
       message("Not yet implemented!")
@@ -1489,7 +1423,7 @@ server <- function(input, output, session) {
       message("Not yet implemented!")
     }, prefix = '')
   })
-  
+
   observeEvent(input$buttonSaveSurvivalData, {
     shinyCatch({
       message("Choose a file to export to...")
@@ -1507,7 +1441,7 @@ server <- function(input, output, session) {
       message(paste("Exported data to file", exportFile))
     }, prefix = '')
   })
-  
+
   observeEvent(input$buttonPasteSurvivalData, {
     copyDataToClipboard(survivalData)
     shinyCatch({
