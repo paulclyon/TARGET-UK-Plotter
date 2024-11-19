@@ -76,7 +76,7 @@ ui <- dashboardPage(
         menuSubItem("Pathway Table",    tabName = "rxpathwaytab"),
         menuSubItem("Recurrence Table", tabName = "recurrencetab"),
         menuSubItem("Survival Table",   tabName = "survivaltab")
-      ), id='tablesMenuITem')),
+      ), id='tablesMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Data Validation",
         id = "validationID",
@@ -123,97 +123,16 @@ ui <- dashboardPage(
       tabItem(tabName = "operatorplots", operatorPlotTab()),
       tabItem(tabName = "volumeplots", volumePlotTab()),
       tabItem(tabName = "rxpathwaypies", pathwayPieTab()),
-
       tabItem("recurrenceplot", recurrencePlotTab()),
-      tabItem("survivalplot",
-              survivalPlotTab()),
-
+      tabItem("survivalplot", survivalPlotTab()),
       tabItem("referralmaps", referralMapTab()),
-
       tabItem("rxpathwaytab", pathwayTab()),
-
-      tabItem("recurrencetab",
-              fluidRow(box(
-                width = 12,
-                column(
-                  width = 4,
-                  actionButton("buttonPasteRecurrenceData", "Copy Data to Clipboard"),
-                  actionButton("buttonSaveRecurrenceData",  "Save Data to File")
-                )
-              )),
-
-              fluidRow(box(
-                width = 12,
-                DT::dataTableOutput("tableRecurrence")
-              ))),
-
-      tabItem("survivaltab",
-              fluidRow(box(
-                width = 12,
-                column(
-                  width = 4,
-                  actionButton("buttonPasteSurvivalData", "Copy Data to Clipboard"),
-                  actionButton("buttonSaveSurvivalData",  "Save Data to File")
-                )
-              )),
-
-              fluidRow(box(
-                width = 12,
-                DT::dataTableOutput("tableSurvival")
-              ))),
-
-      tabItem(
-        "audit-pathway",
-        fluidRow(tabPanel(
-          "AuditPathway",
-
-          column(
-            width = 3,
-            dateInput(
-              "auditDate1",
-              "Start Date:",
-              format = "dd/mm/yyyy",
-              value = Sys.Date() - 365
-            ),
-            dateInput(
-              "auditDate2",
-              "End Date:",
-              format = "dd/mm/yyyy",
-              value = Sys.Date()
-            )
-          ),
-          column(
-            width = 3,
-            checkboxGroupInput(
-              "organAuditCheckbox",
-              "Organs to Audit",
-              choices = organFactors,
-              selected = organFactors
-            ),
-          ),
-          column(
-            width = 3,
-            actionButton(inputId = "runAuditReport", label = "Run Audit Report")
-          )
-        )),
-        wellPanel(style = "background: white",
-                  fluidRow(fluidPage(
-                    htmlOutput("summaryRefAudit")
-                  )))
-      ),
-
-      tabItem("rxpathwaysummary",
-              fluidRow(
-                tabPanel("Waiting List Summary",
-                         verbatimTextOutput("summaryWaitData")),
-                tabPanel("Treated List Summary",
-                         verbatimTextOutput("summaryRxData"))
-              )),
+      tabItem("recurrencetab", recurrenceTab()),
+      tabItem("survivaltab", survivalTab()),
+      tabItem("audit-pathway", auditTab()),
+      tabItem("rxpathwaysummary", pathwaySummaryTab()),
       tabItem("recurrencesummary", "Recurrence Summary Data work in progress!"),
-      tabItem(
-        "survivalsummary",
-        verbatimTextOutput("summarySurvivalData")
-      ),
+      tabItem("survivalsummary", survivalSummaryTab()),
 
       tabItem(
         tabName = "test",
@@ -317,63 +236,16 @@ server <- function(input, output, session) {
   volumePlotServer(input, output, session, tariff, plots)
   survivalPlotServer(input, output, session, plots)
   referralsMapServer(input, output, session, plots)
+  recurrenceServer(input, output, session)
+  survivalServer(input, output, session)
+  pathwaySummaryServer(input, output, session)
+  survivalSummaryServer(input, output, session)
 
-  finalVolumePlotInput <- reactive({
-    volumePlot
-  })
-
-  finalRefAuditInput <- reactive({
-    # This does the knitting bit ready to make the HTML by running the knit function
-    sapply(rmdAuditFiles, knit, quiet = T)
-
-    # This makes the MD file which is basically just HTML in a file
-    htmltools::includeMarkdown(Sys.getenv("AUDIT_PATHWAY_MD"))
-
-    # There seem to be many ways to skin this particular cat...
-
-    # This makes PDF (badly)
-    #rmarkdown::render(Sys.getenv("AUDIT_PATHWAY_MD"), params = list(audit_start_date=input$auditDate1))
-
-    # This doesn't seem to make a file...
-    #markdownToHTML(Sys.getenv("AUDIT_PATHWAY_MD", 'test.html'))
-
-    # This falls over with app within an app
-    #rmarkdown::run(Sys.getenv("AUDIT_PATHWAY_MD"))
-
-    # This generates a PDF but it doesn't have same format at HTML and has missing plots etc...
-    # The refresh doesn't seem to work either... sigh
-    #markdown::render(Sys.getenv("AUDIT_PATHWAY_MD"), output_format = "pdf_document")
-
-    # This is for PDFs rather than HTML
-    #rmarkdown::render(
-    #  Sys.getenv("AUDIT_PATHWAY_MD"),
-    #  params = list(audit_start_date = input$auditDate1, audit_end_date = input$auditDate2),
-    #  envir = parent.frame()
-    #)
-    #})
-  })
-
-
-  output$summaryWaitData <- renderPrint({
-    summary(rxWaitData)
-  })
-  output$summaryRxData <- renderPrint({
-    summary(rxDoneData)
-  })
-  output$summarySurvivalData <- renderPrint({
-    paste(print(summary(survivalFitSex)), "\n", print(summary(survivalFitOrgan)), sep = "")
-  })
   output$tableWait <- DT::renderDataTable({
     DT::datatable(rxWaitData)
   })
   output$tableRx <- DT::renderDataTable({
     DT::datatable(rxDoneData)
-  })
-  output$tableSurvival <- DT::renderDataTable({
-    DT::datatable(survivalData)
-  })
-  output$tableRecurrence <- DT::renderDataTable({
-    DT::datatable(recurrenceData)
   })
   observeEvent(input$msg, {
     shinyCatch({
@@ -509,68 +381,6 @@ server <- function(input, output, session) {
       shinyalert(title = errMsg, type = "error")
     }
   }
-
-  observeEvent(input$runAuditReport, {
-    logger(paste("Running audit for dates: ", input$auditDate1,"-", input$auditDate2, sep=""))
-    logger(paste("Running audit for organs:", input$organAuditCheckbox))
-    plots$activePlot <- NA
-
-    # This is a bit of an ugly hack to allow markdown to see global vars but it doesn't appear to work FIXME
-    audit_start_date <<- input$auditDate1
-    audit_end_date   <<- input$auditDate2
-    audit_organs     <<- input$organAuditCheckbox
-
-    # This is the magic - embed the output into the observe event to allow refresh!
-    # So simple but still not quite working - maybe make something reactive ... keep working Paul
-    output$summaryRefAudit <- renderPrint({
-      if (api$connected == T && api$loaded == T)
-      {
-        thisHTML <- finalRefAuditInput()
-      }
-      else
-      {
-        thisHTML <-
-          "There is no study data loaded at present - cannot run the audit"
-      }
-      thisHTML
-    })
-  })
-
-  observeEvent(input$buttonSaveRecurrenceData, {
-    shinyCatch({
-      message("Not yet implemented!")
-    }, prefix = '')
-  })
-  observeEvent(input$buttonPasteRecurrenceData, {
-    shinyCatch({
-      message("Not yet implemented!")
-    }, prefix = '')
-  })
-
-  observeEvent(input$buttonSaveSurvivalData, {
-    shinyCatch({
-      message("Choose a file to export to...")
-    }, prefix = '') # DOESNT WORK IN A DOCKER
-    exportFile = file.choose(new = TRUE)
-    if (!endsWith(exportFile, ".csv"))
-    {
-      exportFile = paste(exportFile, ".csv", sep = "")
-    }
-    shinyCatch({
-      message(paste("Attempting to export data to file", exportFile))
-    }, prefix = '')
-    write.csv(survivalData, exportFile, row.names = TRUE)
-    shinyCatch({
-      message(paste("Exported data to file", exportFile))
-    }, prefix = '')
-  })
-
-  observeEvent(input$buttonPasteSurvivalData, {
-    copyDataToClipboard(survivalData)
-    shinyCatch({
-      message("Copied data to the clipboard, please paste into Excel")
-    }, prefix = '')
-  })
 }
 
 # Open the GUI

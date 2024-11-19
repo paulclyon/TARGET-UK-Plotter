@@ -98,4 +98,9 @@ volumePlotServer <- function(input, output, session, tariff, plots) {
   observeEvent(input$refreshVolumePlot, {
     plots$activePlot <- ggplot()
   })
+
+  # ? Not sure what this for ?
+  finalVolumePlotInput <- reactive({
+    volumePlot
+  })
 }
