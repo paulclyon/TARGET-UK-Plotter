@@ -119,218 +119,18 @@ ui <- dashboardPage(
     useShinyjs(),
     tabItems(
       tabItem(tabName = "api", apiTab()),
-      tabItem(tabName = "rxpathwayplots", pathwayPlotsTab()),
+      tabItem(tabName = "rxpathwayplots", pathwayPlotTab()),
+      tabItem(tabName = "operatorplots", operatorPlotTab()),
+      tabItem(tabName = "volumeplots", volumePlotTab()),
+      tabItem(tabName = "rxpathwaypies", pathwayPieTab()),
 
-      tabItem(tabName = "operatorplots",
-              fluidRow(
-                tabPanel(
-                  "OperatorPlots",
-                  column(
-                    width = 3,
-                    dateInput(
-                      "operatorPlotDate1",
-                      "Start Date:",
-                      format = "dd/mm/yyyy",
-                      value = Sys.Date() - 365
-                    ),
-                    dateInput(
-                      "operatorPlotDate2",
-                      "End Date:",
-                      format = "dd/mm/yyyy",
-                      value = Sys.Date()
-                    )
-                  ),
-                  column(
-                    width = 6,
-                    selectInput(
-                      "operatorPlotDropdown",
-                      "Operators to Plot",
-                      choices = operator1Factors
-                    ),
-                    selectInput(
-                      "anaesthetistPlotDropdown",
-                      "Anaesthetists to Plot",
-                      choices = anaesthetist1Factors
-                    ),
-                  ),
-                  column(
-                    width = 3,
-                    actionButton(inputId = "refreshOperatorPlot", label = "Refresh Plot")
-                  )
-                )
-              ),
-              fluidRow(box(
-                width = 12,
-                plotlyOutput("plotOperators")
-              ))),
-
-      tabItem(tabName = "volumeplots",
-              fluidRow(
-                tabPanel(
-                  "VolumePlots",
-                  column(
-                    width = 3,
-                    dateInput(
-                      "volumePlotDate1",
-                      "Start Date:",
-                      format = "dd/mm/yyyy",
-                      value = Sys.Date() - 365
-                    ),
-                    dateInput(
-                      "volumePlotDate2",
-                      "End Date:",
-                      format = "dd/mm/yyyy",
-                      value = Sys.Date()
-                    ),
-                    actionButton(inputId = "refreshVolumePlot", label = "Refresh Plot")
-                  ),
-                  column(
-                    width = 3,
-                    checkboxGroupInput(
-                      "organVolumePlotCheckbox",
-                      "Organs to Plot",
-                      choices = organFactors,
-                      selected = organFactors
-                    ),
-                  ),
-                  column(
-                    width = 3,
-                    checkboxGroupInput(
-                      "modalityVolumePlotCheckbox",
-                      "Modalities to Plot",
-                      choices = modalityFactors,
-                      selected = modalityFactors
-                    ),
-                  ),
-
-                  column(
-                    width = 3,
-                    radioButtons(
-                      "volumePlotDurationRadio",
-                      "Duration of Plot",
-                      c("Weekly"  = "week",
-                        "Monthly" = "month",
-                        "Yearly"  = "year")
-                    )
-                  ),
-                  column(
-                    width = 3,
-                  ),
-                  column(
-                    width = 6,
-                     tariffComponent(),
-                  )
-                )
-              ),
-              fluidRow(box(
-                width = 12,
-                plotlyOutput("plotVolume")
-              ))),
-
-      tabItem(tabName = "rxpathwaypies",
-              fluidRow(
-                tabPanel(
-                  "RxPathwayPies",
-                  column(
-                    width = 3,
-                    radioButtons(
-                      "rxTimesPieRadio",
-                      "Pathway Pie Chart Type",
-                      c("Treated Pie"  = "rxdonePie",
-                        "Waiting Pie"  = "rxwaitPie")
-                    )
-                  ),
-                  column(
-                    width = 3,
-                    dateInput(
-                      "rxPieDate1",
-                      "Start Date:",
-                      format = "dd/mm/yyyy",
-                      value = Sys.Date() - 365
-                    ),
-                    dateInput(
-                      "rxPieDate2",
-                      "End Date:",
-                      format = "dd/mm/yyyy",
-                      value = Sys.Date()
-                    )
-                  ),
-                  column(
-                    width = 3,
-                    checkboxGroupInput(
-                      "organPieCheckbox",
-                      "Organs to Chart",
-                      choices = organFactors,
-                      selected = organFactors
-                    ),
-                  ),
-                  column(
-                    width = 3,
-                    actionButton(inputId = "refreshRxPie", label = "Refresh Pie Chart")
-                  )
-                )
-              ),
-              fluidRow(box(
-                width = 12,
-                plotOutput("pieRxPathway")
-              ))),
-
-      tabItem("recurrenceplot",
-              fluidRow(
-                box(
-                  width = 12,
-                  radioButtons(
-                    "recurrencePlotRadio",
-                    "Recurrence Analysis",
-                    c("By Sex" = "recurrencePlotSex", "By Organ" =
-                        "recurrencePlotOrgan")
-                  ),
-                  actionButton(inputId = "refreshRecurrencePlot", label = "Refresh Plot")
-
-                ),
-                tabPanel("RecurrencePlot",
-                         plotOutput("plotRecurrenceCurve"))
-              )),
+      tabItem("recurrenceplot", recurrencePlotTab()),
       tabItem("survivalplot",
-              fluidRow(
-                box(
-                  width = 12,
-                  radioButtons(
-                    "survivalPlotRadio",
-                    "Survival Analysis",
-                    c("By Sex" = "survivalPlotSex", "By Organ" =
-                        "survivalPlotOrgan")
-                  ),
-                  actionButton(inputId = "refreshSurvivalPlot", label = "Refresh Plot"),
-
-                ),
-                tabPanel("SurvivalPlot",
-                         plotOutput("plotSurvivalCurve"))
-              )),
+              survivalPlotTab()),
 
       tabItem("referralmaps", referralMapTab()),
 
-      tabItem("rxpathwaytab",
-              fluidRow(box(
-                width = 12,
-                column(
-                  width = 4,
-                  radioButtons(
-                    "rxTimesTableRadio",
-                    "Pathway Table Type",
-                    c("Treated" = "rxdoneTable", "Waiting" = "rxwaitTable")
-                  )
-                ),
-                column(
-                  width = 4,
-                  actionButton("buttonPasteRxTimesData", "Copy Data to Clipboard"),
-                  actionButton("buttonSaveRxTimesData",  "Save Data to File")
-                )
-              )),
-              fluidRow(box(
-                width = 12,
-                DT::dataTableOutput("tableRxPathway")
-              ))),
+      tabItem("rxpathwaytab", pathwayTab()),
 
       tabItem("recurrencetab",
               fluidRow(box(
@@ -510,47 +310,17 @@ server <- function(input, output, session) {
 
   api <- apiServer(input, output, session)
   tariff <- tariffServer(input, output, session, api)
-
-
-
-  finalOperatorPlotInput <- reactive({
-     operatorPlot
-  })
+  pathwayServer(input, output, session, plots)
+  pathwayPlotServer(input, output, session, plots)
+  operatorPlotServer(input, output, session, plots)
+  pathwayPieServer(input, output, session, plots)
+  volumePlotServer(input, output, session, tariff, plots)
+  survivalPlotServer(input, output, session, plots)
+  referralsMapServer(input, output, session, plots)
 
   finalVolumePlotInput <- reactive({
     volumePlot
   })
-
-  finalRxPieInput <- reactive({
-    switch(input$rxTimesPieRadio,
-           "rxdonePie" = rxdonePie,
-           "rxwaitPie" = rxwaitPie)
-  })
-
-  finalRxDataInput <- reactive({
-    switch(input$rxTimesPlotRadio,
-           "rxdonePlot" = rxDoneData,
-           "rxwaitPlot" = rxWaitData)
-  })
-
-  finalRxTableDataInput <- reactive({
-    switch(input$rxTimesTableRadio,
-           "rxdoneTable" = rxDoneData,
-           "rxwaitTable" = rxWaitData)
-  })
-
-  finalSurvivalPlotInput <- reactive({
-    switch(
-      input$survivalPlotRadio,
-      "survivalPlotSex" = survivalPlotSex,
-      "survivalPlotOrgan" = survivalPlotOrgan
-    )
-  })
-
-  finalRecurrencePlotInput <- reactive({
-    recurrencePlotOrgan
-  })
-
 
   finalRefAuditInput <- reactive({
     # This does the knitting bit ready to make the HTML by running the knit function
@@ -584,114 +354,6 @@ server <- function(input, output, session) {
   })
 
 
-
-  # Note plotly vs. plot gives you the tool tip text
-  output$plotOperators <- renderPlotly({
-    filteredRxDoneData <- rxDoneData
-    if (input$operatorPlotDropdown != 'ALL')
-    {
-      filteredRxDoneData <- filteredRxDoneData %>% filter(Operator1 %in% input$operatorPlotDropdown)
-    }
-    if (input$anaesthetistPlotDropdown != 'ALL')
-    {
-      filteredRxDoneData <- filteredRxDoneData %>% filter(Anaesthetist1 %in% input$anaesthetistPlotDropdown)
-    }
-    p <- finalOperatorPlotInput()
-    p <- p %+% subset(filteredRxDoneData)
-
-    # We need to round up to get the bin to include the full month otherwise it looses treatmnet data
-    p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y",
-                          limits = as.Date(c(input$operatorPlotDate1, ceiling_date(input$operatorPlotDate2,"month"))))
-
-    plots$activePlot <- p
-    plots$activePlot
-  })
-
-  # Note plotly vs. plot gives you the tool tip text
-  output$plotVolume <- renderPlotly({
-    filteredRxDoneData <- rxDoneData %>% filter(Organs %in% input$organVolumePlotCheckbox)
-    filteredRxDoneData <- filteredRxDoneData %>% filter(Modality %in% input$modalityVolumePlotCheckbox)
-    filteredRxDoneData <- filteredRxDoneData %>% filter(RxDate >= input$volumePlotDate1)
-    filteredRxDoneData <- filteredRxDoneData %>% filter(RxDate <= input$volumePlotDate2)
-
-    # We need to call this as if the duration radiobutton changes, it otherwise doesn't trigger a replot
-    p <- makeRxVolumePlot(filteredRxDoneData, input$volumePlotDurationRadio)
-    p <- p %+% subset(filteredRxDoneData)
-
-    # Work out the tariff
-    tariff$theTotalTariff <<- calculateTotalTariff(filteredRxDoneData)
-
-    # We need to round up to get the bin to include the full month otherwise it looses treatmnet data
-    #p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y",
-    #                      limits = as.Date(c(input$volumePlotDate1, ceiling_date(input$volumePlotDate2,"month"))))
-
-    if (input$volumePlotDurationRadio == "week")
-    {
-      p <- p + scale_x_date(date_breaks = "1 week", date_labels = "%e %b %y")
-    }
-    else if (input$volumePlotDurationRadio == "month")
-    {
-      p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y")
-    }
-    else if (input$volumePlotDurationRadio == "year")
-    {
-      p <- p + scale_x_date(date_breaks = "1 year", date_labels = "%Y")
-    }
-    plots$activePlot <- p
-    plots$activePlot
-  })
-
-  # This is another method to make a pie chart, but from memory I had similar refresh issues
-  observeEvent(input$refreshRxPieAnotherWay, {
-    logger("FIMXE Refresh Pie Another Example Method")
-    output$pieRxPathwayAnotherWay <- renderPieChart(div_id="pie", data=data.frame(name=c("A","B","C"),value=c(1,2,3)))
-    plots$activePlot
-  })
-
-  # Chart the Rx pathway pie using the date range and organ filters
-  # If you put the output$ in the observeEvent it won't refresh on loading, only when hit refresh button
-  observeEvent(input$refreshRxPie, {
-   logger("FIXME Refresh Pie")
-  })
-
-  output$pieRxPathway <- renderPlot(
-    {
-      if (!is.list(finalRxTableDataInput()))
-      {
-        p <- plot.new()
-      }
-      else
-      {
-        makeRxDonePie(input$rxPieDate1,
-                      input$rxPieDate2,
-                      input$organPieCheckbox)
-        makeRxWaitPie(input$rxPieDate1,
-                      input$rxPieDate2,
-                      input$organPieCheckbox)
-        p <- finalRxPieInput()
-      }
-      plots$activePlot <- p
-      plots$activePlot
-    })
-
-  output$plotRecurrenceCurve <- renderPlot({
-    # See this for dynmaic survival curves in shiny
-    #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots
-    p <- finalRecurrencePlotInput()
-    plots$activePlot <- p
-    plots$activePlot
-  })
-
-  output$plotSurvivalCurve <- renderPlot({
-    # See this for dynmaic survival curves in shiny
-    #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots
-    p <- finalSurvivalPlotInput()
-    plots$activePlot <- p
-    plots$activePlot
-  })
-
-  referralsMapServer(input, output, session, plots)
-
   output$summaryWaitData <- renderPrint({
     summary(rxWaitData)
   })
@@ -700,9 +362,6 @@ server <- function(input, output, session) {
   })
   output$summarySurvivalData <- renderPrint({
     paste(print(summary(survivalFitSex)), "\n", print(summary(survivalFitOrgan)), sep = "")
-  })
-  output$tableRxPathway <- DT::renderDataTable({
-    DT::datatable(finalRxTableDataInput())
   })
   output$tableWait <- DT::renderDataTable({
     DT::datatable(rxWaitData)
@@ -736,28 +395,6 @@ server <- function(input, output, session) {
   })
   output$changeLog <- renderUI({
     htmltools::includeMarkdown('www/TARGETPlotterChangeLog.md')
-  })
-
-  # When we hit refresh button we want to reset the plot
-  # This works to a point in that it resets the scale but it doesn't reload the data
-  # Not really sure how this works at all if I am honest! I don't assign it to a real plot, weird
-  observeEvent(input$refreshRxPlot, {
-    plots$activePlot <- ggplot()
-  })
-  observeEvent(input$refreshOperatorPlot, {
-    plots$activePlot <- ggplot()
-  })
-  observeEvent(input$refreshVolumePlot, {
-    plots$activePlot <- ggplot()
-  })
-  observeEvent(input$refreshRxPie, {
-    plots$activePlot <- ggplot()
-  })
-  observeEvent(input$refreshRecurrencePlot, {
-    plots$activePlot <- ggplot()
-  })
-  observeEvent(input$refreshSurvivalPlot, {
-    plots$activePlot <- ggplot()
   })
 
   observeEvent(input$updateAnaesthetistNames, {
@@ -897,43 +534,6 @@ server <- function(input, output, session) {
       }
       thisHTML
     })
-  })
-
-  observeEvent(input$buttonSaveRxTimesData, {
-    shinyCatch({
-      message("Choose a file to export to...")
-    }, prefix = '') # DOESNT WORK IN A DOCKER
-    exportFile = NA
-    try (
-      exportFile <- file.choose(new = TRUE)
-    )
-    if (!is.na(exportFile))
-    {
-      if (!endsWith(exportFile, ".csv"))
-      {
-        exportFile = paste(exportFile, ".csv", sep = "")
-      }
-      shinyCatch({
-        message(paste("Attempting to export data to file", exportFile))
-      }, prefix = '')
-      write.csv(finalRxTableDataInput(), exportFile, row.names = TRUE)
-      shinyCatch({
-        message(paste("Exported data to file", exportFile))
-      }, prefix = '')
-    }
-    else
-    {
-      shinyCatch({
-        message(paste("No file selected to export to, no data export performed"))
-      }, prefix = '')
-    }
-  })
-
-  observeEvent(input$buttonPasteRxTimesData, {
-    copyDataToClipboard(finalRxTableDataInput())
-    shinyCatch({
-      message("Copied data to the clipboard, please paste into Excel")
-    }, prefix = '')
   })
 
   observeEvent(input$buttonSaveRecurrenceData, {
