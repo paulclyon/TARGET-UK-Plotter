@@ -126,54 +126,7 @@ ui <- dashboardPage(
     useShinyjs(),
     tabItems(
       tabItem(tabName = "api",
-              fluidRow(
-                box(
-                  width = 12,
-
-                  textInput(
-                    "inputCastorKey",
-                    "User Key",
-                    value = Sys.getenv("CASTOR_USER_KEY"),
-                    width = NULL,
-                    placeholder = NULL
-                  ),
-                  textInput(
-                    "inputCastorSecret",
-                    "Secret",
-                    value = Sys.getenv("CASTOR_SECRET"),
-                    width = NULL,
-                    placeholder = NULL
-                  ),
-
-                  hidden(tagAppendAttributes(selectInput(
-                    inputId = "studyDropdown",
-                    label = "Choose TARGET-compatible Study To Load",
-                    choices = c()
-                  ), id="studyDropdownGroup")),
-                  hr(),
-
-                  column(
-                    width = 4,
-                    actionButton(inputId = "connectAPI",   label = "Connect to API"),
-                    br(),
-                    br(),
-                    actionButton(inputId = "disconnectAPI", label = "Disconnect API"),
-                    br(),
-                    br(),
-                    hidden(actionButton(
-                      inputId = "reloadData",
-                      label = "No API for Loading",
-                      icon("remove-circle", lib = "glyphicon"),
-                      style = "color: #ddd; background-color: #337ab7; border-color: #2e6da4"
-                    )),
-                    br(),
-                  ),
-                  column(width = 8,
-                         uiOutput("apiStatus")),
-                  br()
-
-                )
-              )),
+              apiTab()),
 
       tabItem(tabName = "rxpathwayplots",
               fluidRow(
@@ -320,7 +273,7 @@ ui <- dashboardPage(
                   ),
                   column(
                     width = 6,
-                     uiOutput("totalTariff"),
+                     tariffComponent(),
                   )
                 )
               ),
@@ -633,83 +586,9 @@ ui <- dashboardPage(
 
 server <- function(input, output, session) {
   plots <- reactiveValues(activePlot = NULL)
-  api   <- reactiveValues(connected = FALSE, loaded = FALSE)
-  tariff <- reactiveValues(theTotalTariff = 0)
 
-  output$apiStatus <- renderUI(
-  {
-    if (api$connected)
-    {
-      if (api$loaded)
-      {
-        summaryBox2(
-          "Connected & Loaded",
-          "API",
-          width = 5,
-          icon = "fas fa-clipboard-list",
-          style = "success"
-        )
-      }
-      else
-      {
-        summaryBox2(
-          "Connected, Unloaded",
-          "API",
-          width = 5,
-          icon = "fas fa-clipboard-list",
-          style = "primary"
-        )
-      }
-    }
-    else
-    {
-      summaryBox2(
-        "Disconnected",
-        "API",
-        width = 5,
-        icon = "fas fa-clipboard-list",
-        style = "danger"
-      )
-    }
-  })
-
-  # This is the income generated from the volume of ablations which have taken place on the volume plot
-  output$totalTariff <- renderUI(
-  {
-    if (tariff$theTotalTariff > 1000000)
-    {
-      totalTariffText <- paste("£", round(tariff$theTotalTariff/1000000,2), "M", sep="")
-    }
-    else if (tariff$theTotalTariff > 10000)
-    {
-      totalTariffText <- paste("£", round(tariff$theTotalTariff/1000,2), "K", sep="")
-    }
-    else
-    {
-      totalTariffText <- paste("£", tariff$theTotalTariff, sep="")
-    }
-
-    if (api$connected && api$loaded)
-    {
-      summaryBox2(
-        "HRG-coded Total Tariff",
-        totalTariffText,
-        width = 6,
-        icon = "fas fa-pound-sign",
-        style = "success"
-      )
-    }
-    else
-    {
-      summaryBox2(
-        "Load Data for Income",
-        "£0",
-        width = 5,
-        icon = "fas fa-pound-sign",
-        style = "primary"
-      )
-    }
-  })
+  api <- apiServer(input, output, session)
+  tariff <- tariffServer(input, output, session, api)
 
   # Keeps sidebar Charts submenu expanded rather than instant collapse
   observeEvent(input$sidebarItemExpanded, {
@@ -727,53 +606,6 @@ server <- function(input, output, session) {
   observeEvent(input$sidebarItemExpanded, {
     if (input$sidebarItemExpanded == "SUMMARY") {
       updateTabItems(session, "sidebarID", selected = "hiddenSummary")
-    }
-  })
-
-  # Update the Load Data button
-  observe({
-    (api$connected)
-    if (api$connected)
-    {
-      logger("Getting study names via Castor API...")
-      studyNames <<- getStudyNames()
-      if (is.null(studyNames))
-      {
-        showNotification("No studies found! Is Castor API connecting?")
-      }
-      else
-      {
-        logger(paste("API Connected: Found ",length(studyNames[[1]])," studies",sep=""))
-        shinyjs::show('studyDropdownGroup')
-        shinyjs::show('reloadData')
-        updateActionButton(session,
-                           inputId = "reloadData",
-                           label = "Load Study Data",
-                           icon("link", lib = "glyphicon"))
-        updateSelectInput(session,
-                          "studyDropdown",
-                          choices = studyNames,
-                          selected = NULL)
-      }
-    }
-    else
-    {
-      logger("No API connection")
-      studyNames <<- c()
-      updateActionButton(
-        session,
-        inputId = "reloadData",
-        label = "No API for Loading",
-        icon("remove-circle", lib = "glyphicon")
-      )
-      updateSelectInput(
-        session,
-        "studyDropdown",
-        choices = c("No API Connection"),
-        selected = NULL
-      )
-      shinyjs::hide('studyDropdownGroup')
-      shinyjs::hide('reloadData')
     }
   })
 
@@ -1060,159 +892,6 @@ server <- function(input, output, session) {
   })
   output$changeLog <- renderUI({
     htmltools::includeMarkdown('www/TARGETPlotterChangeLog.md')
-  })
-  observeEvent(input$connectAPI,
-  {
-    shinyjs::hide('studyDropdownGroup')
-    shinyjs::hide('reloadData')
-    # First check we have up to date version (at least 2.x.x)
-    castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version),1,1))
-    showNotification(paste("Version of castoRedc Library = ",packageVersion("castoRedc")))
-    logger(paste("Version of castoRedc Library = ",packageVersion("castoRedc")))
-    if (castorLibMajorVersion < 2)
-    {
-      showNotification("Version of castoRedc library incompatiable: Please upgrade")
-      logger(paste("Version of castoRedc is incompatiable despite attempted upgrade; expected >2.x.x, got", packageVersion("castoRedc")),stderr=TRUE)
-    }
-    else
-    {
-      # Disconnect the old before connecting
-      disconnectCastorAPI()
-      api$connected = F
-      api$loaded = F
-      Sys.setenv(CASTOR_USER_KEY = input$inputCastorKey)
-      Sys.setenv(CASTOR_SECRET   = input$inputCastorSecret)
-      connectCastorAPI()
-      if (is.environment(castor_api))
-      {
-        api$connected = T
-        showNotification("Castor API Connected.")
-      }
-      else
-      {
-        api$connected = F
-        shinyjs::hide('studyDropdownGroup')
-        shinyjs::hide('reloadData')
-        showNotification("Could not connect to Castor API with those settings")
-      }
-    }
-  })
-  observeEvent(input$disconnectAPI, {
-    disconnectCastorAPI()
-    api$connected = F
-    api$loaded = F
-    shinyjs::hide('studyDropdownGroup')
-    shinyjs::hide('reloadData')
-    showNotification("Castor API Disconnected.")
-  })
-  observeEvent(input$reloadData, {
-    if (length(castor_api) != 0)
-    {
-      # Create a Progress object
-      progress <- shiny::Progress$new()
-      progress$set(message = "Loading & Computing study data...", value = 0.0)
-
-      # Close the progress when this reactive exits (even if there's an error)
-      on.exit(progress$close())
-
-      progress$set(message = "Initialising...", value = 0.2)
-      initialiseGlobals()
-
-      progress$set(message = "Loading study data...", value = 0.4)
-      reloadStudyData(input$studyDropdown)
-
-      if (ifValidTARGETStudy())
-      {
-        api$loaded = T
-        showNotification("Valid TARGET study loaded...")
-        logger(paste(
-          "Valid study data for study '",
-          input$studyDropdown,
-          "'..."
-        ))
-
-        progress$set(message = "Processing study data...", value = 0.7)
-        processData()
-
-        # Make sure our Organ tick list matches the data...
-        updateCheckboxGroupInput(
-          session,
-          "organRxPlotCheckbox",
-          "Organs to Plot",
-          choices = organFactors,
-          selected = organFactors
-        )
-        # Make sure our Organ tick list matches the data...
-        updateCheckboxGroupInput(
-          session,
-          "organVolumePlotCheckbox",
-          "Organs to Plot",
-          choices = organFactors,
-          selected = organFactors
-        )
-        updateSelectInput(
-          session,
-          "operatorPlotDropdown",
-          "Operators to Plot",
-          choices = operator1Factors
-        )
-        updateSelectInput(
-          session,
-          "anaesthetistPlotDropdown",
-          "Anaesthetists to Plot",
-          choices = anaesthetist1Factors
-        )
-        updateCheckboxGroupInput(
-          session,
-          "operatorNameCheckbox",
-          "Operator Names",
-          choices = operatorAllFactors
-        )
-        updateCheckboxGroupInput(
-          session,
-          "anaesthetistNameCheckbox",
-          "Anaesthetist Names",
-          choices = anaesthetistAllFactors
-        )
-        updateCheckboxGroupInput(
-          session,
-          "organPieCheckbox",
-          "Organs to Chart",
-          choices = organFactors,
-          selected = organFactors
-        )
-        updateCheckboxGroupInput(
-          session,
-          "organAuditCheckbox",
-          "Organs to Chart",
-          choices = organFactors,
-          selected = organFactors
-        )
-        sapply(c('chartsMenuItem', 'tablesMenuItem', 'validationMenuItem', 'auditMenuItem', 'summaryMenuItem', 'pathwaySummaryMenuItem'), shinyjs::show)
-        # Make the pathway plots...
-        makeRxPathwayPlots()
-        makeRxVolumePlot(rxDoneData, input$volumePlotDurationRadio)
-
-        progress$set(message = "Completed loading & processing.", value = 1.0)
-        showNotification("Completed data processing, plot/tables should now be available to view...")
-      }
-      else
-      {
-        api$loaded = F
-        showNotification("Study data is not valid, either not TARGET study or no patients...")
-        logger(
-          paste(
-            "Study data '",
-            input$studyDropdown,
-            "' is not valid, either not TARGET study or no patients..."
-          )
-        )
-      }
-    }
-    else
-    {
-      logger("Nothing to do without API Connection...")
-    }
   })
 
   # When we hit refresh button we want to reset the plot
