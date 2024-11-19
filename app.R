@@ -60,7 +60,6 @@ ui <- dashboardPage(
         id = "chartsID",
         tabName = "charts",
         icon = icon("chart-simple"),
-        expandedName = "CHARTS",
         menuSubItem("Pathway Plots",   tabName = "rxpathwayplots"),
         menuSubItem("Pathway Pies",    tabName = "rxpathwaypies"),
         menuSubItem("Operator Plot",   tabName = "operatorplots"),
@@ -74,7 +73,6 @@ ui <- dashboardPage(
         id = "tablesID",
         tabName = "tables",
         icon = icon("table"),
-        expandedName = "TABLES",
         menuSubItem("Pathway Table",    tabName = "rxpathwaytab"),
         menuSubItem("Recurrence Table", tabName = "recurrencetab"),
         menuSubItem("Survival Table",   tabName = "survivaltab")
@@ -84,7 +82,6 @@ ui <- dashboardPage(
         id = "validationID",
         tabName = "validation",
         icon = icon("table"),
-        expandedName = "VALIDATION",
         menuSubItem("Operator Names",      tabName = "operatorNames"),
         menuSubItem("Anaesthetists Names", tabName = "anaesthetistNames")
       ), id='validationMenuItem')),
@@ -114,11 +111,7 @@ ui <- dashboardPage(
       ), id='pathwaySummaryMenuItem')),
       menuItem("Test", tabName = "test", icon = icon("code")),
       menuItem("Change Log", tabName = "changeLog", icon = icon("list")),
-      menuItem("About", tabName = "about", icon = icon("address-card")),
-
-      hidden(menuItem("hiddenCharts",  tabName = "hiddenCharts")),
-      hidden(menuItem("hiddenTables",  tabName = "hiddenTables")),
-      hidden(menuItem("hiddenSummary", tabName = "hiddenSummary"))
+      menuItem("About", tabName = "about", icon = icon("address-card"))
     )
   ),
 
@@ -589,25 +582,6 @@ server <- function(input, output, session) {
 
   api <- apiServer(input, output, session)
   tariff <- tariffServer(input, output, session, api)
-
-  # Keeps sidebar Charts submenu expanded rather than instant collapse
-  observeEvent(input$sidebarItemExpanded, {
-    if (input$sidebarItemExpanded == "CHARTS") {
-      updateTabItems(session, "sidebarID", selected = "hiddenCharts")
-    }
-  })
-  # Keeps sidebar Tables submenu expanded rather than instant collapse
-  observeEvent(input$sidebarItemExpanded, {
-    if (input$sidebarItemExpanded == "TABLES") {
-      updateTabItems(session, "sidebarID", selected = "hiddenTables")
-    }
-  })
-  # Keeps sidebar Summaries submenu expanded rather than instant collapse
-  observeEvent(input$sidebarItemExpanded, {
-    if (input$sidebarItemExpanded == "SUMMARY") {
-      updateTabItems(session, "sidebarID", selected = "hiddenSummary")
-    }
-  })
 
   finalRxPlotInput <- reactive({
     switch(input$rxTimesPlotRadio,
