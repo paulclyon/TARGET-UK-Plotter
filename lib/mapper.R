@@ -2,7 +2,7 @@
 # https://r-spatial.github.io/mapview/
 # https://map-rfun.library.duke.edu/01_georeference.html
 # https://stackoverflow.com/questions/67154658/how-to-extract-longitude-and-latitude-using-postal-code-and-ggmap-function
-# https://stackoverflow.com/questions/77947837/getting-distance-between-2-uk-postcodes-in-r 
+# https://stackoverflow.com/questions/77947837/getting-distance-between-2-uk-postcodes-in-r
 
 
 # Return a list of lattiude and longitude for a post code
@@ -21,7 +21,7 @@ getGeoForPostcode <- function(postcode)
     # There is a space in the string so assume we have a full post code
     postcodeFull <- postcode
   }
-  
+
   # Now we have a full post code
   if (postcode_validation(postcodeFull))
   {
@@ -35,16 +35,16 @@ getGeoForPostcode <- function(postcode)
   return(returnVal)
 }
 
-makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate, progressBar)
+makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate, progressBar=NULL)
 {
   # Initialise some stuff
   startDate = as.Date(inputStartDate, format = "%d/%m/%Y")
   endDate   = as.Date(inputEndDate, format = "%d/%m/%Y")
-  
+
   if (is.data.frame(rxDoneData) && nrow(rxDoneData>0))
   {
     # Filter just the dates we need from rxDoneData
-    rxDoneData.filtered <<- rxDoneData %>% filter(between(RxDate, as.Date(inputStartDate, format = "%d/%m/%Y"), 
+    rxDoneData.filtered <<- rxDoneData %>% filter(between(RxDate, as.Date(inputStartDate, format = "%d/%m/%Y"),
                                                                   as.Date(inputEndDate,   format = "%d/%m/%Y")))
     ID <- c()
     latitude <- c()
@@ -53,14 +53,15 @@ makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate, progressBa
     rxdate <- c()
     organ <- c()
     geoRx <- NA
-    
+
     logger(paste("Generating the postcode geo-locations ",inputStartDate,"-",inputEndDate,"...",sep=""))
 
     if (nrow(rxDoneData.filtered >0))
     {
       for (i in 1:nrow(rxDoneData.filtered))
       {
-        progressBar$set(message = "Geolocating postcodes...", value = i/nrow(rxDoneData.filtered))
+        if (!is.null(progressBar))
+          progressBar$set(message = "Geolocating postcodes...", value = i/nrow(rxDoneData.filtered))
         thisPostcode <- rxDoneData.filtered$Postcode[i]
         if (is.na(thisPostcode) || is.null(thisPostcode) || thisPostcode == "" || thisPostcode == " ")
         {
@@ -78,7 +79,7 @@ makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate, progressBa
         }
       }
     }
-    
+
     # These will all appear in the tooltip text if you click on a dot on the generated map...
     geoRx <- data.frame(
       ID = ID,
@@ -91,17 +92,15 @@ makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate, progressBa
   }
   logger(paste("Generating the referral map from ",inputStartDate,"-",inputEndDate,"...",sep=""))
   mapviewOptions(basemaps = "OpenStreetMap")
-  if (nrow(geoRx)>0)
-  {
-    referralMap <<- mapview(geoRx, xcol = "Longitude", ycol = "Latitude", crs = 4269, grid = FALSE)
-  }
-  else
-  {
+
+  if (nrow(geoRx) == 0) {
     # If we haven't got any data, just plot a single point for fun
-    referralMap <<- mapview(data.frame(ID=c("Alcatraz"),Longitude=c(-122.422844),Latitude=c(37.827)), xcol = "Longitude", ycol = "Latitude", crs = 4269, grid = FALSE)
     logger("No valid treatment data between dates; go to jail, do not pass go, do not collect £200.")
+
+    return( mapview(data.frame(ID=c("Alcatraz"),Longitude=c(-122.422844),Latitude=c(37.827)), xcol = "Longitude", ycol = "Latitude", crs = 4269, grid = FALSE))
   }
-  return(referralMap)
+
+  mapview(geoRx, xcol = "Longitude", ycol = "Latitude", crs = 4269, grid = FALSE)
 }
 
 
@@ -114,6 +113,6 @@ demo <- function()
   library(sf)
   us_geo <- tigris::states(cb = TRUE, resolution = '20m')
   pop_data <- readr::read_csv("state_population_data.csv")
-  all_data <- inner_join(us_geo, pop_data, by = c("GEOID" = "GEOID")) 
+  all_data <- inner_join(us_geo, pop_data, by = c("GEOID" = "GEOID"))
   mapview(all_data, zcol = "PctChange10_20")
 }

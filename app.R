@@ -118,9 +118,7 @@ ui <- dashboardPage(
   dashboardBody(
     useShinyjs(),
     tabItems(
-      tabItem(tabName = "api",
-              apiTab()),
-
+      tabItem(tabName = "api", apiTab()),
       tabItem(tabName = "rxpathwayplots",
               fluidRow(
                 tabPanel(
@@ -356,31 +354,7 @@ ui <- dashboardPage(
                          plotOutput("plotSurvivalCurve"))
               )),
 
-      tabItem("referralmaps",
-              wellPanel(fluidRow(
-                column(3,
-                  dateInput(
-                    "refMapDate1",
-                    "Start Date:",
-                    format = "dd/mm/yyyy",
-                    value = Sys.Date() - 365*5
-                  )),
-                column(3,
-                  dateInput(
-                    "refMapDate2",
-                    "End Date:",
-                    format = "dd/mm/yyyy",
-                    value = Sys.Date()
-                  )),
-                column(5,
-                  actionButton(inputId = "RefreshReferralMap", label = "Generate New Map Between Dates", style = "height: 60px")
-                )
-              )),
-              fluidRow(
-                tabPanel("ReferralMap",
-                         leafletOutput("plotReferralMap", height = "550px")
-                ))
-      ),
+      tabItem("referralmaps", referralMapTab()),
 
       tabItem("rxpathwaytab",
               fluidRow(box(
@@ -627,16 +601,6 @@ server <- function(input, output, session) {
     recurrencePlotOrgan
   })
 
-  regenerateReferralMap <- function(force = F)
-  {
-    showNotification("Generating/Refreshing treatment map ...")
-    progress <- shiny::Progress$new()
-    tags$head(tags$style(HTML('.progress-bar {background-color: green;}')))
-    # Close the progress when this reactive exits (even if there's an error)
-    on.exit(progress$close())
-    makeReferralMap(rxDoneData,input$refMapDate1,input$refMapDate2,progress)
-    showNotification("Completed update of treatment map.")
-  }
 
   finalRefAuditInput <- reactive({
     # This does the knitting bit ready to make the HTML by running the knit function
@@ -794,33 +758,7 @@ server <- function(input, output, session) {
     plots$activePlot
   })
 
-  # This is the one when we hit the refresh button!
-  observeEvent(input$RefreshReferralMap, {
-    output$plotReferralMap <- renderLeaflet({
-      if (is.Date(input$refMapDate1) && is.Date(input$refMapDate2))
-      {
-        generateMap()
-        if (!is.null(referralMap)) plots$activePlot <- referralMap@map
-      }
-      plots$activePlot
-    })
-  })
-
-  # This is a common function to generate the referral treated map to avoid duplicating code
-  generateMap <- function(force = F)
-  {
-    # See :    https://stackoverflow.com/questions/36679944/mapview-for-shiny
-    # Refresh: https://stackoverflow.com/questions/67725408/how-i-can-reload-my-leaflet-map-in-shiny-r
-    if (is.data.frame(rxDoneData) && nrow(rxDoneData>0))
-    {
-      regenerateReferralMap(force)
-      showNotification("Completed map generation from registry.")
-    }
-    else
-    {
-      showNotification("No treatment data available to generate map- please reload data.")
-    }
-  }
+  referralsMapServer(input, output, session, plots)
 
   output$summaryWaitData <- renderPrint({
     summary(rxWaitData)
