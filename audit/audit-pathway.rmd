@@ -1,8 +1,8 @@
 ---
 title: "Ablation Waiting Time Audit Report"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 date: "2024-01-29"
 ---
 
@@ -31,7 +31,7 @@ overall_group = function(data, col_name)
 
 # Remove Dummy patient numbers from the data
 rxDoneAuditData <- rxDoneData %>% 
-  filter((ID != "000-1" & ID != "00000-1")) %>%
+  filter((ID != "000-1" & ID != "00000-1" & ID != '000000-1')) %>%
   filter(RxDate >= as.Date(audit_start_date) & RxDate < as.Date(audit_end_date)) 
 ```
 
@@ -51,6 +51,14 @@ Organs included in audit: `r paste(audit_organs)`<br>
 
 <h2>Ablation Referral to DTT Times</h2>
 ```{r ref_dtt}
+auditPeriodText <- paste(format.Date(audit_start_date, "%e %b %Y"),
+            "–",
+            format.Date(audit_end_date, "%e %b %Y"),
+            " (",
+            (as.integer(difftime(audit_end_date, audit_start_date, units="weeks")) / 52 * 12),
+            " month period)",
+            sep="")
+
 rxDoneAuditData %>%
   mutate(within10=ifelse(Ref_DTT<=10, 1,0),
          within21=ifelse(Ref_DTT<=21, 1, 0)) %>%
@@ -64,12 +72,19 @@ rxDoneAuditData %>%
             n=n()) %>%
   
   mutate(Organs=if_else(is.na(Organs), 'All Organs', Organs),
-    'Organ (n)'=paste(Organs, ' (N=', n,')', sep='')) %>%
+    'Organ Treated'=paste(Organs, ' (N=', n,')', sep='')) %>%
   ungroup()%>%
-  select('Organ (n)', mean, median, 'w10', 'w21', 'w10%', 'w21%') %>%
-  kbl %>%
+  filter(Organs=='All Organs' | Organs %in% audit_organs) %>%
+  select('Organ Treated', mean, median, 'w10%', 'w21%') %>%
+  kbl(col.names=c('Organ Treated', ("Mean time\n(days)"), ("Median\n(days)"), ("% within 10 days\n(Local std.)"), ("% within 21 days\n(Local std.)"))) %>%
+  add_header_above(
+    data.frame(
+      paste("Time from Referral Received-to-DTT\n",
+            auditPeriodText,
+            sep=""), 5) ) %>%
   kable_styling()
 ```
+Mean, median (days) and percentage of referrals meeting defined time standards from Referral received and the date the treatment is discussed in clinic with the patient who wants to go ahead with ablation (decision to treat; DTT).
 
 <h2>Ablation DTT to Rx Times</h2>
 ```{r dtt_rx}
@@ -87,10 +102,17 @@ rxDoneAuditData %>%
   mutate(Organs=if_else(is.na(Organs), 'All Organs', Organs),
     'Organ (n)'=paste(Organs, ' (N=', n,')', sep='')) %>%
   ungroup()%>%
-  select('Organ (n)', mean, median, 'w31%', 'w45%', 'w60%', n) %>%
-  kbl %>%
+  filter(Organs=='All Organs' | Organs %in% audit_organs) %>%
+  select('Organ (n)', mean, median, 'w31%', 'w45%', 'w60%') %>%
+  kbl(col.names=c('Organ Treated', ("Mean time\n(days)"), ("Median\n(days)"), ("% within 31 days\n(Cancer std.)"), ("% within 45 days\n(Local std.)"), ("% within 60 days\n(Local std.)"))) %>%
+  add_header_above(
+    data.frame(
+      paste("Time from DTT-to-Ablation\n",
+            auditPeriodText,
+            sep=""), 6) ) %>%
   kable_styling()
 ```
+Mean, median (days) and percentage of referrals meeting defined time standards from the decision to treat clinic date (DTT) and the day of ablation treatment.
 
 <h2>Ablation Referral to Rx Times</h2>
 ```{r ref_rx}
@@ -106,12 +128,18 @@ rxDoneAuditData %>%
   mutate(Organs=if_else(is.na(Organs), 'All Organs', Organs),
     'Organ (n)'=paste(Organs, ' (N=', n,')', sep='')) %>%
   ungroup()%>%
-  filter(Organs != 'Multiple Organs') %>%
+  filter(Organs=='All Organs' | Organs %in% audit_organs) %>%
   select('Organ (n)', mean, median, 'w90%') %>%
-  kbl %>%
+  kbl(col.names=c('Organ Treated', ("Mean time\n(days)"), ("Median\n(days)"), ("% within 90 days\n(Local std.)"))) %>%
+  add_header_above(
+    data.frame(
+      paste("Time from Referral received-to-Ablation\n",
+            auditPeriodText,
+            sep=""), 4) ) %>%
+
   kable_styling()
 ```
-
+Mean, median (days) and percentage of referrals meeting defined time standard from the referral received date to treatment date overall.
 
 <h2>Ablation Referral Days Stopped (Pre- or Post-DTT)</h2>
 ```{r daystopped_pre_or_post_dtt}
@@ -123,17 +151,16 @@ rxDoneAuditData %>%
       if_else(is.na(ClockStopDaysPostDTT), 'Stopped Pre DTT', 'Stopped Both Pre and Post DTT')),
     daysStopped=if_else(
       is.na(ClockStopDaysPreDTT),
-      if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT),
-      if_else(is.na(ClockStopDaysPostDTT), ClockStopDaysPreDTT, ClockStopDaysPreDTT+ClockStopDaysPostDTT),
+      if_else(is.na(ClockStopDaysPostDTT), 0, abs(ClockStopDaysPostDTT)),
+      if_else(is.na(ClockStopDaysPostDTT), abs(ClockStopDaysPreDTT), abs(ClockStopDaysPreDTT+ClockStopDaysPostDTT)),
     ),
   ) %>% 
   group_by(clockstopped) %>% 
-  #mutate(clockstopped=paste(clockstopped, ' (N=', n,')', sep='')) %>%
-  summarise(n=n(), mean=round(mean(daysStopped), 1), median=round(median(daysStopped), 1))%>%
-  kbl %>%
+  mutate(n=n(),clockstopped=paste(clockstopped, ' (N=', n,')', sep='')) %>%
+  summarise(mean=round(mean(daysStopped), 1), median=round(median(daysStopped), 1))%>%
+  kbl(col.names=c('Clock Status', 'Mean time\n(days)', 'Median\n(days)')) %>%
   kable_styling()
 ```
-
 
 <h2>Ablation Referral Days Stopped (Pre- and Post-DTT Combined)</h2>
 ```{r daystopped_pre_and_post_dtt}
@@ -146,13 +173,14 @@ rxDoneAuditData %>%
       if_else(is.na(ClockStopDaysPostDTT), 'Stopped', 'Stopped')),
     daysStopped=if_else(
       is.na(ClockStopDaysPreDTT),
-      if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT),
-      if_else(is.na(ClockStopDaysPostDTT), ClockStopDaysPreDTT, ClockStopDaysPreDTT+ClockStopDaysPostDTT),
+      if_else(is.na(ClockStopDaysPostDTT), 0, abs(ClockStopDaysPostDTT)),
+      if_else(is.na(ClockStopDaysPostDTT), abs(ClockStopDaysPreDTT), abs(ClockStopDaysPreDTT+ClockStopDaysPostDTT)),
     ),
   ) %>% 
   group_by(clockstopped) %>% 
-  summarise(n=n(), mean=round(mean(daysStopped), 1), median=round(median(daysStopped), 1))%>%
-  kbl %>%
+  mutate(n=n(),clockstopped=paste(clockstopped, ' (N=', n,')', sep='')) %>%
+  summarise(mean=round(mean(daysStopped), 1), median=round(median(daysStopped), 1))%>%
+  kbl(col.names=c('Clock Status', 'Mean time\n(days)', 'Median\n(days)')) %>%
   kable_styling()
 ```
 
@@ -170,7 +198,7 @@ rxDoneAuditData %>%
       if_else(is.na(ClockStopDaysPostDTT), ClockStopDaysPreDTT, ClockStopDaysPreDTT+ClockStopDaysPostDTT),
     ),
   ) %>% filter(clockstopped != 'Not Stopped') %>% select(ID, ClockStopWhy) %>%
-  kbl %>%
+  kbl(col.names=c('ID', 'Reason for clock stop')) %>%
   kable_styling()
 ```
 
@@ -223,10 +251,10 @@ rxDoneAuditData %>%
 ```{r longwaits}
 rxDoneAuditData %>% 
   filter(Ref_RxDone > 120) %>%
+  mutate(ClockStopDaysPreDTT=if_else(is.na(ClockStopDaysPreDTT), 0, ClockStopDaysPreDTT),
+         ClockStopDaysPostDTT=if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT)) %>%
   select(ID, Ref_RxDone, ClockStopDaysPreDTT, ClockStopDaysPostDTT) %>%
-  kbl %>%
+  kbl(col.names=c('ID', 'Referral to Ablation time\n(days)', 'Clock Stop Pre DTT\n(days)', 'Clock Stop Post DTT\n(days)')) %>%
   kable_styling()
 
 ```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
