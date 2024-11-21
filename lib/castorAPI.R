@@ -1,23 +1,23 @@
 ## Functions to load the castor API
 
 # Connect to the Castor API...
-connectCastorAPI <- function()
+connectCastorAPI <- function(key=Sys.getenv("CASTOR_USER_KEY"),
+                             secret=Sys.getenv("CASTOR_SECRET"),
+                             base_url=Sys.getenv("CASTOR_URL"))
 {
   # Please note that the castorRedc library updated form 1.1.0 to 2.1.0 from 2024...
   # This changes the methods available on the environment() variable and getRecords() only works on 1.1.0
-  #logger("   Attempting to open Castor API...") 
+  #logger("   Attempting to open Castor API...")
   castor_api <<- tryCatch(
-    { CastorData$new(key =      Sys.getenv("CASTOR_USER_KEY"),
-                     secret =   Sys.getenv("CASTOR_SECRET"),
-                     base_url = Sys.getenv("CASTOR_URL"))
+    { CastorData$new(key=key, secret=secret, base_url=base_url)
     },
-    
+
     error=function(e) {
       logger(paste("   An error occurred: Could not access Castor API..."))
       logger(e)
       castor_api <<- NA # Its an environment so we can't use is.na() function, but we can use is.environment()
     },
-    
+
     #if a warning occurs, tell me the warning
     warning=function(w) {
       logger(paste("A warning occurred during access to Castor API"))
@@ -44,13 +44,14 @@ disconnectCastorAPI <- function()
 # We can use the openAPI to write data, in fact its the only way I can work out how to do it!
 # Largely borrowed from:
 # https://git.lumc.nl/egjvonasmuth/castor-api-tutorial/-/blob/main/example_rapiclient.R?ref_type=heads
-connectCastorOpenAPI <- function()
+connectCastorOpenAPI <- function(key=Sys.getenv("CASTOR_USER_KEY"),
+                                 secret=Sys.getenv("CASTOR_SECRET"),
+                                 base_url=Sys.getenv("CASTOR_URL"))
 {
-  base_url <- Sys.getenv("CASTOR_URL")
   tryCatch(
-    { 
+    {
       # Authenticate using oauth
-      app <- oauth_app("CastorEDC", key = Sys.getenv("CASTOR_USER_KEY"), secret = Sys.getenv("CASTOR_SECRET"))
+      app <- oauth_app("CastorEDC", key=key, secret=secret)
       endpoint <- oauth_endpoint(request = NULL, base_url = paste0(base_url, "/oauth"), access = "token", "authorize")
       token <- httr::oauth2.0_token(endpoint, app, client_credentials = TRUE, cache = FALSE)
       URLforCastor <- paste0(base_url, "/api/swagger?format=json")
@@ -59,28 +60,28 @@ connectCastorOpenAPI <- function()
       # Note URL has format=json, otherwise remove that and its yaml, so would need ext='yaml' in that case
       # Since this update the data is no longer updated on attempts to write via OpenAPI
       castor_open_api <<- get_api(url=URLforCastor, config=httr::config(token = token), ext='json')
-      
+
       # This is an alternative for test purposes, and this does work...
-      #URLforDemo <- "https://petstore.swagger.io/v2/swagger.json" 
+      #URLforDemo <- "https://petstore.swagger.io/v2/swagger.json"
       #demo_api <<- get_api(url=URLforDemo)
-      
+
     },
-    
+
     error=function(e) {
       logger(paste("An error occurred: Could not access Castor Open API..."))
       logger(e)
       castor_open_api <<- NA # Its an special rapiclient environment which is essentially a list, so we can't use is.na() function or is.environment()
     },
-    
+
     #if a warning occurs, tell me the warning
     warning=function(w) {
       logger(paste("A warning occurred during access to Castor Open API"))
       logger(w)
     }
   )
-  
+
   # If its not a list it hasn't worked...
-  if (typeof(castor_open_api) != "list") 
+  if (typeof(castor_open_api) != "list")
   {
     logger("Failed to access Castor Open API with those settings")
   }
@@ -88,19 +89,19 @@ connectCastorOpenAPI <- function()
   {
     # As a global, retrieve the possible operations which is needed to then do the magic later on!
     openAPIoperations <<- get_operations(castor_open_api)
-    
+
     # ...And the possible schemas; we use schemas again below
     openAPIschemas <<- get_schemas(castor_open_api)
-    
+
     # Castor API uses labels like descriptions so this results in awful labels
     # We can use the path instead of the label
     # Need the <<- so it makes permanent change globally otherwise change is temporary
-    names(openAPIoperations) <<- sapply(openAPIoperations, function(x) 
+    names(openAPIoperations) <<- sapply(openAPIoperations, function(x)
       paste(attributes(x)$definition$action, attributes(x)$definition$path))
-    
+
     # A lot easier - do we need this too not sure?
     #openAPIoperations$`get /user`() |> content(as = "text") |> fromJSON()
-    
+
     logger("Accessed Castor Open API successfully")
   }
   return(castor_open_api)
@@ -119,11 +120,11 @@ fetchDataWithURL <- function(castorAPI, apiURL)
   page <- 1
   limit <- 100
   all_data <- list()
-  
+
   # Sort out the authorisation headers
   headers <- add_headers(Authorization = paste('Bearer',
                                                castorAPI$oauth_token$credentials$access_token))
-  
+
   # Keep getting pages of data until the data returned is empty, so we know we have got it all
   # Each time through we increment page by 1 which is embedded in the URL
   logger(paste("Reading data page by page via URL ('",apiURL,"')...",sep=""))
@@ -143,7 +144,7 @@ fetchDataWithURL <- function(castorAPI, apiURL)
       }
       data <- fromJSON(content(response, as = "text", encoding = "utf-8"), flatten = TRUE)
       # This gets to the crux of the data, and its name varies within Castor e.g. could be item or fields hence first embedded field only [[1]]
-      all_data <- rbind.data.frame(all_data, data$`_embedded`[[1]]) 
+      all_data <- rbind.data.frame(all_data, data$`_embedded`[[1]])
       page <- page + 1
     }
     else
@@ -173,14 +174,14 @@ fetchDataWithURLOpenAPI <- function(castorOpenAPI, apiURL)
   {
     castorOpenAPI <<- connectCastorOpenAPI()
   }
-  
+
   if (typeof(studyDataOpenAPI) != "list")
   {
     logger("Connected to Open API...")
     studyDataOpenAPI <<- openAPIoperations$`get /study/{study_id}/data-points/study`(studyID) |>
       content(as = "text") |>
       fromJSON()
-  }  
+  }
 }
 
 # We can get the field names with open API but also easy to do with the traditional API so this code is redundant currently
@@ -195,7 +196,7 @@ getFieldNamesWithOpenAPI <- function(castorOpenAPI)
       content(as = "text") |>
       fromJSON()
   }
-  
+
   # Find the fieldID for the fieldName
   # This seems like an ugly hack but until Castor dev team spill the beans on how to do this...
   i <- which(fieldDataOpenAPI$`_embedded`$fields$field_variable_name == fieldName)
@@ -205,7 +206,7 @@ getFieldNamesWithOpenAPI <- function(castorOpenAPI)
     logger(msg)
     stop(msg)
   }
-  
+
   fieldID <- fieldDataOpenAPI$`_embedded`$fields$id[i]
   logger(paste("Field name '", fieldName, "' found in field data with ID='",fieldID,"'", sep = ))
 }
@@ -217,7 +218,7 @@ updateStudyDataByField <- function(studyID, patientID, fieldName, newData, reaso
 {
   # First get the field name
   fieldID <- getFieldIDForName(castor_api,studyID,fieldName)
-  
+
   base_url <- Sys.getenv("CASTOR_URL")
   #set_config(config(token = token))
   participant_id <- patientID
@@ -255,7 +256,7 @@ updateStudyDataOpenAPI <- function(studyID, patientID, fieldName, newData, reaso
   # To update data within Castor we need to use the Castor Open API as I don't know how to do it any other way!
   # Certainly there is no API Wrapper function
   castorOpenAPI <- connectCastorOpenAPI()
-  
+
   # Do the magic to update
   openAPIoperations$`post /study/{study_id}/participant/{participant_id}/data-points/study`
   formals(openAPIoperations$`post /study/{study_id}/participant/{participant_id}/data-points/study`)
@@ -273,7 +274,7 @@ updateStudyDataOpenAPI <- function(studyID, patientID, fieldName, newData, reaso
       )
     )
   )
-  
+
   # FIXME this used to work with ealier version of yaml library but now doesn't seem to do any update... but no error! So annoying!
   write_result_openapi
   content(write_result_openapi, as = "text") |> fromJSON()
@@ -292,10 +293,10 @@ updateStudyDataByRecord <- function(api, study_id, record_id, field_id, new_valu
   url <- paste0(api$base_url, "/study/", study_id, "/record/", record_id, "/data-point")
   # Structure the data payload
   payload <- list( "field_id" = field_id, "field_value" = new_value )
-  
+
   # Convert the payload to JSON
   json_payload <- jsonlite::toJSON(payload)
-  
+
   # Send the POST request
   response <- httr::POST( url, body = json_payload, encode = "json", httr::add_headers("Authorization" = paste("Bearer", api$token)) )
   return(response)
@@ -317,7 +318,7 @@ updateStudyDataByRecord <- function(api, study_id, record_id, field_id, new_valu
 
 
 
-# Get field ID for field name 
+# Get field ID for field name
 # The meta-data used to be secretly hidden in with R in the Castor data.frame, but this was taken out from castoRedc v2.x
 # So instead I use the API to get the fields, find the right field and return the field ID
 getFieldIDForName <- function(castorAPI,studyID,fieldName)
@@ -328,12 +329,12 @@ getFieldIDForName <- function(castorAPI,studyID,fieldName)
     logger("Getting the field data via standard Castor API...")
     base_url <- Sys.getenv("CASTOR_URL")
     apiURL <- paste(base_url,"/api/study/",studyID,"/field",sep='')
-    
+
     # This works with the standard API, but not with castorOpenAPI
     # Note default page size is 500, but this uses a method which can pull all the data using fetchDatWithURL
     fieldData <<- fetchDataWithURL(castorAPI, apiURL)
   }
-  
+
   # Find the fieldID for the fieldName provided using fieldData
   # This seems like a slightly ugly method but it works and there is no castor api doc I can find for more elegant solution,..
   i <- which(fieldData$field_variable_name == fieldName)

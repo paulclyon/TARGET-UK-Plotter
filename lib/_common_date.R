@@ -16,9 +16,16 @@ convertToDate <- function(x) {
     r=NA
   }
   return (r)
-}                                                    
+}
 
 # This is redundant currently
 convertToDateStr <- function(x) {
   return (as.character(convertToDate(x)))
-}                                                    
+}
+
+# This is a wrapper for the as.Date function but it sets the origin
+# This is because on some OS e.g. Linux, R may be more strict and fall over if origin is not set
+asDateWithOrigin <- function(thisDate)
+{
+  as.Date(thisDate, origin = '1970-01-01')
+}
