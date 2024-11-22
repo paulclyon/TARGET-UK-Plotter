@@ -30,9 +30,6 @@ if (file.exists("userkey.txt")) {
   )
 }
 
-# Knit the audit scripts, currently only one
-rmdAuditFiles <- c(Sys.getenv("AUDIT_PATHWAY_RMD"))
-
 # This should be outside of initialiseGlobals otherwise its always going to be empty at processing
 castor_api      <<- new.env()
 
@@ -240,6 +237,7 @@ server <- function(input, output, session) {
   survivalServer(input, output, session)
   pathwaySummaryServer(input, output, session)
   survivalSummaryServer(input, output, session)
+  auditServer(input, output, session, api, plots)
 
   output$tableWait <- DT::renderDataTable({
     DT::datatable(rxWaitData)
