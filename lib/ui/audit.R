@@ -40,9 +40,11 @@ auditTab <- function() {
   )
 }
 
-auditServer <- function(input, output, session) {
+auditServer <- function(input, output, session, api, plots) {
   finalRefAuditInput <- reactive({
     # This does the knitting bit ready to make the HTML by running the knit function
+    rmdAuditFiles <- c(Sys.getenv("AUDIT_PATHWAY_RMD"))
+
     sapply(rmdAuditFiles, knit, quiet = T)
 
     # This makes the MD file which is basically just HTML in a file
