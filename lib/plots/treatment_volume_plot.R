@@ -1,4 +1,4 @@
-makeRxVolumePlot <- function(filteredRxDoneData, volumePlotDuration) {
+makeTreatmentVolumePlot <- function(filteredRxDoneData, volumePlotDuration) {
   # Organ colour scale
   orgColors <- brewer.pal(length(organFactors), "Pastel1")
   names(orgColors) <- organFactors

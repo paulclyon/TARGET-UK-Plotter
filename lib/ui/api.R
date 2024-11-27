@@ -209,6 +209,7 @@ reloadStudyEvent <- function(input, output, session, api) {
   processData() # TODO: This should return values which we can then attach to the api reactive value
 
   ## TODO: Then all of these can be bound to the reactive api processed data value outside of this function
+  api$organFactors <- organFactors
 
   # Make sure our Organ tick list matches the data...
   updateCheckboxGroupInput(session, "organRxPlotCheckbox", "Organs to Plot",
@@ -216,7 +217,7 @@ reloadStudyEvent <- function(input, output, session, api) {
     selected = organFactors
   )
   # Make sure our Organ tick list matches the data...
-  updateCheckboxGroupInput(session, "organVolumePlotCheckbox", "Organs to Plot",
+  updateCheckboxGroupInput(session, "volumePlotOrganCheckbox", "Organs to Plot",
     choices = organFactors,
     selected = organFactors
   )
@@ -248,14 +249,14 @@ reloadStudyEvent <- function(input, output, session, api) {
   # Make the pathway plots...
   # TODO: make reactive based on the status of the processed Data
   makeRxPathwayPlots()
-  makeRxVolumePlot(rxDoneData, input$volumePlotDurationRadio)
+  makeTreatmentVolumePlot(rxDoneData, input$volumePlotDurationRadio)
 
   progress$set(message = "Completed loading & processing.", value = 1.0)
   showNotification("Completed data processing, plot/tables should now be available to view...")
 }
 
 apiServer <- function(input, output, session) {
-  api <- reactiveValues(connected = FALSE, loaded = FALSE)
+  api <- reactiveValues(connected = FALSE, loaded = FALSE, organFactors = NULL)
 
   output$apiStatus <- renderAPIStatus(api)
 

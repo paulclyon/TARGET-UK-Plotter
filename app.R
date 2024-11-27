@@ -63,6 +63,7 @@ ui <- dashboardPage(
         menuSubItem("Volume Plot",     tabName = "volumeplots"),
         menuSubItem("Recurrence Plot", tabName = "recurrenceplot"),
         menuSubItem("Survival Plot",   tabName = "survivalplot"),
+        menuSubItem("Referral Status Plot", tabName = "referralstatus"),
         menuSubItem("Referral Maps",   tabName = "referralmaps")
       ), id='chartsMenuItem')),
       hidden(tagAppendAttributes(menuItem(
@@ -122,6 +123,7 @@ ui <- dashboardPage(
       tabItem(tabName = "rxpathwaypies", pathwayPieTab()),
       tabItem("recurrenceplot", recurrencePlotTab()),
       tabItem("survivalplot", survivalPlotTab()),
+      tabItem("referralstatus", referralStatusPlotTab()),
       tabItem("referralmaps", referralMapTab()),
       tabItem("rxpathwaytab", pathwayTab()),
       tabItem("recurrencetab", recurrenceTab()),
@@ -231,6 +233,7 @@ server <- function(input, output, session) {
   operatorPlotServer(input, output, session, plots)
   pathwayPieServer(input, output, session, plots)
   volumePlotServer(input, output, session, tariff, plots)
+  referralStatusPlotServer(input, output, session, api, plots)
   survivalPlotServer(input, output, session, plots)
   referralsMapServer(input, output, session, plots)
   recurrenceServer(input, output, session)
