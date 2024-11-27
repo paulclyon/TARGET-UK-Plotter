@@ -51,6 +51,13 @@ auditServer <- function(input, output, session, api, plots) {
     htmltools::includeMarkdown(Sys.getenv("AUDIT_PATHWAY_MD"))
   })
 
+  observe({
+      updateCheckboxGroupInput(session, "organAuditCheckbox", "Organs to Chart",
+        choices = api$organFactors,
+        selected = api$organFactors
+      )
+  })
+
   observeEvent(input$runAuditReport, {
     logger(paste("Running audit for dates: ", input$auditDate1,"-", input$auditDate2, sep=""))
     logger(paste("Running audit for organs:", input$organAuditCheckbox))

@@ -209,18 +209,11 @@ reloadStudyEvent <- function(input, output, session, api) {
   processData() # TODO: This should return values which we can then attach to the api reactive value
 
   ## TODO: Then all of these can be bound to the reactive api processed data value outside of this function
+
+  ## The first step is just move the organFactors to the api
   api$organFactors <- organFactors
 
   # Make sure our Organ tick list matches the data...
-  updateCheckboxGroupInput(session, "organRxPlotCheckbox", "Organs to Plot",
-    choices = organFactors,
-    selected = organFactors
-  )
-  # Make sure our Organ tick list matches the data...
-  updateCheckboxGroupInput(session, "volumePlotOrganCheckbox", "Organs to Plot",
-    choices = organFactors,
-    selected = organFactors
-  )
   updateSelectInput(session, "operatorPlotDropdown", "Operators to Plot",
     choices = operator1Factors
   )
@@ -232,14 +225,6 @@ reloadStudyEvent <- function(input, output, session, api) {
   )
   updateCheckboxGroupInput(session, "anaesthetistNameCheckbox", "Anaesthetist Names",
     choices = anaesthetistAllFactors
-  )
-  updateCheckboxGroupInput(session, "organPieCheckbox", "Organs to Chart",
-    choices = organFactors,
-    selected = organFactors
-  )
-  updateCheckboxGroupInput(session, "organAuditCheckbox", "Organs to Chart",
-    choices = organFactors,
-    selected = organFactors
   )
 
   # Show the data sidebar items

@@ -65,7 +65,7 @@ volumePlotTab <- function() {
   )
 }
 
-volumePlotServer <- function(input, output, session, tariff, plots) {
+volumePlotServer <- function(input, output, session, api, tariff, plots) {
   # Note plotly vs. plot gives you the tool tip text
   output$plotVolume <- renderPlotly({
     filteredRxDoneData <- rxDoneData |>
@@ -100,6 +100,13 @@ volumePlotServer <- function(input, output, session, tariff, plots) {
 
   observeEvent(input$volumePlotRefresh, {
     plots$activePlot <- ggplot()
+  })
+
+  observe({
+    updateCheckboxGroupInput(session, "volumePlotOrganCheckbox", "Organs to Plot",
+    choices = api$organFactors,
+    selected = api$organFactors
+  )
   })
 
   # ? Not sure what this for ?
