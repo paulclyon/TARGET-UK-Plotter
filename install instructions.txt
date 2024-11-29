@@ -84,3 +84,16 @@ The URL should then work if both alias set up in the portal and the directory an
 http://ouhradwiki.com/targetuk
 
 
+Merging Other Forks
+
+Best do from GitHub website.
+e.g. 
+zeripath wants to merge 10 commits into paulclyon:main from zeripath:dynamic-buttons  
+
+Merge pull request > Create a merge commit
+"Confirm merge" button
+
+@paulclyon paulclyon merged commit 5708b28 into paulclyon:main  now
+paulclyon merged 3 commits into paulclyon:main from zeripath:referral-status-graphs
+
+Try to keep just one branch - main - otherwise it goes nuts !
