@@ -6,23 +6,23 @@ volumePlotTab <- function() {
         column(
           width = 3,
           dateInput(
-            "volumePlotDate1",
+            "volumePlotStart",
             "Start Date:",
             format = "dd/mm/yyyy",
             value = Sys.Date() - 365
           ),
           dateInput(
-            "volumePlotDate2",
+            "volumePlotEnd",
             "End Date:",
             format = "dd/mm/yyyy",
             value = Sys.Date()
           ),
-          actionButton(inputId = "refreshVolumePlot", label = "Refresh Plot")
+          actionButton(inputId="volumePlotRefresh", label = "Refresh Plot")
         ),
         column(
           width = 3,
           checkboxGroupInput(
-            "organVolumePlotCheckbox",
+            "volumePlotOrganCheckbox",
             "Organs to Plot",
             choices = organFactors,
             selected = organFactors
@@ -31,7 +31,7 @@ volumePlotTab <- function() {
         column(
           width = 3,
           checkboxGroupInput(
-            "modalityVolumePlotCheckbox",
+            "volumePlotModalityCheckbox",
             "Modalities to Plot",
             choices = modalityFactors,
             selected = modalityFactors
@@ -54,7 +54,7 @@ volumePlotTab <- function() {
         ),
         column(
           width = 6,
-          tariffComponent(),
+          tariffComponent()
         )
       )
     ),
@@ -65,16 +65,17 @@ volumePlotTab <- function() {
   )
 }
 
-volumePlotServer <- function(input, output, session, tariff, plots) {
+volumePlotServer <- function(input, output, session, api, tariff, plots) {
   # Note plotly vs. plot gives you the tool tip text
   output$plotVolume <- renderPlotly({
-    filteredRxDoneData <- rxDoneData %>% filter(Organs %in% input$organVolumePlotCheckbox)
-    filteredRxDoneData <- filteredRxDoneData %>% filter(Modality %in% input$modalityVolumePlotCheckbox)
-    filteredRxDoneData <- filteredRxDoneData %>% filter(RxDate >= input$volumePlotDate1)
-    filteredRxDoneData <- filteredRxDoneData %>% filter(RxDate <= input$volumePlotDate2)
+    filteredRxDoneData <- rxDoneData |>
+      filter(Organs %in% input$volumePlotOrganCheckbox) |>
+      filter(Modality %in% input$volumePlotModalityCheckbox) |>
+      filter(RxDate >= input$volumePlotStart) |>
+      filter(RxDate <= input$volumePlotEnd)
 
     # We need to call this as if the duration radiobutton changes, it otherwise doesn't trigger a replot
-    p <- makeRxVolumePlot(filteredRxDoneData, input$volumePlotDurationRadio)
+    p <- makeTreatmentVolumePlot(filteredRxDoneData, input$volumePlotDurationRadio)
     p <- p %+% subset(filteredRxDoneData)
 
     # Work out the tariff
@@ -91,12 +92,21 @@ volumePlotServer <- function(input, output, session, tariff, plots) {
     } else if (input$volumePlotDurationRadio == "year") {
       p <- p + scale_x_date(date_breaks = "1 year", date_labels = "%Y")
     }
+
     plots$activePlot <- p
+
     plots$activePlot
   })
 
-  observeEvent(input$refreshVolumePlot, {
+  observeEvent(input$volumePlotRefresh, {
     plots$activePlot <- ggplot()
+  })
+
+  observe({
+    updateCheckboxGroupInput(session, "volumePlotOrganCheckbox", "Organs to Plot",
+    choices = api$organFactors,
+    selected = api$organFactors
+  )
   })
 
   # ? Not sure what this for ?

@@ -47,7 +47,7 @@ pathwayPieTab <- function() {
   )))
 }
 
-pathwayPieServer <- function(input, output, session, plots) {
+pathwayPieServer <- function(input, output, session, api, plots) {
   finalRxPieInput <- reactive({
     switch(input$rxTimesPieRadio,
            "rxdonePie" = rxdonePie,
@@ -79,6 +79,13 @@ pathwayPieServer <- function(input, output, session, plots) {
       plots$activePlot <- p
       plots$activePlot
     })
+
+  observe({
+    updateCheckboxGroupInput(session, "organPieCheckbox", "Organs to Chart",
+      choices = api$organFactors,
+      selected = api$organFactors
+    )
+  })
 
   observeEvent(input$refreshRxPie, {
     plots$activePlot <- ggplot()

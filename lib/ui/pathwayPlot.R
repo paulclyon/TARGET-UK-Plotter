@@ -51,7 +51,7 @@ pathwayPlotTab <- function() {
   )
 }
 
-pathwayPlotServer <- function(input, output, session, plots) {
+pathwayPlotServer <- function(input, output, session, api, plots) {
   finalRxPlotInput <- reactive({
     switch(input$rxTimesPlotRadio,
       "rxdonePlot" = rxdonePlot,
@@ -81,6 +81,13 @@ pathwayPlotServer <- function(input, output, session, plots) {
     }
     plots$activePlot <- p
     plots$activePlot
+  })
+
+  observe({
+    updateCheckboxGroupInput(session, "organRxPlotCheckbox", "Organs to Plot",
+      choices = api$organFactors,
+      selected = api$organFactors
+    )
   })
 
   # When we hit refresh button we want to reset the plot

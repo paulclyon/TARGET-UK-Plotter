@@ -210,16 +210,10 @@ reloadStudyEvent <- function(input, output, session, api) {
 
   ## TODO: Then all of these can be bound to the reactive api processed data value outside of this function
 
+  ## The first step is just move the organFactors to the api
+  api$organFactors <- organFactors
+
   # Make sure our Organ tick list matches the data...
-  updateCheckboxGroupInput(session, "organRxPlotCheckbox", "Organs to Plot",
-    choices = organFactors,
-    selected = organFactors
-  )
-  # Make sure our Organ tick list matches the data...
-  updateCheckboxGroupInput(session, "organVolumePlotCheckbox", "Organs to Plot",
-    choices = organFactors,
-    selected = organFactors
-  )
   updateSelectInput(session, "operatorPlotDropdown", "Operators to Plot",
     choices = operator1Factors
   )
@@ -232,14 +226,6 @@ reloadStudyEvent <- function(input, output, session, api) {
   updateCheckboxGroupInput(session, "anaesthetistNameCheckbox", "Anaesthetist Names",
     choices = anaesthetistAllFactors
   )
-  updateCheckboxGroupInput(session, "organPieCheckbox", "Organs to Chart",
-    choices = organFactors,
-    selected = organFactors
-  )
-  updateCheckboxGroupInput(session, "organAuditCheckbox", "Organs to Chart",
-    choices = organFactors,
-    selected = organFactors
-  )
 
   # Show the data sidebar items
   # TODO: these should be reactive based on the status of the data
@@ -248,14 +234,14 @@ reloadStudyEvent <- function(input, output, session, api) {
   # Make the pathway plots...
   # TODO: make reactive based on the status of the processed Data
   makeRxPathwayPlots()
-  makeRxVolumePlot(rxDoneData, input$volumePlotDurationRadio)
+  makeTreatmentVolumePlot(rxDoneData, input$volumePlotDurationRadio)
 
   progress$set(message = "Completed loading & processing.", value = 1.0)
   showNotification("Completed data processing, plot/tables should now be available to view...")
 }
 
 apiServer <- function(input, output, session) {
-  api <- reactiveValues(connected = FALSE, loaded = FALSE)
+  api <- reactiveValues(connected = FALSE, loaded = FALSE, organFactors = NULL)
 
   output$apiStatus <- renderAPIStatus(api)
 
