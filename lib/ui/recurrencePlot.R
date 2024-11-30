@@ -11,7 +11,8 @@ recurrencePlotTab <- function() {
     tabPanel(
       "RecurrencePlot",
       plotOutput("plotRecurrenceCurve")
-    )
+    ),
+    detectHeightJS("recurrenceplot", "plotRecurrenceCurve")
   )
 }
 
@@ -24,11 +25,13 @@ recurrencePlotServer <- function(input, output, session, plots) {
     recurrencePlotOrgan
   })
 
+  height <- reactive(detectedHeight(input, "pieRxPathway"))
+
   output$plotRecurrenceCurve <- renderPlot({
     # See this for dynmaic survival curves in shiny
     #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots
     p <- finalRecurrencePlotInput()
     plots$activePlot <- p
     plots$activePlot
-  })
+  }, height = height)
 }
