@@ -116,7 +116,9 @@ ui <- dashboardPage(
   dashboardBody(
     useShinyjs(),
     tabItems(
-      tabItem(tabName = "api", apiTab()),
+      tabItem(tabName = "api",
+      initialiseDetectHeightJS(),
+      apiTab()),
       tabItem(tabName = "rxpathwayplots", pathwayPlotTab()),
       tabItem(tabName = "operatorplots", operatorPlotTab()),
       tabItem(tabName = "volumeplots", volumePlotTab()),
