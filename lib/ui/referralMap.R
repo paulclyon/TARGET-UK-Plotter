@@ -20,8 +20,34 @@ referralMapTab <- function() {
         actionButton(inputId = "RefreshReferralMap", label = "Generate New Map Between Dates", style = "height: 60px")
       )
     )),
-    tabPanel("ReferralMap", leafletOutput("plotReferralMap", height = "550px"))
+    tabPanel("ReferralMap", leafletOutput("plotReferralMap")),
+    leafletResizeJS()
   )
+}
+
+leafletResizeJS <- function() {
+  shinyjs::extendShinyjs(text = "
+    resizeLeaflet = function() {
+      let mapEl = document.getElementById('plotReferralMap');
+      if (mapEl && mapEl.checkVisibility && mapEl.checkVisibility()) {
+        let bb = mapEl.getBoundingClientRect();
+        let wh = window.innerHeight;
+        mapEl.style.height = (wh - bb.top - 20) + 'px';
+      }
+    }
+
+    window.addEventListener('resize', debounce(resizeLeaflet));
+
+    $('#plotReferralMap').on('shiny:value', function (e) {
+      resizeLeaflet();
+    });
+
+    $(document).on('shiny:connected', function() {
+      $('a[data-toggle=\"tab\"][data-value=\"referralmaps\"]').on('shown.bs.tab', function (e) {
+        resizeLeaflet();
+      });
+    });
+  ", functions = c())
 }
 
 # This is a common function to generate the referral treated map to avoid duplicating code
