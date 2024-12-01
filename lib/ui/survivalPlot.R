@@ -1,14 +1,17 @@
 survivalPlotTab <- function() {
-  fluidRow(
-    box(
-      width = 12,
-      radioButtons("survivalPlotRadio", "Survival Analysis",
-        c("By Sex" = "survivalPlotSex", "By Organ" = "survivalPlotOrgan")
-      ),
-      actionButton(inputId = "refreshSurvivalPlot", label = "Refresh Plot"),
-    ),
-    tabPanel("SurvivalPlot", plotOutput("plotSurvivalCurve")),
-    detectHeightJS("survivalplot", "plotSurvivalCurve")
+  list(
+    fluidRow(
+      box(
+        width = 12,
+        radioButtons("survivalPlotRadio", "Survival Analysis",
+          c("By Sex" = "survivalPlotSex", "By Organ" = "survivalPlotOrgan")
+        ),
+        actionButton(inputId = "refreshSurvivalPlot", label = "Refresh Plot"),
+      )),
+    fluidRow(
+      tabPanel("SurvivalPlot", plotOutput("plotSurvivalCurve")),
+      detectHeightJS("survivalplot", "plotSurvivalCurve")
+    )
   )
 }
 
@@ -20,7 +23,7 @@ survivalPlotServer <- function(input, output, session, plots) {
     )
   })
 
-  height <- reactive(detectedHeight(input, "plotSurvivalCurve", border = 100))
+  height <- reactive(detectedHeight(input, "plotSurvivalCurve"))
 
   output$plotSurvivalCurve <- renderPlot({
     # See this for dynmaic survival curves in shiny
