@@ -11,21 +11,23 @@ Sys.setenv(DEBUG_MODE        = TRUE)
 Sys.setenv(DATE_FORMAT       = "%d-%m-%Y")
 Sys.setenv(AUDIT_PATHWAY_RMD = "audit/audit-pathway.rmd")
 Sys.setenv(AUDIT_PATHWAY_MD  = "audit-pathway.md")
+Sys.setenv(USERKEY_TXT       = "../userkey.txt")
+Sys.setenv(SECRET_TXT        = "../secret.txt")
 theTotalTariff <- 0
 
-if (file.exists("secret.txt")) {
-  # Load from the secret.txt if present.
+if (file.exists(Sys.getenv("SECRET_TXT"))) {
+  # Load from the secret password file if present.
   tryCatch(
     Sys.setenv(CASTOR_SECRET = readChar(
-      "secret.txt", file.info("secret.txt")$size
+      Sys.getenv("SECRET_TXT"), file.info(Sys.getenv("SECRET_TXT"))$size
     ))
   )
 }
-if (file.exists("userkey.txt")) {
+if (file.exists(Sys.getenv("USERKEY_TXT"))) {
   # Load from the userkey.txt if present.
   tryCatch(
     Sys.setenv(CASTOR_USER_KEY = readChar(
-      "userkey.txt", file.info("userkey.txt")$size
+      Sys.getenv("USERKEY_TXT"), file.info(Sys.getenv("USERKEY_TXT"))$size
     ))
   )
 }
