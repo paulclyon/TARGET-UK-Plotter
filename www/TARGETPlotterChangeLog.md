@@ -14,7 +14,7 @@ V0.20 Badger:   Treatment Volume Plot<br>
                 Updated to castoRedc library v2.0 using OpenAPI to fix write<br>
                 Updated to castor API URL endpoint data fetching with paging<br>
 V0.3 Cheetah:   Tariff Volume Plot<br>
-                Eaiting pie chart<br>
+                Waiting pie chart<br>
                 Referral Mapping<br>
 V0.4 Dormouse:  Audit Implementation, Plot Auto-Resizing & Code Cleaning/Factoring (AT)
                 Added logo to load page & improved user and password txt file security
