@@ -61,7 +61,8 @@ volumePlotTab <- function() {
     fluidRow(box(
       width = 12,
       plotlyOutput("plotVolume")
-    ))
+    )),
+    detectHeightJS("volumeplots", "plotVolume")
   )
 }
 
@@ -93,7 +94,9 @@ volumePlotServer <- function(input, output, session, api, tariff, plots) {
       p <- p + scale_x_date(date_breaks = "1 year", date_labels = "%Y")
     }
 
-    plots$activePlot <- p
+    height <- detectedHeight(input, "plotVolume")
+
+    plots$activePlot <- ggplotly(p, height = height)
 
     plots$activePlot
   })

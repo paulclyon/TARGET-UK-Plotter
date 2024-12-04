@@ -69,28 +69,12 @@ initialiseGlobals <- function()
   # The major dataframes
   rxDoneData                   <<- NA
   rxWaitData                   <<- NA
-  
-  rxDoneOrganFactors           <<- c()
-  rxDoneOrganFactors.filtered  <<- c()
-  rxDoneOrganFactors.final     <<- c()  
-  rxDoneOrganCounts            <<- c()
-  rxDoneOrganPercents          <<- c()
-  rxDoneOrganPie.df            <<- NA
-  
-  rxWaitOrganFactors           <<- c()
-  rxWaitOrganFactors.filtered  <<- c()
-  rxWaitOrganFactors.final     <<- c()  
-  rxWaitOrganCounts            <<- c()
-  rxWaitOrganPercents          <<- c()
-  rxWaitOrganPie.df            <<- NA
-  
+
   refclockstop.df              <<- NA
   recurrence.df                <<- NA
   rxdonePlot                   <<- ggplot()
   rxwaitPlot                   <<- ggplot()
   operatorPlot                 <<- ggplot()
-  rxdonePie                    <<- ggplot()
-  rxwaitPie                    <<- ggplot()
   patientData                  <<- NA
   studyData                    <<- NA
   survivalPlotSex              <<- ggplot()

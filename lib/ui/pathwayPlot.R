@@ -17,13 +17,13 @@ pathwayPlotTab <- function() {
         column(
           width = 3,
           dateInput(
-            "rxPlotDate1",
+            "rxPlotStartDate",
             "Start Date:",
             format = "dd/mm/yyyy",
             value = Sys.Date() - 365
           ),
           dateInput(
-            "rxPlotDate2",
+            "rxPlotEndDate",
             "End Date:",
             format = "dd/mm/yyyy",
             value = Sys.Date()
@@ -32,7 +32,7 @@ pathwayPlotTab <- function() {
         column(
           width = 6,
           checkboxGroupInput(
-            "organRxPlotCheckbox",
+            "rxPlotSelectedOrgans",
             "Organs to Plot",
             choices = organFactors,
             selected = organFactors
@@ -46,8 +46,10 @@ pathwayPlotTab <- function() {
     ),
     fluidRow(box(
       width = 12,
-      plotlyOutput("plotRxPathway")
-    ))
+      height = "100%",
+      plotlyOutput("plotRxPathway", height = "100%")
+    )),
+    detectHeightJS("rxpathwayplots", "plotRxPathway")
   )
 }
 
@@ -61,30 +63,42 @@ pathwayPlotServer <- function(input, output, session, api, plots) {
 
   finalRxTableDataInput <- reactive({
     switch(input$rxTimesPlotRadio,
-           "rxdonePlot" = rxDoneData,
-           "rxwaitPlot" = rxWaitData
+      "rxdonePlot" = rxDoneData,
+      "rxwaitPlot" = rxWaitData
     )
+  })
+
+  observeEvent(input$plotRxPathwaySize, {
+    plots$activePlot <- ggplot()
+  })
+
+  filteredPlot <- reactive({
+    filteredRxData <- finalRxTableDataInput()
+    if (!is.list(filteredRxData)) {
+      return(plot.new())
+    }
+
+    p <- finalRxPlotInput() +
+      scale_x_date(limits = as.Date(
+        c(input$rxPlotStartDate, input$rxPlotEndDate),
+        format = "%d/%m/%Y"
+      )) +
+      theme(legend.position = "bottom")
+    p <- p %+% subset(finalRxTableDataInput(), Organs %in% input$rxPlotSelectedOrgans)
+    p
   })
 
   # Plot the Rx pathway plot using the date range and organ filters
   # Note plotly vs. plot gives you the tool tip text
   output$plotRxPathway <- renderPlotly({
-    if (!is.list(finalRxTableDataInput())) {
-      p <- plot.new()
-    } else {
-      p <- finalRxPlotInput() +
-        scale_x_date(limits = as.Date(c(
-          input$rxPlotDate1, input$rxPlotDate2
-        ), format = "%d/%m/%Y")) +
-        theme(legend.position = "bottom")
-      p <- p %+% subset(finalRxTableDataInput(), Organs %in% input$organRxPlotCheckbox)
-    }
-    plots$activePlot <- p
+    height <- detectedHeight(input, "plotRxPathway")
+
+    plots$activePlot <- ggplotly(filteredPlot(), height = height)
     plots$activePlot
   })
 
   observe({
-    updateCheckboxGroupInput(session, "organRxPlotCheckbox", "Organs to Plot",
+    updateCheckboxGroupInput(session, "rxPlotSelectedOrgans", "Organs to Plot",
       choices = api$organFactors,
       selected = api$organFactors
     )

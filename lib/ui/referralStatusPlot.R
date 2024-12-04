@@ -50,7 +50,8 @@ referralStatusPlotTab <- function() {
     fluidRow(box(
       width = 12,
       plotlyOutput("plotReferralStatus")
-    ))
+    )),
+    detectHeightJS("referralstatus", "plotReferralStatus")
   )
 }
 
@@ -70,7 +71,6 @@ referralStatusPlotServer <- function(input, output, session, api, plots) {
     input$referralStatusPlotDurationRadio
   ))
   output$plotReferralStatus <- renderPlotly({
-    print(referralStatuses())
     p <- makeReferralStatusPlot(referralStatuses())
 
     if (input$referralStatusPlotDurationRadio == "week") {
@@ -84,7 +84,9 @@ referralStatusPlotServer <- function(input, output, session, api, plots) {
         scale_y_continuous(breaks = seq(0, 100, by = 5))
     }
 
-    p <- ggplotly(p)
+    height <- detectedHeight(input, "plotReferralStatus")
+
+    p <- ggplotly(p, height = height)
     plots$activePlot <- p
     p
   })
