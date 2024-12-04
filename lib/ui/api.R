@@ -2,6 +2,8 @@ apiTab <- function() {
   fluidRow(
     box(
       width = 12,
+      fluidRow(div(img(src='TARGETPlotterLogo.png', height="75%", width="75%"), style="text-align: center;")),
+      fluidRow(tags$br()),
       textInput("inputCastorKey", "User Key",
         value = Sys.getenv("CASTOR_USER_KEY"),
         width = NULL,
