@@ -248,9 +248,9 @@ apiServer <- function(input, output, session) {
 
   output$apiStatus <- renderAPIStatus(api)
 
-  observeEvent(input$connectAPI, connectAPIEvent(input, api))
+  observeEvent(input$connectAPI, disableReenable("connectAPI", connectAPIEvent, input, api))
 
-  observeEvent(input$disconnectAPI, disconnectAPIEvent(api))
+  observeEvent(input$disconnectAPI, disableReenable("disconnectAPI", disconnectAPIEvent, api))
 
   # Update the Load Data button
   observe({
@@ -258,7 +258,7 @@ apiServer <- function(input, output, session) {
     apiConnectedEvent(session, api)
   })
 
-  observeEvent(input$reloadData, reloadStudyEvent(input, output, session, api))
+  observeEvent(input$reloadData, disableReenable("reloadData", reloadStudyEvent, input, output, session, api))
 
   api
 }
