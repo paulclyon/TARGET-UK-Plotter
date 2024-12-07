@@ -1,31 +1,72 @@
 recurrencePlotTab <- function() {
   fluidRow(
-    box(
-      width = 12,
-      radioButtons(
-        "recurrencePlotRadio", "Recurrence Analysis",
-        c("By Sex" = "recurrencePlotSex", "By Organ" = "recurrencePlotOrgan")
-      ),
-      actionButton(inputId = "refreshRecurrencePlot", label = "Refresh Plot")
-    ),
     tabPanel(
       "RecurrencePlot",
-      plotOutput("plotRecurrenceCurve")
+      column(
+        width = 3,
+        dateInput(
+          "recurrenceStartDate",
+          "Start Date:",
+          format = "dd/mm/yyyy",
+          value = Sys.Date() - 365*10
+        ),
+        dateInput(
+          "recurrenceEndDate",
+          "End Date:",
+          format = "dd/mm/yyyy",
+          value = Sys.Date()
+        )
+      ),
+      column(
+        width = 3,
+        checkboxGroupInput(
+          "recurrenceSelectedOrgans",
+          "Organs to Plot",
+          choices = organFactors,
+          selected = organFactors
+        )
+      ),
+      column(
+        width = 3,
+        checkboxGroupInput(
+          "sexRadio", "Gender",
+          choices = c("Male","Female","Unknown"),
+          selected = c("Male","Female","Unknown")
+        ),
+        actionButton(inputId = "refreshRecurrencePlot", label = "Refresh Plot")
+      )
     ),
+    
+    fluidRow(box(
+      width = 12,
+      plotOutput("plotRecurrenceCurve")
+    )),
     detectHeightJS("recurrenceplot", "plotRecurrenceCurve")
   )
 }
 
-recurrencePlotServer <- function(input, output, session, plots) {
+recurrencePlotServer <- function(input, output, session, api, plots)
+{
   observeEvent(input$refreshRecurrencePlot, {
     plots$activePlot <- ggplot()
   })
-
-  finalRecurrencePlotInput <- reactive({
-    recurrencePlotOrgan
+  
+  observe({
+    updateCheckboxGroupInput(session, "recurrenceSelectedOrgans", "Organs to Chart",
+                             choices = api$organFactors,
+                             selected = api$organFactors
+    )
   })
 
-  height <- reactive(detectedHeight(input, "pieRxPathway"))
+  finalRecurrencePlotInput <- reactive({
+    makeRecurrencePlotOrgan(
+      input$recurrenceStartDate,
+      input$recurrenceEndDate,
+      input$recurrenceSelectedOrgans
+    )
+  })
+
+  height <- reactive(detectedHeight(input, "plotRecurrenceCurve"))
 
   output$plotRecurrenceCurve <- renderPlot({
     # See this for dynmaic survival curves in shiny
@@ -34,4 +75,7 @@ recurrencePlotServer <- function(input, output, session, plots) {
     plots$activePlot <- p
     plots$activePlot
   }, height = height)
+  
+  
+
 }

@@ -35,8 +35,9 @@ if (file.exists(Sys.getenv("USERKEY_TXT"))) {
 # This should be outside of initialiseGlobals otherwise its always going to be empty at processing
 castor_api      <<- new.env()
 
-# Initialise these global variable as required to render to UI
+# Initialise these global variables as required to render to UI - FIXME some of these are in initializeGlobals others are not - should they be?
 organFactors           <<- c()
+genderFactors          <<- c()
 modalityFactors        <<- c('Microwave','Cryotherapy','Radiofrequency')
 operator1Factors       <<- c()
 anaesthetist1Factors   <<- c()
@@ -59,31 +60,31 @@ ui <- dashboardPage(
         id = "chartsID",
         tabName = "charts",
         icon = icon("chart-simple"),
-        menuSubItem("Pathway Plots",   tabName = "rxpathwayplots"),
-        menuSubItem("Pathway Pies",    tabName = "rxpathwaypies"),
-        menuSubItem("Operator Plot",   tabName = "operatorplots"),
-        menuSubItem("Volume Plot",     tabName = "volumeplots"),
-        menuSubItem("Recurrence Plot", tabName = "recurrenceplot"),
-        menuSubItem("Survival Plot",   tabName = "survivalplot"),
+        menuSubItem("Pathway Plots",        tabName = "rxpathwayplots"),
+        menuSubItem("Pathway Pies",         tabName = "rxpathwaypies"),
+        menuSubItem("Operator Plot",        tabName = "operatorplots"),
+        menuSubItem("Volume Plot",          tabName = "volumeplots"),
+        menuSubItem("Recurrence Plot",      tabName = "recurrenceplot"),
+        menuSubItem("Survival Plot",        tabName = "survivalplot"),
         menuSubItem("Referral Status Plot", tabName = "referralstatus"),
-        menuSubItem("Referral Maps",   tabName = "referralmaps")
+        menuSubItem("Referral Maps",        tabName = "referralmaps")
       ), id='chartsMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Data Tables",
         id = "tablesID",
         tabName = "tables",
         icon = icon("table"),
-        menuSubItem("Pathway Table",    tabName = "rxpathwaytab"),
-        menuSubItem("Recurrence Table", tabName = "recurrencetab"),
-        menuSubItem("Survival Table",   tabName = "survivaltab")
+        menuSubItem("Pathway Table",        tabName = "rxpathwaytab"),
+        menuSubItem("Recurrence Table",     tabName = "recurrencetab"),
+        menuSubItem("Survival Table",       tabName = "survivaltab")
       ), id='tablesMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Data Validation",
         id = "validationID",
         tabName = "validation",
         icon = icon("table"),
-        menuSubItem("Operator Names",      tabName = "operatorNames"),
-        menuSubItem("Anaesthetists Names", tabName = "anaesthetistNames")
+        menuSubItem("Operator Names",       tabName = "operatorNames"),
+        menuSubItem("Anaesthetists Names",  tabName = "anaesthetistNames")
       ), id='validationMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Audit Reports",
@@ -121,21 +122,21 @@ ui <- dashboardPage(
       tabItem(tabName = "api",
       initialiseDetectHeightJS(),
       apiTab()),
-      tabItem(tabName = "rxpathwayplots", pathwayPlotTab()),
-      tabItem(tabName = "operatorplots", operatorPlotTab()),
-      tabItem(tabName = "volumeplots", volumePlotTab()),
-      tabItem(tabName = "rxpathwaypies", pathwayPieTab()),
-      tabItem("recurrenceplot", recurrencePlotTab()),
-      tabItem("survivalplot", survivalPlotTab()),
-      tabItem("referralstatus", referralStatusPlotTab()),
-      tabItem("referralmaps", referralMapTab()),
-      tabItem("rxpathwaytab", pathwayTab()),
-      tabItem("recurrencetab", recurrenceTab()),
-      tabItem("survivaltab", survivalTab()),
-      tabItem("audit-pathway", auditTab()),
+      tabItem("rxpathwayplots",   pathwayPlotTab()),
+      tabItem("operatorplots",    operatorPlotTab()),
+      tabItem("volumeplots",      volumePlotTab()),
+      tabItem("rxpathwaypies",    pathwayPieTab()),
+      tabItem("recurrenceplot",   recurrencePlotTab()),
+      tabItem("survivalplot",     survivalPlotTab()),
+      tabItem("referralstatus",   referralStatusPlotTab()),
+      tabItem("referralmaps",     referralMapTab()),
+      tabItem("rxpathwaytab",     pathwayTab()),
+      tabItem("recurrencetab",    recurrenceTab()),
+      tabItem("survivaltab",      survivalTab()),
+      tabItem("audit-pathway",    auditTab()),
       tabItem("rxpathwaysummary", pathwaySummaryTab()),
       tabItem("recurrencesummary", "Recurrence Summary Data work in progress!"),
-      tabItem("survivalsummary", survivalSummaryTab()),
+      tabItem("survivalsummary",  survivalSummaryTab()),
 
       tabItem(
         tabName = "test",
@@ -234,14 +235,14 @@ server <- function(input, output, session) {
   tariff <- tariffServer(input, output, session, api)
   pathwayServer(input, output, session, plots)
   pathwayPlotServer(input, output, session, api, plots)
-  operatorPlotServer(input, output, session, plots)
   pathwayPieServer(input, output, session, api, plots)
+  operatorPlotServer(input, output, session, plots)
   volumePlotServer(input, output, session, api, tariff, plots)
-  referralStatusPlotServer(input, output, session, api, plots)
-  survivalPlotServer(input, output, session, plots)
-  referralsMapServer(input, output, session, plots)
-  recurrenceServer(input, output, session)
+  recurrencePlotServer(input, output, session, api, plots)
   survivalServer(input, output, session)
+  survivalPlotServer(input, output, session, api, plots)
+  referralStatusPlotServer(input, output, session, api, plots)
+  referralsMapServer(input, output, session, plots)
   pathwaySummaryServer(input, output, session)
   survivalSummaryServer(input, output, session)
   auditServer(input, output, session, api, plots)

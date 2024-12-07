@@ -26,7 +26,23 @@ processData <- function()
     logger(paste(i, "/", patientCount, " Pt=", ptID, " performing referral analysis...", sep = ""))
     
     postcode <- getDataEntry("pt_postcode", i)
-    sex <- getDataEntry("sex", i)
+    sex <- as.integer(getDataEntry("sex", i))
+    if (is.na(sex))
+    {
+      sex <- "Unknown"
+    } 
+    else if (sex == 1)
+    {
+      sex <- "Male"
+    }
+    else if (sex == 2)
+    {
+      sex <- "Female"
+    }
+    else
+    {
+      sex <- "Unknown"
+    }
     birth_year <- getDataEntry("birth_year", i)
     if (!is.na(birth_year) && !is.integer(birth_year)) {
       logger(paste(i, "/", patientCount, " Pt=", ptID, " **Data integrity issue**: patient birth year", birth_year, " is not a number.", sep = ""), T)
@@ -49,17 +65,13 @@ processData <- function()
     # Otherwise we have at least one referral for this patient so keep going...
     
     # Get survival status
-    deceased <- getDataEntry("fu_deceased", i)
-    if (is.na(deceased) ||
-        deceased != 1) {
-      # FIXME: We don't do fancy stuff looking for last scan or clinical interaction date yet...
-      deceased <- as.integer(0)
+    deceasedStr <- getDataEntry("fu_deceased", i)
+    logger(paste("deceased = ",deceasedStr))
+    if (!is.na(deceasedStr) && deceasedStr == "Yes") {
+      deceased <- 1
     } else {
-      # This is a very weird bug/thing but if we don't convert to a character first, there is an issue where 1 gets converted to 3
-      # Something to do with the way the integer returns gets casted to integer or double
-      deceased <- as.integer(as.character(deceased))
+      deceased <- 0
     }
-    
     if (deceased == 1) {
       deceased_date <- getDataEntry("fu_deceased_date", i)
       deceased_date = convertToDate(deceased_date)
@@ -69,9 +81,15 @@ processData <- function()
     } else {
       deceased_date <- NA
     }
-    deceased_related <- getDataEntry("fu_deceased_related", i)
     
-    if (is.na(deceased_related) || deceased_related != 1) {
+    # True if patient died with active cancer following previous ablation, if no e.g died of heart attack patient is censored in survival analysis
+    deceased_relatedStr <- getDataEntry("fu_deceased_related", i)
+    if (!is.na(deceased_relatedStr) && deceased_relatedStr == "Yes")
+    {
+      deceased_related <- 1
+    }
+    else
+    {
       deceased_related <- 0
     }
     
@@ -100,9 +118,10 @@ processData <- function()
 
     # Set the survival status
     # Censored observations are subjects who either die of causes other than the disease of interest or are lost to follow-up
+    # https://thriv.github.io/biodatasci2018/r-survival.html
     if (deceased != 1) {
       if (lost_to_fu != 1) {
-        survival_status <- 0   # Alive and not lost to follow-up
+        survival_status <- 1   # Alive and not lost to follow-up, but we have to censor now as we don't know if they will be alive
       } else {
         survival_status <- 1   # Censored as lost to follow-up
       }
@@ -132,8 +151,10 @@ processData <- function()
         # For each row in the matrix, check if there is any local recurrence, if so grab the first date of recurrence
         thisLR <- recurrence.df$local.recurrence[j]
         
-        if (local_recurrence == 0 && !is.na(thisLR) && thisLR != "N") {
+        # If we haven't yet recurred but this row shows recurrence...
+        if (local_recurrence == 0 && !is.na(thisLR) && (thisLR == "Y" || thisLR == "YA")) {
           # Note if it is 'YA' means Yes and Ablatable Recurrence
+          logger(paste("**Lcoal Reccurence",thisLR))
           local_recurrence <- 1
           date_of_first_local_recurrence <- convertToDate(recurrence.df$imaging.date[j])
         }
@@ -394,6 +415,7 @@ processData <- function()
             date_of_first_rx <- ref_rx_date
           }
           rxdone_pt_list                     <<- append(rxdone_pt_list,                       paste(ptID, "-", iRef, sep = ""))
+          rxdone_sex_list                    <<- append(rxdone_sex_list,                      sex)
           rxdone_organ_list                  <<- append(rxdone_organ_list,                    organForRx)
           rxdone_modality_list               <<- append(rxdone_modality_list,                 modalityForRx)
           rxdone_tariff_list                 <<- append(rxdone_tariff_list,                   tariffForRx)
@@ -515,6 +537,7 @@ processData <- function()
     # If the list is not empty
     rxDoneData <<- data.frame(
       ID = rxdone_pt_list,
+      Gender = rxdone_sex_list,
       RefDate = asDateWithOrigin(rxdone_refdate_list),
       DTTDate = asDateWithOrigin(rxdone_dttdate_list),
       RxDate = asDateWithOrigin(rxdone_rxdate_list),
@@ -560,6 +583,10 @@ processData <- function()
   # This is just a list the different organ targets which have been referred or treated
   organFactors <<- levels(factor(append(rxdone_organ_list, rxwait_organ_list)))
   
+  # Similar for Genders
+  genderFactors <<- levels(factor(rxdone_sex_list))
+  logger (paste("FIXME genderfactors",genderFactors))
+  
   # Similarly for operators
   operator1Factors       <<- c("ALL",levels(factor(rxdone_operator1_list)))
   operator2Factors       <<- c("ALL",levels(factor(rxdone_operator2_list)))
@@ -570,7 +597,9 @@ processData <- function()
   anaesthetist3Factors   <<- c("ALL",levels(factor(rxdone_anaesthetist3_list)))
   anaesthetistAllFactors <<- c(levels(factor(append(append(rxdone_anaesthetist1_list,rxdone_anaesthetist2_list),rxdone_anaesthetist3_list))))
   
-  # Here Time is the status is 0=alive, 1=censored, 2=dead, survival time in days (since first Rx)
+  # See https://thriv.github.io/biodatasci2018/r-survival.html
+  # Here Time is survival time in days (since first Rx)
+  # Censoring status is 1=censored (could still be alive but we don't know), 2=dead
   if (length(survival_pt_list)==0)
   {
     survivalData <<- NA
@@ -583,8 +612,7 @@ processData <- function()
   {
     survivalData <<- data.frame(
       ID = survival_pt_list,
-      Sex = survival_sex_list,
-      Age = survival_age_list,
+      Gender = survival_sex_list,
       Organ = survival_organ_list,
       Status = survival_status_list,
       FirstRxDate = asDateWithOrigin(survival_first_rx_date),
@@ -597,16 +625,16 @@ processData <- function()
     )
     
     #survivalFit         <- survfit(Surv(Time, Status)~1, data=survivalData)
-    survivalFitSex      <<- survfit(Surv(Time, Status) ~ Sex, data = survivalData)
-    survivalFitOrgan    <<- survfit(Surv(Time, Status) ~ Organ, data = survivalData)
+#    survivalFitSex      <<- survfit(Surv(Time, Status) ~ Sex, data = survivalData)
+#    survivalFitOrgan    <<- survfit(Surv(Time, Status) ~ Organ, data = survivalData)
     #summary(survivalFit)
-    survivalPlotOrgan   <<- ggsurvplot(survivalFitOrgan,
-                                       xlab = "Time (Days)",
-                                       ggtheme = theme(plot.title = element_text(hjust = 0.5)))
+#    survivalPlotOrgan   <<- ggsurvplot(survivalFitOrgan,
+#                                       xlab = "Time (Days)",
+#                                       ggtheme = theme(plot.title = element_text(hjust = 0.5)))
     
-    survivalPlotSex     <<- ggsurvplot(survivalFitSex,
-                                       xlab = "Time (Days)",
-                                       ggtheme = theme(plot.title = element_text(hjust = 0.5)))
+#    survivalPlotSex     <<- ggsurvplot(survivalFitSex,
+#                                       xlab = "Time (Days)",
+#                                       ggtheme = theme(plot.title = element_text(hjust = 0.5)))
   }
   
   # The recurrence stuff can also borrow some columns from the survival data...
@@ -628,9 +656,6 @@ processData <- function()
       FirstLocalRecurrenceDate = local_recurrence_date_list,
       Time = local_recurrence_days_list
     )
-    #recurrenceFitOrgan <<- survfit(Surv(Time, Status)~Organ, data=recurrenceData)
-    #recurrencePlotOrgan <<- ggsurvplot(recurrenceFitOrgan,xlab="Follow-up Time (Days)",ggtheme=theme(plot.title=element_text(hjust=0.5)))
-    recurrencePlotOrgan <<- NA
   }
 }
 

@@ -1,39 +1,91 @@
 survivalPlotTab <- function() {
-  list(
-    fluidRow(
-      box(
-        width = 12,
-        radioButtons("survivalPlotRadio", "Survival Analysis",
-          c("By Sex" = "survivalPlotSex", "By Organ" = "survivalPlotOrgan")
+  fluidRow(
+    tabPanel(
+      "SurvivalPlot",
+      column(
+        width = 3,
+        dateInput(
+          "survivalStartDate",
+          "Start Date:",
+          format = "dd/mm/yyyy",
+          value = Sys.Date() - 365*20
         ),
-        actionButton(inputId = "refreshSurvivalPlot", label = "Refresh Plot"),
-      )),
-    fluidRow(
-      tabPanel("SurvivalPlot", plotOutput("plotSurvivalCurve")),
-      detectHeightJS("survivalplot", "plotSurvivalCurve")
-    )
+        dateInput(
+          "survivalEndDate",
+          "End Date:",
+          format = "dd/mm/yyyy",
+          value = Sys.Date()
+        )
+      ),
+      column(
+        width = 3,
+        checkboxGroupInput(
+          "survivalSelectedOrgans",
+          "Organs to Chart",
+          choices = organFactors,
+          selected = organFactors
+        )
+      ),
+      column(
+        width = 3,
+        checkboxGroupInput(
+          "survivalSelectedGenders",
+          "Genders to Chart",
+          choices = genderFactors,
+          selected = genderFactors
+        ),
+        actionButton(inputId = "refreshSurvivalPlot", label = "Refresh Plot")
+      )
+    ),
+    
+    fluidRow(box(
+      width = 12,
+      plotOutput("plotSurvivalCurve")
+    )),
+    detectHeightJS("survivalplot", "plotSurvivalCurve")
   )
 }
 
-survivalPlotServer <- function(input, output, session, plots) {
+survivalPlotServer <- function(input, output, session, api, plots)
+{
+  observeEvent(input$refreshSurvivalPlot, {
+    logger("here refresh!")
+    plots$activePlot <- ggplot()
+  })
+  
+  observe({
+    updateCheckboxGroupInput(session, "survivalSelectedOrgans", "Organs to Chart",
+                             choices = api$organFactors,
+                             selected = api$organFactors
+    )
+  })
+  
+  observe({
+    updateCheckboxGroupInput(session, "survivalSelectedGenders", "Genders to Chart",
+                             choices = api$genderFactors,
+                             selected = api$genderFactors
+    )
+  })
+  
   finalSurvivalPlotInput <- reactive({
-    switch(input$survivalPlotRadio,
-      "survivalPlotSex" = survivalPlotSex,
-      "survivalPlotOrgan" = survivalPlotOrgan
+    logger (paste("refreshing survival", input$survivalSelectedGenders))
+    makeSurvivalPlot(
+      input$survivalStartDate,
+      input$survivalEndDate,
+      input$survivalSelectedOrgans,
+      input$survivalSelectedGenders
     )
   })
 
   height <- reactive(detectedHeight(input, "plotSurvivalCurve"))
 
+  # See this for dynamic generation of filtered survival curves in shiny
+  #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots
   output$plotSurvivalCurve <- renderPlot({
-    # See this for dynmaic survival curves in shiny
-    #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots
+    logger ("rendering survival")
     p <- finalSurvivalPlotInput()
     plots$activePlot <- p
     plots$activePlot
   }, height = height)
 
-  observeEvent(input$refreshSurvivalPlot, {
-    plots$activePlot <- ggplot()
-  })
 }

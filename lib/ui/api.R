@@ -2,7 +2,7 @@ apiTab <- function() {
   fluidRow(
     box(
       width = 12,
-      fluidRow(div(img(src='TARGETPlotterLogo.png', height="75%", width="75%"), style="text-align: center;")),
+      fluidRow(div(img(src='TARGETPlotterLogo.png', height="60%", width="60%"), style="text-align: center;")),
       fluidRow(tags$br()),
       textInput("inputCastorKey", "User Key",
         value = Sys.getenv("CASTOR_USER_KEY"),
@@ -212,8 +212,9 @@ reloadStudyEvent <- function(input, output, session, api) {
 
   ## TODO: Then all of these can be bound to the reactive api processed data value outside of this function
 
-  ## The first step is just move the organFactors to the api
+  ## The first step is just move the organFactors and genderFactors to the api
   api$organFactors <- organFactors
+  api$genderFactors <- genderFactors
 
   # Make sure our Organ tick list matches the data...
   updateSelectInput(session, "operatorPlotDropdown", "Operators to Plot",
@@ -243,7 +244,7 @@ reloadStudyEvent <- function(input, output, session, api) {
 }
 
 apiServer <- function(input, output, session) {
-  api <- reactiveValues(connected = FALSE, loaded = FALSE, organFactors = NULL)
+  api <- reactiveValues(connected = FALSE, loaded = FALSE, organFactors = NULL, genderFactors = NULL)
 
   output$apiStatus <- renderAPIStatus(api)
 

@@ -25,7 +25,6 @@ makeOrganCountPie <- function(pie_df) {
       ),
       size = 5, nudge_x = 3, show.legend = FALSE
     )
-
 }
 
 makeRxDonePie <- function(strStart, strEnd, selectedOrgans) {
@@ -45,8 +44,8 @@ makeRxDonePie <- function(strStart, strEnd, selectedOrgans) {
     return(ggplot())
   }
 
-  pie_df <- prepareOrganCountPieData(filtered_df)
-
+  #pie_df <- prepareOrganCountPieData(filtered_df)
+  #p <- survfit(Surv(Time, Status)~Organ, data=recurrenceData)
   p <- makeOrganCountPie(pie_df) +
     guides(fill = guide_legend(title = "Treated Organs Piechart"))
 

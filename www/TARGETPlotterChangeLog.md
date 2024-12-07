@@ -1,7 +1,7 @@
 ---
 title: "Change Log"
 author: "Paul Lyon"
-date: "2024-12-04"
+date: "2024-12-10"
 output: html_document
 ---
 
@@ -18,6 +18,8 @@ V0.3 Cheetah:   Tariff Volume Plot<br>
                 Referral Mapping<br>
 V0.4 Dormouse:  Audit Implementation, Plot Auto-Resizing & Code Cleaning/Factoring (AT)
                 Added logo to load page & improved user and password txt file security
+V0.5 Elephant:  Survival curves
+
 </pre>
 
 Code Implementation by (PCL) unless otherwise specified<br>
