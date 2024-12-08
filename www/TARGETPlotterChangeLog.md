@@ -18,7 +18,7 @@ V0.3 Cheetah:   Tariff Volume Plot<br>
                 Referral Mapping<br>
 V0.4 Dormouse:  Audit Implementation, Plot Auto-Resizing & Code Cleaning/Factoring (AT)
                 Added logo to load page & improved user and password txt file security
-V0.5 Elephant:  Survival curves
+V0.5 Elephant:  Survival & Recurrence curves and tables
 
 </pre>
 

@@ -13,7 +13,7 @@ survivalTab <- function() {
   )))
 }
 
-survivalServer <- function(input, output, session) {
+survivalTableServer <- function(input, output, session) {
   observeEvent(input$buttonPasteSurvivalData, {
     copyDataToClipboard(survivalData)
     shinyCatch({

@@ -59,11 +59,10 @@ recurrencePlotServer <- function(input, output, session, api, plots)
   })
 
   finalRecurrencePlotInput <- reactive({
-    makeRecurrencePlotOrgan(
+    makeRecurrencePlot(
       input$recurrenceStartDate,
       input$recurrenceEndDate,
-      input$recurrenceSelectedOrgans
-    )
+      input$recurrenceSelectedOrgans)
   })
 
   height <- reactive(detectedHeight(input, "plotRecurrenceCurve"))

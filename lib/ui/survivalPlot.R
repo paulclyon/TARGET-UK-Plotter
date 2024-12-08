@@ -68,7 +68,6 @@ survivalPlotServer <- function(input, output, session, api, plots)
   })
   
   finalSurvivalPlotInput <- reactive({
-    logger (paste("refreshing survival", input$survivalSelectedGenders))
     makeSurvivalPlot(
       input$survivalStartDate,
       input$survivalEndDate,
@@ -82,7 +81,6 @@ survivalPlotServer <- function(input, output, session, api, plots)
   # See this for dynamic generation of filtered survival curves in shiny
   #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots
   output$plotSurvivalCurve <- renderPlot({
-    logger ("rendering survival")
     p <- finalSurvivalPlotInput()
     plots$activePlot <- p
     plots$activePlot

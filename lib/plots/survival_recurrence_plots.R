@@ -21,17 +21,10 @@ makeSurvivalPlot <- function(strStart, strEnd, selectedOrgans, selectedGenders)
   if (!is.data.frame(survivalData) || nrow(survivalData) == 0) {
     return(ggplot()) # Any empty plot
   }
-  
-  logger(paste("selected genders ",selectedGenders))
-  
   filteredSurvivalData <- survivalData |>
     filter(between(FirstRxDate, start, end)) |>
     filter(Organ %in% selectedOrgans) |>
     filter(Gender %in% selectedGenders)
-  
-  logger (paste("survival filtered to ", nrow(survivalData), nrow(filteredSurvivalData)))
-  
-  
   if (nrow(filteredSurvivalData) == 0) {
     return(ggplot())
   }
@@ -40,37 +33,39 @@ makeSurvivalPlot <- function(strStart, strEnd, selectedOrgans, selectedGenders)
   # The sample is censored in that you only know that the individual survived up to the loss to followup,
   # but you don’t know anything about survival after that. I used to have 0=alive, but this isn't recognised
   # See https://thriv.github.io/biodatasci2018/r-survival.html
-  
-  #survivalFitSex      <<- survfit(Surv(Time, Status) ~ Sex, data = filteredSurvivalData)
-  #survivalFitOrgan    <<- survfit(Surv(Time, Status) ~ Organ, data = filteredSurvivalData)
-  #summary(survivalFit)
+  #survivalFit         <- survfit(Surv(Time, Status)~1,     data = filteredSurvivalData)
+  #survivalFit         <- survfit(Surv(Time, Status)~Sex,   data = filteredSurvivalData)
   survivalFit          <- survfit(Surv(Time, Status)~Organ, data = filteredSurvivalData)
   survivalPlot         <- ggsurvplot(survivalFit,
-                                     xlab = "Time (Days)",
+                                     xlab = "Time (Days)",   risk.table = TRUE,
                                      ggtheme = theme(plot.title = element_text(hjust = 0.5)))
   survivalPlot
 }
 
-makeRecurrencePlotOrgan <- function(strStart, strEnd, selectedOrgans, selectedGenders)
+makeRecurrencePlot <- function(strStart, strEnd, selectedOrgans)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
   end <- as.Date(strEnd, format = "%d/%m/%Y")
   
-  if (!is.data.frame(rxDoneData) || nrow(rxDoneData) <= 0) {
+  if (!is.data.frame(recurrenceData) || nrow(recurrenceData) <= 0) {
     return(ggplot())
   }
   
-  filtered_df <- rxDoneData |>
-    filter(between(RxDate, start, end)) |>
-    filter(Organs %in% selectedOrgans)
-  
-  if (!is.data.frame(filtered_df) || nrow(filtered_df) <= 0) {
+  filteredRecurrenceData <- recurrenceData |>
+    filter(between(FirstRxDate, start, end)) |>
+    filter(Organ %in% selectedOrgans)
+  if (nrow(filteredRecurrenceData) == 0) {
     return(ggplot())
   }
   
-  #pie_df <- prepareOrganCountRecurrenceData(filtered_df)
-  recurrenceFitOrgan <- survfit(Surv(Time, Status)~Organ, data=recurrenceData)
-  p <- ggsurvplot(recurrenceFitOrgan,xlab="Follow-up Time (Days)",ggtheme=theme(plot.title=element_text(hjust=0.5)))
-  p
+  # Censoring = 1=censored, 2=recurred (almost treat as if death) - 
+  # The sample is censored in that you only know that the individual survived up to the loss to followup,
+  # but you don’t know anything about survival after that. I used to have 0=alive, but this isn't recognised
+  # See https://thriv.github.io/biodatasci2018/r-survival.html
+  recurrenceFit        <- survfit(Surv(Time, Status)~Organ, data = filteredRecurrenceData)
+  recurrencePlot       <- ggsurvplot(recurrenceFit,
+                                     xlab = "Time (Days)",   risk.table = TRUE,
+                                     ggtheme = theme(plot.title = element_text(hjust = 0.5)))
+  recurrencePlot
 }

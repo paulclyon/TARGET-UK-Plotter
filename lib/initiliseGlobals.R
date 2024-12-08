@@ -5,6 +5,7 @@ initialiseGlobals <- function()
   clockStopColNames              <<- c("date.stopped","date.restart","reason","free.text")
   rxTableColNames                <<- c("rx.organ","lesion.size","max.depth","closest.serosa","punctures","no.applicators.or.postitions","modality","max.power","min.power","rx.time","new.or.rec","free.text")
   recurrenceColNames             <<- c("imaging.date","exam.type","local.recurrence","new.in.target.organ","distant.progression","disease.status","free-text")
+  clinicalfuColNames             <<- c("followup.date","clinician.type","clinician.name","impression","outcome")
   rxdone_organ_list              <<- c()
   rxdone_sex_list                <<- c()
   rxdone_modality_list           <<- c()
@@ -47,9 +48,12 @@ initialiseGlobals <- function()
   survival_lost_to_fu            <<- c()
   survival_lost_to_fu_date       <<- c()
   survival_status_list           <<- c()
+  survival_last_alive_list       <<- c() # This is the last clinical follow-up date or last imaging date, whatever is later
   local_recurrence_list          <<- c()
+  local_recurrence_status_list   <<- c()
   local_recurrence_date_list     <<- c()
   local_recurrence_days_list     <<- c()
+  last_imaging_follow_up_list    <<- c()
   survivalData                 <<- NA
   recurrenceData               <<- NA
   operator1                    <<- NA
@@ -70,9 +74,9 @@ initialiseGlobals <- function()
   # The major dataframes
   rxDoneData                   <<- NA
   rxWaitData                   <<- NA
-
   refclockstop.df              <<- NA
   recurrence.df                <<- NA
+  clinicalfu.df                <<- NA
   rxdonePlot                   <<- ggplot()
   rxwaitPlot                   <<- ggplot()
   operatorPlot                 <<- ggplot()

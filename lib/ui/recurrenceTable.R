@@ -13,7 +13,7 @@ recurrenceTab <- function() {
   )))
 }
 
-recurrenceServer <- function(input, output, session) {
+recurrenceTableServer <- function(input, output, session) {
   observeEvent(input$buttonSaveRecurrenceData, {
     shinyCatch({
       message("Not yet implemented!")

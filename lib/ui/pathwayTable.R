@@ -23,7 +23,7 @@ pathwayTab <- function() {
   )
 }
 
-pathwayServer <- function(input, output, session, plots) {
+pathwayTableServer <- function(input, output, session, plots) {
   finalRxTableDataInput <- reactive({
     switch(input$rxTimesTableRadio,
       "rxdoneTable" = rxDoneData,
