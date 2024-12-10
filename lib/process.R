@@ -111,23 +111,6 @@ processData <- function()
       lost_to_fu <- 0
       lost_to_fu_date <- NA
     }
-
-    # Set the survival status
-    # Censored observations are subjects who either die of causes other than the disease of interest or are lost to follow-up
-    # https://thriv.github.io/biodatasci2018/r-survival.html
-    if (deceased != 1) {
-      if (lost_to_fu != 1) {
-        survival_status <- 1   # Alive and not lost to follow-up, but we have to censor now as we don't know if they will be alive
-      } else {
-        survival_status <- 1   # Censored as lost to follow-up
-      }
-    } else if (deceased == 1) {
-      if (deceased_related == 0) {
-        survival_status <- 1   # Censored as died of something else
-      } else {
-        survival_status <- 2   # Dead due to cancer at the time of death - these are the only ones which count on Kaplin-Meyer
-      }
-    }
     
     survival_organ <- NA # Set this now as null, and check on each referral
     date_of_last_clinical_fu <- NA
@@ -550,18 +533,38 @@ processData <- function()
           rxwait_clockstop_reason_list       <<- append(rxwait_clockstop_reason_list,       clockstoppedReason)
         }
         
-        # We only care about recording survival if we have treated the patient
-        if (!is.na(date_of_first_rx)) {
-          if (deceased == 1) {
-            if (!is.na(deceased_date)) {
+        # We only care about recording survival & recurrence if we have treated the patient
+        if (!is.na(date_of_first_rx))
+        {
+          
+          # Set the survival status
+          # Censored observations are subjects who either die of causes other than the disease of interest or are lost to follow-up
+          # https://thriv.github.io/biodatasci2018/r-survival.html
+          if (deceased == 1)
+          {
+            if (deceased_related == 0)
+            {
+              survival_status <- 1   # Censored as died of something else
+            }
+            else
+            {
+              survival_status <- 2   # Dead due to cancer at the time of death - these are the only ones which count on Kaplin-Meyer
+            }
+            if (!is.na(deceased_date))
+            {
               survival_days <- as.numeric(difftime(deceased_date, date_of_first_rx, units = "days"), units = "days")
-            } else {
+            }
+            else
+            {
               # If deceased but no valid deceased date, log it and use current date as deceased date as best guess
               survival_days <- as.numeric(difftime(deceased_date, Sys.Date(), units = "days"), units = "days")
               logger(paste(i, "/", patientCount, " Pt=", ptID, " **Data integrity issue**: patient is deceased but date of death not specified or valid, assuming today.", sep = ""),T)
             }
-          } else {
+          }
+          else
+          {
             # The patient is still alive ...
+            survival_status <- 1   # Censored after the point of last clinical or imaging follow-up, there is no other option for status it is dead or censored
             if (!is.na(last_alive_date))
             {
               survival_days <- as.numeric(difftime(last_alive_date, date_of_first_rx, units = "days"), units = "days")
@@ -572,12 +575,16 @@ processData <- function()
               survival_days <- NA
             }
           }
-        } else {
+        }
+        else
+        {
           survival_days <- NA
         }
         
+        # Get the local recurrence days i.e. if there is local recurrence, how long did it take after first treatment?
         local_recurrence_days <- NA
-        if (!is.na(date_of_first_local_recurrence) && isConvertibleToDate(date_of_first_local_recurrence)) {
+        if (!is.na(date_of_first_local_recurrence) && isConvertibleToDate(date_of_first_local_recurrence))
+        {
           local_recurrence_days = as.numeric(difftime(date_of_first_local_recurrence, date_of_first_rx, units = "days"), units = "days")
         }
         else
@@ -587,6 +594,30 @@ processData <- function()
           {
             local_recurrence_days = as.numeric(difftime(date_of_last_imaging_fu, date_of_first_rx, units = "days"), units = "days")
           }
+        }
+        
+        # Set the local recurrence-free survival days and status
+        # I.e. work out how long they have lived without any knowledge of recurrence
+        # i.e. last known alive date if not recurred, or recurrence date if recurred
+        lrf_survival_days <- NA
+        lrf_survival_status <- 1   # Assume everyone is censored to begin...
+        if (!is.na(date_of_first_local_recurrence))
+        {
+          logger(paste("first local recurrence = ",date_of_first_local_recurrence, "local recurrence days =",local_recurrence_days))
+          lrf_survival_days <- local_recurrence_days
+          lrf_survival_status <- 2   # Recurred, treated like death
+        }
+        else if (!is.na(deceased_date))
+        {
+          # Presume they can't die before they recur, but...
+          logger(paste("deceased date = ",deceased_date, "survival_days days =",survival_days))
+          
+          if (!is.na(local_recurrence_days) && survival_days < local_recurrence_days)
+          {
+            logger(paste(i, "/", patientCount, " Pt=", ptID, " **Data integrity issue**: patient appears to have died before local recurrence date.", sep = ""), T)
+          }
+          lrf_survival_days <- survival_days
+          lrf_survival_status <- 2   # Dead, treated like recurrence
         }
         
         logger(paste("     Ref=", iRef, "/", pt_ref_count, 
@@ -601,7 +632,7 @@ processData <- function()
     #  logger(paste("     Ref=", iRef, "/", pt_ref_count,
     #               " (", organForRx, ") is not currently selected for Rx, skipping...", sep = ""))
     #}
-  }
+  } # This ends the for loop for each referral for this patient...
 
     # Now we have been through all the referrals update the survival data...
     if (!is.na(date_of_first_rx))
@@ -622,6 +653,8 @@ processData <- function()
       survival_lost_to_fu       <<- append(survival_lost_to_fu, lost_to_fu)
       survival_lost_to_fu_date  <<- append(survival_lost_to_fu_date, lost_to_fu_date)
       survival_status_list      <<- append(survival_status_list, survival_status)
+      lrf_survival_days_list    <<- append(lrf_survival_days_list, lrf_survival_days)        # Local recurrence-free survival i.e. time to LR or death
+      lrf_survival_status_list  <<- append(lrf_survival_status_list, lrf_survival_status)
       
       # And the recurrence data
       local_recurrence_list        <<- append(local_recurrence_list, local_recurrence)
@@ -630,7 +663,7 @@ processData <- function()
       local_recurrence_days_list   <<- append(local_recurrence_days_list, local_recurrence_days)
       last_imaging_follow_up_list  <<- append(last_imaging_follow_up_list, date_of_last_imaging_fu)
     }
-  }
+  } # This ends the for loop for each patient...
   
   # The as.Dates() work around is needed to set Dates as the column types otherwise if the first element in the column is NA, it is represented as just the number which is still the date but unredable to the human
   # This is important as this makes them all a Dates object which displays nicely in the tables - you can check the types of the data frame easily with str(survivalData)
@@ -696,8 +729,7 @@ processData <- function()
   
   # Similar for Genders
   genderFactors <<- levels(factor(rxdone_sex_list))
-  logger (paste("FIXME genderfactors",genderFactors))
-  
+
   # Similarly for operators
   operator1Factors       <<- c("ALL",levels(factor(rxdone_operator1_list)))
   operator2Factors       <<- c("ALL",levels(factor(rxdone_operator2_list)))
@@ -724,39 +756,24 @@ processData <- function()
     survivalData <<- data.frame(
       ID = survival_pt_list,
       Gender = survival_sex_list,
+      FirstRxDate = asDateWithOrigin(survival_first_rx_date),
       AgeOnFirstRx = survival_age_list,
       Organ = survival_organ_list,
-      Status = survival_status_list,
-      FirstRxDate = asDateWithOrigin(survival_first_rx_date),
-      Deceased = survival_deceased_list,
-      DeceasedDate = asDateWithOrigin(survival_deceased_date),
-      LastKnownAlive = survival_last_alive_list,
-      Time = survival_days_list,
-      Related = survival_deceased_related,
-      LostToFU = survival_lost_to_fu,
-      LostToFUDate = asDateWithOrigin(survival_lost_to_fu_date)
-    )
-  }
-  
-  # The recurrence stuff can also borrow some columns from the survival data...
-  if (length(survival_pt_list)==0)
-  {
-    recurrenceData <<- NA
-    recurrencePlotOrgan <<- NA
-  }
-  else
-  {
-    recurrenceData <<- data.frame(
-      ID = survival_pt_list,
-      Gender = survival_sex_list,
-      AgeOnFirstRx = survival_age_list,
-      Organ = survival_organ_list,
-      Status = local_recurrence_status_list,
-      FirstRxDate = asDateWithOrigin(survival_first_rx_date),
-      LocalRecurrence = local_recurrence_list,
+      TimeLRF = local_recurrence_days_list,     # Time to local recurrence
+      StatusLRF = local_recurrence_status_list,
+      TimeLRFS = lrf_survival_days_list,        # Local recurrence-free survival i.e. time to LR or Death, if NA they have not recurred or died
+      StatusLRFS = lrf_survival_status_list,
+      #LocalRecurrence = local_recurrence_list, # We don't need that as we can use the dates
       LastImagingDate = last_imaging_follow_up_list,
       FirstLocalRecurrenceDate = local_recurrence_date_list,
-      Time = local_recurrence_days_list
+      LastKnownAlive = survival_last_alive_list,
+      StatusSurvival = survival_status_list,    # Overall survival
+      TimeSurvival = survival_days_list,
+      Deceased = survival_deceased_list,
+      DeceasedDate = asDateWithOrigin(survival_deceased_date),
+      CancerRelatedDeath = survival_deceased_related,
+      LostToFU = survival_lost_to_fu,
+      LostToFUDate = asDateWithOrigin(survival_lost_to_fu_date)
     )
   }
 }

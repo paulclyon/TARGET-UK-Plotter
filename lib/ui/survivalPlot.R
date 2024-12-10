@@ -33,6 +33,14 @@ survivalPlotTab <- function() {
           "Genders to Chart",
           choices = genderFactors,
           selected = genderFactors
+        )
+      ),
+      column(
+        width = 3,
+        radioButtons(
+          "survivalLRFSRadio",
+          "Survival Plot Type",
+          c("Local Recurrence-Free" = 1, "Survival Only" = 0)
         ),
         actionButton(inputId = "refreshSurvivalPlot", label = "Refresh Plot")
       )
@@ -72,7 +80,8 @@ survivalPlotServer <- function(input, output, session, api, plots)
       input$survivalStartDate,
       input$survivalEndDate,
       input$survivalSelectedOrgans,
-      input$survivalSelectedGenders
+      input$survivalSelectedGenders,
+      input$survivalLRFSRadio
     )
   })
 

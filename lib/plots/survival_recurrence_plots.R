@@ -12,7 +12,7 @@ prepareOrganCountRecurrenceData <- function(filtered_df)
     )
 }
 
-makeSurvivalPlot <- function(strStart, strEnd, selectedOrgans, selectedGenders)
+makeSurvivalPlot <- function(strStart, strEnd, selectedOrgans, selectedGenders, lrfs)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -21,7 +21,7 @@ makeSurvivalPlot <- function(strStart, strEnd, selectedOrgans, selectedGenders)
   if (!is.data.frame(survivalData) || nrow(survivalData) == 0) {
     return(ggplot()) # Any empty plot
   }
-  filteredSurvivalData <- survivalData |>
+  filteredSurvivalData <<- survivalData |>
     filter(between(FirstRxDate, start, end)) |>
     filter(Organ %in% selectedOrgans) |>
     filter(Gender %in% selectedGenders)
@@ -35,9 +35,17 @@ makeSurvivalPlot <- function(strStart, strEnd, selectedOrgans, selectedGenders)
   # See https://thriv.github.io/biodatasci2018/r-survival.html
   #survivalFit         <- survfit(Surv(Time, Status)~1,     data = filteredSurvivalData)
   #survivalFit         <- survfit(Surv(Time, Status)~Sex,   data = filteredSurvivalData)
-  survivalFit          <- survfit(Surv(Time, Status)~Organ, data = filteredSurvivalData)
+  
+  if (lrfs == 0) # This is the radiobutton for LRFS yes/no
+  {
+    survivalFit        <- survfit(Surv(TimeSurvival, StatusSurvival)~Organ, data = filteredSurvivalData) # This is plain old survival
+  }
+  else
+  {
+    survivalFit        <- survfit(Surv(TimeLRFS, StatusLRFS)~Organ, data = filteredSurvivalData)         # This is LRF survival
+  }
   survivalPlot         <- ggsurvplot(survivalFit,
-                                     xlab = "Time (Days)",   risk.table = TRUE,
+                                     xlab = "Overall Survival (Days)",   risk.table = TRUE,
                                      ggtheme = theme(plot.title = element_text(hjust = 0.5)))
   survivalPlot
 }
@@ -48,14 +56,14 @@ makeRecurrencePlot <- function(strStart, strEnd, selectedOrgans)
   start <- as.Date(strStart, format = "%d/%m/%Y")
   end <- as.Date(strEnd, format = "%d/%m/%Y")
   
-  if (!is.data.frame(recurrenceData) || nrow(recurrenceData) <= 0) {
+  if (!is.data.frame(survivalData) || nrow(survivalData) <= 0) {
     return(ggplot())
   }
   
-  filteredRecurrenceData <- recurrenceData |>
+  filteredSurvivalData <<- survivalData |>
     filter(between(FirstRxDate, start, end)) |>
     filter(Organ %in% selectedOrgans)
-  if (nrow(filteredRecurrenceData) == 0) {
+  if (nrow(filteredSurvivalData) == 0) {
     return(ggplot())
   }
   
@@ -63,9 +71,9 @@ makeRecurrencePlot <- function(strStart, strEnd, selectedOrgans)
   # The sample is censored in that you only know that the individual survived up to the loss to followup,
   # but you don’t know anything about survival after that. I used to have 0=alive, but this isn't recognised
   # See https://thriv.github.io/biodatasci2018/r-survival.html
-  recurrenceFit        <- survfit(Surv(Time, Status)~Organ, data = filteredRecurrenceData)
+  recurrenceFit        <- survfit(Surv(TimeLRF, StatusLRF)~Organ, data = filteredSurvivalData)
   recurrencePlot       <- ggsurvplot(recurrenceFit,
-                                     xlab = "Time (Days)",   risk.table = TRUE,
+                                     xlab = "Time to Local Recurrence (Days)",   risk.table = TRUE,
                                      ggtheme = theme(plot.title = element_text(hjust = 0.5)))
   recurrencePlot
 }

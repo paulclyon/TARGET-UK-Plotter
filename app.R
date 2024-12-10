@@ -75,8 +75,7 @@ ui <- dashboardPage(
         tabName = "tables",
         icon = icon("table"),
         menuSubItem("Pathway Table",        tabName = "rxpathwaytab"),
-        menuSubItem("Recurrence Table",     tabName = "recurrencetab"),
-        menuSubItem("Survival Table",       tabName = "survivaltab")
+        menuSubItem("Recur./Survival Table",tabName = "survivaltab")
       ), id='tablesMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Data Validation",
@@ -239,7 +238,6 @@ server <- function(input, output, session) {
   operatorPlotServer(input, output, session, plots)
   volumePlotServer(input, output, session, api, tariff, plots)
   recurrencePlotServer(input, output, session, api, plots)
-  recurrenceTableServer(input, output, session)
   survivalPlotServer(input, output, session, api, plots)
   survivalTableServer(input, output, session)
   referralStatusPlotServer(input, output, session, api, plots)

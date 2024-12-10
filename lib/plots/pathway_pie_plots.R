@@ -43,12 +43,9 @@ makeRxDonePie <- function(strStart, strEnd, selectedOrgans) {
   if (!is.data.frame(filtered_df) || nrow(filtered_df) <= 0) {
     return(ggplot())
   }
-
-  #pie_df <- prepareOrganCountPieData(filtered_df)
-  #p <- survfit(Surv(Time, Status)~Organ, data=recurrenceData)
+  pie_df <- prepareOrganCountPieData(filtered_df)
   p <- makeOrganCountPie(pie_df) +
     guides(fill = guide_legend(title = "Treated Organs Piechart"))
-
   p
 }
 
@@ -73,9 +70,7 @@ makeRxWaitPie <- function(strStart, strEnd, selectedOrgans) {
   }
 
   pie_df <- prepareOrganCountPieData(filtered_df)
-
   p <- makeOrganCountPie(pie_df) +
     guides(fill = guide_legend(title = "Waiting List Piechart"))
-
   p
 }
