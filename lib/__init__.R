@@ -28,7 +28,8 @@ required_pkgs <- c(
   "mapview",
   "PostcodesioR",
   "leaflet", # to render the mapview
-  "lubridate"
+  "lubridate",
+  "withr"
 ) # Consider "tinytex" to generate pdf?
 
 for (pkg in required_pkgs) {
