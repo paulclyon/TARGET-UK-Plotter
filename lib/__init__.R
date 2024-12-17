@@ -24,6 +24,7 @@ required_pkgs <- c(
   "kableExtra",
   "RColorBrewer",
   "sf", # for mapping
+  "spsComps", # for shinyCatch
   "tools",
   "mapview",
   "PostcodesioR",

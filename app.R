@@ -253,16 +253,19 @@ server <- function(input, output, session) {
     DT::datatable(rxDoneData)
   })
   observeEvent(input$msg, {
+    logger("Message: ", paste(input$msg))
     shinyCatch({
       message("a message")
     }, prefix = '')
   })
   observeEvent(input$warn, {
+    logger("Warning: ", paste(input$warn))
     shinyCatch({
       warning("a warning")
     }, prefix = '')
   })
   observeEvent(input$err, {
+    logger("Error: ", paste(input$err))
     shinyCatch({
       stop("an error")
     }, prefix = '')
