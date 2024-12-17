@@ -39,13 +39,17 @@ makeSurvivalPlot <- function(strStart, strEnd, selectedOrgans, selectedGenders, 
   if (lrfs == 0) # This is the radiobutton for LRFS yes/no
   {
     survivalFit        <- survfit(Surv(TimeSurvival, StatusSurvival)~Organ, data = filteredSurvivalData) # This is plain old survival
+    xlabStr            <- "Overall Survival (Years)"
+    
   }
   else
   {
     survivalFit        <- survfit(Surv(TimeLRFS, StatusLRFS)~Organ, data = filteredSurvivalData)         # This is LRF survival
+    xlabStr            <- "Overall Local Recurrence-Free Survival (Years)"
   }
   survivalPlot         <- ggsurvplot(survivalFit,
-                                     xlab = "Overall Survival (Days)",   risk.table = TRUE,
+                                     ylab = "Probability",
+                                     xlab = xlabStr,   risk.table = TRUE,
                                      ggtheme = theme(plot.title = element_text(hjust = 0.5)))
   survivalPlot
 }
@@ -73,7 +77,8 @@ makeRecurrencePlot <- function(strStart, strEnd, selectedOrgans)
   # See https://thriv.github.io/biodatasci2018/r-survival.html
   recurrenceFit        <- survfit(Surv(TimeLRF, StatusLRF)~Organ, data = filteredSurvivalData)
   recurrencePlot       <- ggsurvplot(recurrenceFit,
-                                     xlab = "Time to Local Recurrence (Days)",   risk.table = TRUE,
+                                     ylab = "Probability",
+                                     xlab = "Time to Local Recurrence (Years)",   risk.table = TRUE,
                                      ggtheme = theme(plot.title = element_text(hjust = 0.5)))
   recurrencePlot
 }
