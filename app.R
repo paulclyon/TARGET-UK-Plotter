@@ -130,7 +130,6 @@ ui <- dashboardPage(
       tabItem("referralstatus",   referralStatusPlotTab()),
       tabItem("referralmaps",     referralMapTab()),
       tabItem("rxpathwaytab",     pathwayTab()),
-      tabItem("recurrencetab",    recurrenceTab()),
       tabItem("survivaltab",      survivalTab()),
       tabItem("audit-pathway",    auditTab()),
       tabItem("rxpathwaysummary", pathwaySummaryTab()),
