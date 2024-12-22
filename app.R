@@ -75,6 +75,7 @@ ui <- dashboardPage(
         tabName = "tables",
         icon = icon("table"),
         menuSubItem("Pathway Table",        tabName = "rxpathwaytab"),
+        menuSubItem("Adverse Events Table", tabName = "aetab"),
         menuSubItem("Recur./Survival Table",tabName = "survivaltab")
       ), id='tablesMenuItem')),
       hidden(tagAppendAttributes(menuItem(
@@ -130,6 +131,7 @@ ui <- dashboardPage(
       tabItem("referralstatus",   referralStatusPlotTab()),
       tabItem("referralmaps",     referralMapTab()),
       tabItem("rxpathwaytab",     pathwayTab()),
+      tabItem("aetab",            aeTab()),
       tabItem("survivaltab",      survivalTab()),
       tabItem("audit-pathway",    auditTab()),
       tabItem("rxpathwaysummary", pathwaySummaryTab()),
@@ -226,9 +228,9 @@ ui <- dashboardPage(
   )
 )
 
-server <- function(input, output, session) {
+server <- function(input, output, session)
+{
   plots <- reactiveValues(activePlot = NULL)
-
   api <- apiServer(input, output, session)
   tariff <- tariffServer(input, output, session, api)
   pathwayPlotServer(input, output, session, api, plots)
@@ -236,6 +238,7 @@ server <- function(input, output, session) {
   pathwayTableServer(input, output, session, plots)
   operatorPlotServer(input, output, session, plots)
   volumePlotServer(input, output, session, api, tariff, plots)
+  aeTableServer(input, output, session, api)
   recurrencePlotServer(input, output, session, api, plots)
   survivalPlotServer(input, output, session, api, plots)
   survivalTableServer(input, output, session)
@@ -244,7 +247,6 @@ server <- function(input, output, session) {
   pathwaySummaryServer(input, output, session)
   survivalSummaryServer(input, output, session)
   auditServer(input, output, session, api, plots)
-
   output$tableWait <- DT::renderDataTable({
     DT::datatable(rxWaitData)
   })

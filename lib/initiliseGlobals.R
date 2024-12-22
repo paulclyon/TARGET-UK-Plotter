@@ -4,6 +4,7 @@ initialiseGlobals <- function()
   # This is the order of the clock stop columns
   clockStopColNames              <<- c("date.stopped","date.restart","reason","free.text")
   rxTableColNames                <<- c("rx.organ","lesion.size","max.depth","closest.serosa","punctures","no.applicators.or.postitions","modality","max.power","min.power","rx.time","new.or.rec","free.text")
+  aeTableColNames                <<- c("Pt ID","Complication","DateofOnset","DateofResolution","Grade","Description","Post Discharge?")
   recurrenceColNames             <<- c("imaging.date","exam.type","local.recurrence","new.in.target.organ","distant.progression","disease.status","free-text")
   clinicalfuColNames             <<- c("followup.date","clinician.type","clinician.name","impression","outcome")
   rxdone_organ_list              <<- c()
@@ -57,7 +58,7 @@ initialiseGlobals <- function()
   lrf_survival_status_list       <<- c() # Local recurrence-free survival status
   last_imaging_follow_up_list    <<- c()
   survivalData                 <<- NA
-  # recurrenceData               <<- NA
+  aeData                       <<- NA
   operator1                    <<- NA
   operator2                    <<- NA
   operator3                    <<- NA
@@ -72,6 +73,7 @@ initialiseGlobals <- function()
   anaesthetist2Factors         <<- c()
   anaesthetist3Factors         <<- c()
   anaesthetistAllFactors       <<- c()
+  cctaeGradeFactors            <<- c()
   
   # The major dataframes
   rxDoneData                   <<- NA

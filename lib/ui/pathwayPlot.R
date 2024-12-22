@@ -1,8 +1,7 @@
 pathwayPlotTab <- function() {
   list(
     fluidRow(
-      tabPanel(
-        "RxPathwayPlots",
+      tabPanel("RxPathwayPlots",
         column(
           width = 3,
           radioButtons(
@@ -80,10 +79,8 @@ pathwayPlotServer <- function(input, output, session, api, plots) {
 
     p <- finalRxPlotInput() +
       scale_x_date(limits = as.Date(
-        c(input$rxPlotStartDate, input$rxPlotEndDate),
-        format = "%d/%m/%Y"
-      )) +
-      theme(legend.position = "bottom")
+        c(input$rxPlotStartDate, input$rxPlotEndDate), format = "%d/%m/%Y")) +
+        theme(legend.position = "bottom")
     p <- p %+% subset(finalRxTableDataInput(), Organs %in% input$rxPlotSelectedOrgans)
     p
   })
@@ -92,7 +89,6 @@ pathwayPlotServer <- function(input, output, session, api, plots) {
   # Note plotly vs. plot gives you the tool tip text
   output$plotRxPathway <- renderPlotly({
     height <- detectedHeight(input, "plotRxPathway")
-
     plots$activePlot <- ggplotly(filteredPlot(), height = height)
     plots$activePlot
   })

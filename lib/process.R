@@ -1,6 +1,9 @@
 # Uses global variables to reprocess the referral data
 processData <- function()
 {
+  aeData <<- data.frame(matrix(ncol = length(aeTableColNames), nrow = 0))
+  colnames(aeData) <- aeTableColNames
+  
   # Crunch the Referral Data
   deceased = as.integer()
   iRef = as.integer()
@@ -454,6 +457,50 @@ processData <- function()
           # Get the tariff for the Rx
           tariffForRx <- getTariffForRx(organForRx, modalityForRx)
           
+          # Get the early and late complication matrices
+          earlyAETable.df <- NA
+          earlyAETableJSON <- getDataEntry(paste("complication_early_matrix_", as.integer(iRef), sep = ""), i, F)
+          if (!is.na(earlyAETableJSON) && str_length(earlyAETableJSON) > 0 )
+          {
+            # These complications occurred early, ie. during the admission of the ablation
+            earlyAETableMatrix <- jsonlite::fromJSON(earlyAETableJSON)
+            earlyAETable.df <- data.frame(matrix(unlist(earlyAETableMatrix), ncol = 5, byrow = T))
+            earlyAETable.df <- cbind(ptID,earlyAETable.df)  # Add the Patient ID
+            earlyAETable.df <- cbind(earlyAETable.df,0)     # Add the post-discharge field
+            colnames(earlyAETable.df) <- aeTableColNames
+            for (j in 1:nrow(earlyAETable.df))
+            {
+              if (!is.na(earlyAETable.df$Complication[j]) && earlyAETable.df$Complication[j] != "")
+              {
+                aeData <- rbind(aeData,earlyAETable.df[j,])
+              }
+            }
+          }
+          lateAETable.df <- NA
+          lateAETableJSON  <- getDataEntry(paste("cx_late_matrix_", as.integer(iRef), sep = ""), i, F)
+          if (!is.na(lateAETableJSON) && str_length(lateAETableJSON) > 0 )
+          {
+            # These complications occurred later, after discharge
+            lateAETableMatrix <- jsonlite::fromJSON(lateAETableJSON)
+            lateAETable.df <- data.frame(matrix(unlist(lateAETableMatrix), ncol = 4, byrow = T)) # FIXME get the description field added in
+            lateAETable.df <- cbind(ptID,lateAETable.df)  # Add the Patient ID
+            lateAETable.df <- cbind(lateAETable.df,"-")   # Add the description field FIXME
+            lateAETable.df <- cbind(lateAETable.df,1)     # Add the post-discharge field
+            colnames(lateAETable.df) <- aeTableColNames
+            for (j in 1:nrow(lateAETable.df))
+            {
+              if (!is.na(lateAETable.df$Complication[j]) && lateAETable.df$Complication[j] != "")
+              {
+                aeData <<- rbind(aeData,lateAETable.df[j,])
+              }
+            }
+          }
+          # Change any blanks to 'Unspecified'
+          aeData$Grade[is.na(aeData$Grade)]  <- "Unspecified" # Replace 'unspecified i.e. NA grade with 'Unspecified'
+          aeData$Grade[aeData$Grade == ""]   <- "Unspecified" # Replace 'unspecified i.e. "" grade with 'Unspecified'
+          aeData$Grade[aeData$Grade == " "]  <- "Unspecified" # Replace 'unspecified i.e. "" grade with 'Unspecified'
+            
+          # Time between referral and Rx
           ref_rx_days = as.numeric(difftime(ref_rx_date, ref_date, units = "days"), units = "days")
           if (ref_rx_days < 0)
           {
@@ -744,6 +791,9 @@ processData <- function()
   anaesthetist2Factors   <<- c("ALL",levels(factor(rxdone_anaesthetist2_list)))
   anaesthetist3Factors   <<- c("ALL",levels(factor(rxdone_anaesthetist3_list)))
   anaesthetistAllFactors <<- c(levels(factor(append(append(rxdone_anaesthetist1_list,rxdone_anaesthetist2_list),rxdone_anaesthetist3_list))))
+  
+  # Similarly for CCTAE grades
+  cctaeGradeFactors      <<- c(levels(factor(aeData$Grade)))
   
   # See https://thriv.github.io/biodatasci2018/r-survival.html
   # Here Time is survival time in days (since first Rx)

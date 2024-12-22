@@ -88,70 +88,58 @@ connectAPIEvent <- function(input, api) {
 
   # Disconnect the old before connecting
   disconnectCastorAPI()
-
   api$connected <- F
-  api$loaded <- F
-
+  api$loaded    <- F
   Sys.setenv(CASTOR_USER_KEY = input$inputCastorKey)
-  Sys.setenv(CASTOR_SECRET = input$inputCastorSecret)
-
+  Sys.setenv(CASTOR_SECRET   = input$inputCastorSecret)
   connectCastorAPI()
 
   if (is.environment(castor_api)) {
     api$connected <- T
-
     shinyjs::show("disconnectAPI")
-
     showNotification("Castor API Connected.")
-  } else {
+  }
+  else
+  {
     api$connected <- F
-
     shinyjs::hide("disconnectAPI")
     shinyjs::hide("studyDropdownGroup")
     shinyjs::hide("reloadData")
-
     showNotification("Could not connect to Castor API with those settings")
   }
 }
 
-disconnectAPIEvent <- function(api) {
+disconnectAPIEvent <- function(api)
+{
   disconnectCastorAPI()
-
   api$connected <- F
   api$loaded <- F
-
   shinyjs::hide("studyDropdownGroup")
   shinyjs::hide("disconnectAPI")
   shinyjs::hide("reloadData")
-
   showNotification("Castor API Disconnected.")
 }
 
-apiConnectedEvent <- function(session, api) {
+apiConnectedEvent <- function(session, api)
+{
   if (!api$connected) {
     logger("No API connection")
-
     studyNames <<- c()
-
     shinyjs::hide("studyDropdownGroup")
     shinyjs::hide("reloadData")
-
     updateActionButton(session,
       inputId = "reloadData",
       label = "No API for Loading",
       icon("remove-circle", lib = "glyphicon")
     )
-
     updateSelectInput(session, "studyDropdown",
       choices = c("No API Connection"),
       selected = NULL
     )
-
     return()
   }
 
   logger("Getting study names via Castor API...")
-
   studyNames <<- getStudyNames()
 
   if (is.null(studyNames)) {
@@ -199,7 +187,6 @@ reloadStudyEvent <- function(input, output, session, api) {
     api$loaded <- F
     showNotification("Study data is not valid, either not TARGET study or no patients...")
     logger(paste("Study data '", input$studyDropdown, "' is not valid, either not TARGET study or no patients..."))
-
     return()
   }
 
@@ -212,9 +199,10 @@ reloadStudyEvent <- function(input, output, session, api) {
 
   ## TODO: Then all of these can be bound to the reactive api processed data value outside of this function
 
-  ## The first step is just move the organFactors and genderFactors to the api
+  ## The first step is just move the factors to the api
   api$organFactors <- organFactors
   api$genderFactors <- genderFactors
+  api$cctaeGradeFactors <- cctaeGradeFactors
 
   # Make sure our Organ tick list matches the data...
   updateSelectInput(session, "operatorPlotDropdown", "Operators to Plot",
@@ -228,6 +216,9 @@ reloadStudyEvent <- function(input, output, session, api) {
   )
   updateCheckboxGroupInput(session, "anaesthetistNameCheckbox", "Anaesthetist Names",
     choices = anaesthetistAllFactors
+  )
+  updateCheckboxGroupInput(session, "aeGradesCheckbox", "CCTAE Grades",
+    choices = cctaeGradeFactors
   )
 
   # Show the data sidebar items
@@ -243,13 +234,11 @@ reloadStudyEvent <- function(input, output, session, api) {
   showNotification("Completed data processing, plot/tables should now be available to view...")
 }
 
-apiServer <- function(input, output, session) {
-  api <- reactiveValues(connected = FALSE, loaded = FALSE, organFactors = NULL, genderFactors = NULL)
-
+apiServer <- function(input, output, session)
+{
+  api <- reactiveValues(connected = FALSE, loaded = FALSE, organFactors = NULL, genderFactors = NULL, cctaeGradeFactors = NULL)
   output$apiStatus <- renderAPIStatus(api)
-
   observeEvent(input$connectAPI, disableReenable("connectAPI", connectAPIEvent, input, api))
-
   observeEvent(input$disconnectAPI, disableReenable("disconnectAPI", disconnectAPIEvent, api))
 
   # Update the Load Data button
