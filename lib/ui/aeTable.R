@@ -76,7 +76,6 @@ aeTableServer <- function(input, output, session, api) {
       # The dates in the table are just strings of format dd-mm-yyyy, convert to Date objects
       aeData.filtered$DateofOnset      <- as.Date(aeData.filtered$DateofOnset,"%d-%m-%Y")
       aeData.filtered$DateofResolution <- as.Date(aeData.filtered$DateofResolution,"%d-%m-%Y")
-      logger(paste("filtering between",startDate,endDate, nrow(aeData.filtered)))
       if (!is.na(startDate) && nrow(aeData.filtered) >0 )
       {
         aeData.filtered <- aeData.filtered %>% filter(DateofOnset > startDate)
@@ -85,7 +84,6 @@ aeTableServer <- function(input, output, session, api) {
       {
         aeData.filtered <- aeData.filtered %>% filter(DateofOnset < endDate)
       }
-      logger(paste("filtered between",startDate,endDate, nrow(aeData.filtered)))
     }    
     DT::datatable(aeData.filtered)
   })

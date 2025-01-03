@@ -2,7 +2,7 @@
 processData <- function()
 {
   aeData <<- data.frame(matrix(ncol = length(aeTableColNames), nrow = 0))
-  colnames(aeData) <- aeTableColNames
+  colnames(aeData) <<- aeTableColNames
   
   # Crunch the Referral Data
   deceased = as.integer()
@@ -466,13 +466,18 @@ processData <- function()
             earlyAETableMatrix <- jsonlite::fromJSON(earlyAETableJSON)
             earlyAETable.df <- data.frame(matrix(unlist(earlyAETableMatrix), ncol = 5, byrow = T))
             earlyAETable.df <- cbind(ptID,earlyAETable.df)  # Add the Patient ID
-            earlyAETable.df <- cbind(earlyAETable.df,0)     # Add the post-discharge field
+            earlyAETable.df <- cbind(earlyAETable.df,0)     # Add the post-discharge field i.e. early means before discharge
+            earlyAETable.df <- cbind(earlyAETable.df,NA)    # Add the duration field
             colnames(earlyAETable.df) <- aeTableColNames
             for (j in 1:nrow(earlyAETable.df))
             {
               if (!is.na(earlyAETable.df$Complication[j]) && earlyAETable.df$Complication[j] != "")
               {
-                aeData <- rbind(aeData,earlyAETable.df[j,])
+                if (!is.na(convertToDate(earlyAETable.df$DateofResolution[j])) && !is.na(convertToDate(earlyAETable.df$DateofOnset[j])))
+                {
+                  earlyAETable.df$Duration[j] <- difftime(convertToDate(earlyAETable.df$DateofResolution[j]), convertToDate(earlyAETable.df$DateofOnset[j]), units="days")
+                }
+                aeData <<- rbind(aeData,earlyAETable.df[j,])
               }
             }
           }
@@ -485,21 +490,27 @@ processData <- function()
             lateAETable.df <- data.frame(matrix(unlist(lateAETableMatrix), ncol = 4, byrow = T)) # FIXME get the description field added in
             lateAETable.df <- cbind(ptID,lateAETable.df)  # Add the Patient ID
             lateAETable.df <- cbind(lateAETable.df,"-")   # Add the description field FIXME
-            lateAETable.df <- cbind(lateAETable.df,1)     # Add the post-discharge field
+            lateAETable.df <- cbind(lateAETable.df,1)     # Add the post-discharge field i.e. late means after discharge
+            lateAETable.df <- cbind(lateAETable.df,NA)    # Add the duration field
             colnames(lateAETable.df) <- aeTableColNames
             for (j in 1:nrow(lateAETable.df))
             {
               if (!is.na(lateAETable.df$Complication[j]) && lateAETable.df$Complication[j] != "")
               {
+                if (!is.na(convertToDate(lateAETable.df$DateofResolution[j])) && !is.na(convertToDate(lateAETable.df$DateofOnset[j])))
+                {
+                  lateAETable.df$Duration[j] <- difftime(convertToDate(lateAETable.df$DateofResolution[j]), convertToDate(lateAETable.df$DateofOnset[j]), unit="days")
+                }
                 aeData <<- rbind(aeData,lateAETable.df[j,])
               }
             }
           }
+          
           # Change any blanks to 'Unspecified'
-          aeData$Grade[is.na(aeData$Grade)]  <- "Unspecified" # Replace 'unspecified i.e. NA grade with 'Unspecified'
-          aeData$Grade[aeData$Grade == ""]   <- "Unspecified" # Replace 'unspecified i.e. "" grade with 'Unspecified'
-          aeData$Grade[aeData$Grade == " "]  <- "Unspecified" # Replace 'unspecified i.e. "" grade with 'Unspecified'
-            
+          aeData$Grade[is.na(aeData$Grade)]  <<- "Unspecified" # Replace 'unspecified i.e. NA grade with 'Unspecified'
+          aeData$Grade[aeData$Grade == ""]   <<- "Unspecified" # Replace 'unspecified i.e. "" grade with 'Unspecified'
+          aeData$Grade[aeData$Grade == " "]  <<- "Unspecified" # Replace 'unspecified i.e. "" grade with 'Unspecified'
+
           # Time between referral and Rx
           ref_rx_days = as.numeric(difftime(ref_rx_date, ref_date, units = "days"), units = "days")
           if (ref_rx_days < 0)
@@ -651,15 +662,12 @@ processData <- function()
 
       if (!is.na(date_of_first_local_recurrence))
       {
-        logger(paste("first local recurrence = ",date_of_first_local_recurrence, "local recurrence days =",local_recurrence_days))
         lrf_survival_days <- local_recurrence_days
         lrf_survival_status <- 2   # Recurred, treated like death
       }
       else if (!is.na(deceased_date))
       {
         # Presume they can't die before they recur, but...
-        logger(paste("deceased date = ",deceased_date, "survival_days days =",survival_days))
-        
         if (!is.na(local_recurrence_days) && survival_days < local_recurrence_days)
         {
           logger(paste(i, "/", patientCount, " Pt=", ptID, " **Data integrity issue**: patient appears to have died before local recurrence date.", sep = ""), T)
