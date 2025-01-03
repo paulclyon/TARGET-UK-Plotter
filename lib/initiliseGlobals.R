@@ -6,7 +6,7 @@ initialiseGlobals <- function()
   rxTableColNames                <<- c("rx.organ","lesion.size","max.depth","closest.serosa","punctures","no.applicators.or.postitions","modality","max.power","min.power","rx.time","new.or.rec","free.text")
   #aeTableColNames                <<- c("PtID","Complication","DateofOnset","DateofResolution","Grade","Description","PostDischarge","Duration","AdditionalInptDays","Intervention","Intervention Date")
   aeTableColNames                <<- c("PtID","Complication","DateofOnset","DateofResolution","Grade","Description","PostDischarge","Duration")
-  
+  dataIntegrityColNames          <<- c("PtID","RefID","Organ(s)","Error")
   recurrenceColNames             <<- c("imaging.date","exam.type","local.recurrence","new.in.target.organ","distant.progression","disease.status","free-text")
   clinicalfuColNames             <<- c("followup.date","clinician.type","clinician.name","impression","outcome")
   rxdone_organ_list              <<- c()
@@ -59,49 +59,50 @@ initialiseGlobals <- function()
   lrf_survival_days_list         <<- c() # Local recurrence-free survival days
   lrf_survival_status_list       <<- c() # Local recurrence-free survival status
   last_imaging_follow_up_list    <<- c()
-  survivalData                 <<- NA
-  aeData                       <<- NA
-  operator1                    <<- NA
-  operator2                    <<- NA
-  operator3                    <<- NA
-  operator1Factors             <<- c()
-  operator2Factors             <<- c()
-  operator3Factors             <<- c()
-  operatorAllFactors           <<- c()
-  anaesthetist1                <<- NA
-  anaesthetist2                <<- NA
-  anaesthetist3                <<- NA
-  anaesthetist1Factors         <<- c()
-  anaesthetist2Factors         <<- c()
-  anaesthetist3Factors         <<- c()
-  anaesthetistAllFactors       <<- c()
-  cctaeGradeFactors            <<- c()
+  operator1                      <<- NA
+  operator2                      <<- NA
+  operator3                      <<- NA
+  operator1Factors               <<- c()
+  operator2Factors               <<- c()
+  operator3Factors               <<- c()
+  operatorAllFactors             <<- c()
+  anaesthetist1                  <<- NA
+  anaesthetist2                  <<- NA
+  anaesthetist3                  <<- NA
+  anaesthetist1Factors           <<- c()
+  anaesthetist2Factors           <<- c()
+  anaesthetist3Factors           <<- c()
+  anaesthetistAllFactors         <<- c()
+  cctaeGradeFactors              <<- c()
   
   # The major dataframes
-  rxDoneData                   <<- NA
-  rxWaitData                   <<- NA
-  refclockstop.df              <<- NA
-  recurrence.df                <<- NA
-  clinicalfu.df                <<- NA
-  rxdonePlot                   <<- ggplot()
-  rxwaitPlot                   <<- ggplot()
-  operatorPlot                 <<- ggplot()
-  patientData                  <<- NA
-  studyData                    <<- NA
-  survivalPlotSex              <<- ggplot()
-  survivalPlotOrgan            <<- ggplot()
-  survivalFitSex               <<- NA
-  survivalFitOrgan             <<- NA
-  targetStudyID                <<- NA
-  fieldData                    <<- NA
-  referralMap                  <<- NULL
+  rxDoneData                     <<- NA
+  rxWaitData                     <<- NA
+  refclockstop.df                <<- NA
+  recurrence.df                  <<- NA
+  clinicalfu.df                  <<- NA
+  rxdonePlot                     <<- ggplot()
+  rxwaitPlot                     <<- ggplot()
+  operatorPlot                   <<- ggplot()
+  patientData                    <<- NA
+  studyData                      <<- NA
+  survivalData                   <<- NA
+  aeData                         <<- NA
+  survivalPlotSex                <<- ggplot()
+  survivalPlotOrgan              <<- ggplot()
+  survivalFitSex                 <<- NA
+  survivalFitOrgan               <<- NA
+  targetStudyID                  <<- NA
+  fieldData                      <<- NA
+  referralMap                    <<- NULL
+  dataIntegrity.df               <<- NA
   
   # The Open API stuff is used to write to Castor...
-  castorOpenAPI                <<- NA
-  studyDataOpenAPI             <<- NA
-  fieldDataOpenAPI             <<- NA
-  openAPIoperations            <<- NA
-  openAPIschemas               <<- NA
+  castorOpenAPI                  <<- NA
+  studyDataOpenAPI               <<- NA
+  fieldDataOpenAPI               <<- NA
+  openAPIoperations              <<- NA
+  openAPIschemas                 <<- NA
   
   # The HRG Codes for tariff calculations based on 2022/3 Workbook
   tariffCodes <<- data.frame (

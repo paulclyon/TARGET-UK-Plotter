@@ -60,23 +60,24 @@ ui <- dashboardPage(
         id = "chartsID",
         tabName = "charts",
         icon = icon("chart-simple"),
-        menuSubItem("Pathway Plots",        tabName = "rxpathwayplots"),
-        menuSubItem("Pathway Pies",         tabName = "rxpathwaypies"),
-        menuSubItem("Operator Plot",        tabName = "operatorplots"),
-        menuSubItem("Volume Plot",          tabName = "volumeplots"),
-        menuSubItem("Recurrence Plot",      tabName = "recurrenceplot"),
-        menuSubItem("Survival Plot",        tabName = "survivalplot"),
-        menuSubItem("Referral Status Plot", tabName = "referralstatus"),
-        menuSubItem("Referral Maps",        tabName = "referralmaps")
+        menuSubItem("Pathway Plots",        tabName = "rxPathwayPlots"),
+        menuSubItem("Pathway Pies",         tabName = "rxPathwayPies"),
+        menuSubItem("Operator Plot",        tabName = "operatorPlots"),
+        menuSubItem("Volume Plot",          tabName = "volumePlots"),
+        menuSubItem("Recurrence Plot",      tabName = "recurrencePlot"),
+        menuSubItem("Survival Plot",        tabName = "survivalPlot"),
+        menuSubItem("Referral Status Plot", tabName = "referralStatus"),
+        menuSubItem("Referral Maps",        tabName = "referralMaps")
       ), id='chartsMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Data Tables",
         id = "tablesID",
         tabName = "tables",
         icon = icon("table"),
-        menuSubItem("Pathway Table",        tabName = "rxpathwaytab"),
-        menuSubItem("Adverse Events Table", tabName = "aetab"),
-        menuSubItem("Recur./Survival Table",tabName = "survivaltab")
+        menuSubItem("Pathway Table",        tabName = "rxpathwayTab"),
+        menuSubItem("Adverse Events Table", tabName = "aeTab"),
+        menuSubItem("Recur./Survival Table",tabName = "survivalTab")
+        
       ), id='tablesMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Data Validation",
@@ -84,7 +85,9 @@ ui <- dashboardPage(
         tabName = "validation",
         icon = icon("table"),
         menuSubItem("Operator Names",       tabName = "operatorNames"),
-        menuSubItem("Anaesthetists Names",  tabName = "anaesthetistNames")
+        menuSubItem("Anaesthetists Names",  tabName = "anaesthetistNames"),
+        menuSubItem("Date Integrity Table", tabName = "dataIntegrityTab")
+        
       ), id='validationMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Audit Reports",
@@ -92,7 +95,7 @@ ui <- dashboardPage(
         tabName = "audit",
         icon = icon("clipboard-list"),
         expandedName = "AUDIT",
-        menuSubItem("Referral Audit Report",   tabName = "audit-pathway")
+        menuSubItem("Referral Audit Report",   tabName = "auditPathway")
       ), id='auditMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Summary Data",
@@ -100,9 +103,9 @@ ui <- dashboardPage(
         tabName = "summary",
         icon = icon("clipboard-list"),
         expandedName = "SUMMARY",
-        menuSubItem("Pathway Summary Data",    tabName = "rxpathwaysummary"),
-        menuSubItem("Recurrence Summary Data", tabName = "recurrencesummary"),
-        menuSubItem("Survival Summary Data",   tabName = "survivalsummary")
+        menuSubItem("Pathway Summary Data",    tabName = "rxPathwaySummary"),
+        menuSubItem("Recurrence Summary Data", tabName = "recurrenceSummary"),
+        menuSubItem("Survival Summary Data",   tabName = "survivalSummary")
       ), id='summaryMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Pathway Summary",
@@ -122,21 +125,22 @@ ui <- dashboardPage(
       tabItem(tabName = "api",
       initialiseDetectHeightJS(),
       apiTab()),
-      tabItem("rxpathwayplots",   pathwayPlotTab()),
-      tabItem("operatorplots",    operatorPlotTab()),
-      tabItem("volumeplots",      volumePlotTab()),
-      tabItem("rxpathwaypies",    pathwayPieTab()),
-      tabItem("recurrenceplot",   recurrencePlotTab()),
-      tabItem("survivalplot",     survivalPlotTab()),
-      tabItem("referralstatus",   referralStatusPlotTab()),
-      tabItem("referralmaps",     referralMapTab()),
-      tabItem("rxpathwaytab",     pathwayTab()),
-      tabItem("aetab",            aeTab()),
-      tabItem("survivaltab",      survivalTab()),
-      tabItem("audit-pathway",    auditTab()),
-      tabItem("rxpathwaysummary", pathwaySummaryTab()),
-      tabItem("recurrencesummary", "Recurrence Summary Data work in progress!"),
-      tabItem("survivalsummary",  survivalSummaryTab()),
+      tabItem("rxPathwayPlots",   pathwayPlotTab()),
+      tabItem("operatorPlots",    operatorPlotTab()),
+      tabItem("volumePlots",      volumePlotTab()),
+      tabItem("rxPathwayPies",    pathwayPieTab()),
+      tabItem("recurrencePlot",   recurrencePlotTab()),
+      tabItem("survivalPlot",     survivalPlotTab()),
+      tabItem("referralStatus",   referralStatusPlotTab()),
+      tabItem("referralMaps",     referralMapTab()),
+      tabItem("rxPathwayTab",     pathwayTab()),
+      tabItem("aeTab",            aeTab()),
+      tabItem("survivalTab",      survivalTab()),
+      tabItem("dataIntegrityTab", dataIntegrityTab()),
+      tabItem("auditPathway",     auditTab()),
+      tabItem("rxPathwaySummary", pathwaySummaryTab()),
+      tabItem("recurrenceSummary", "Recurrence Summary Data work in progress!"),
+      tabItem("survivalSummary",  survivalSummaryTab()),
 
       tabItem(
         tabName = "test",
@@ -242,6 +246,7 @@ server <- function(input, output, session)
   recurrencePlotServer(input, output, session, api, plots)
   survivalPlotServer(input, output, session, api, plots)
   survivalTableServer(input, output, session)
+  dataIntegrityTableServer(input, output, session)
   referralStatusPlotServer(input, output, session, api, plots)
   referralsMapServer(input, output, session, plots)
   pathwaySummaryServer(input, output, session)

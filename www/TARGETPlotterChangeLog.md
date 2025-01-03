@@ -19,7 +19,7 @@ V0.3 Cheetah:   Tariff Volume Plot<br>
 V0.4 Dormouse:  Audit Implementation, Plot Auto-Resizing & Code Cleaning/Factoring (AT)
                 Added logo to load page & improved user and password txt file security
 V0.5 Elephant:  Survival & Recurrence curves and tables
-V0.6 Flamingo:  Adverse events table<br>
+V0.6 Flamingo:  Adverse events & Data Integrity tables<br>
 
 </pre>
 
