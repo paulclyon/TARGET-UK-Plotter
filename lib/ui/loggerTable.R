@@ -1,21 +1,20 @@
-dataIntegrityTab <- function() {
+loggerTab <- function() {
   list(fluidRow(box(
     width = 12,
     column(
       width = 4,
-      actionButton("buttonPasteIntegrityData", "Copy Data to Clipboard"),
-      actionButton("buttonSaveIntegrityData",  "Save Data to File")
+      actionButton("buttonPasteSystemLogs", "Copy System Logs to Clipboard"),
+      actionButton("buttonSaveSystemLogs",  "Save System Logs to File")
     )
   )),
   fluidRow(box(
     width = 12,
-    DT::dataTableOutput("tableDataIntegrity")
+    DT::dataTableOutput("tableLogger")
   )))
 }
 
-dataIntegrityTableServer <- function(input, output, session, isDocker)
-{
-  observeEvent(input$buttonPasteIntegrityData, {
+loggerTableServer <- function(input, output, session, isDocker) {
+  observeEvent(input$buttonPasteSystemLogs, {
     if (isDocker == T)
     {
       shinyCatch({
@@ -24,14 +23,14 @@ dataIntegrityTableServer <- function(input, output, session, isDocker)
     }
     else
     {
-      copyDataToClipboard(dataIntegrity.df)
+      copyDataToClipboard(logger.df)
       shinyCatch({
-        message("Copied data to the clipboard, please paste into app such as Microsoft Excel on a secure computer (patient IDs included).")
+        message("Copied logs to the clipboard, please paste into app such as Microsoft Excel on a secure computer (patient IDs included).")
       }, prefix = '')
     }
   })
 
-  observeEvent(input$buttonSaveIntegrityData, {
+  observeEvent(input$buttonSaveSystemLogs, {
     if (isDocker == T)
     {
       shinyCatch({
@@ -42,21 +41,21 @@ dataIntegrityTableServer <- function(input, output, session, isDocker)
     {
       exportFile <- NA
       shinyCatch({
-        message("If this is a secure computer (patient IDs included), choose a file to export to...")
+        message(paste("If this is a secure computer (patient IDs included), choose a file to export to..."),isDocker)
       }, prefix = '')
       result = tryCatch({ exportFile <- file.choose(new = TRUE) }, error = function(err) { logger(err,F) })
       if (!is.na(exportFile) && exportFile != "")
       {
         if (!endsWith(exportFile, ".csv"))
         {
-          exportFile = paste(exportFile, ".csv", sep = "")
+          exportFile <- paste(exportFile, ".csv", sep = "")
         }
         shinyCatch({
-          message(paste("Attempting to export data to file", exportFile))
+          message(paste("Attempting to export system logs to file", exportFile))
         }, prefix = '')
-        write.csv(dataIntegrity.df, exportFile, row.names = TRUE)
+        write.csv(logger.df, exportFile, row.names = TRUE)
         shinyCatch({
-          message(paste("Exported data to file", exportFile))
+          message(paste("Exported system logs to file", exportFile))
         }, prefix = '')
       }
       else
@@ -68,7 +67,7 @@ dataIntegrityTableServer <- function(input, output, session, isDocker)
     }
   })
 
-  output$tableDataIntegrity <- DT::renderDataTable({
-    DT::datatable(dataIntegrity.df)
+  output$tableLogger <- DT::renderDataTable({
+    DT::datatable(logger.df)
   })
 }

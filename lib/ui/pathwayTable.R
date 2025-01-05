@@ -23,7 +23,8 @@ pathwayTab <- function() {
   )
 }
 
-pathwayTableServer <- function(input, output, session, plots) {
+pathwayTableServer <- function(input, output, session, isDocker)
+{
   finalRxTableDataInput <- reactive({
     switch(input$rxTimesTableRadio,
       "rxdoneTable" = rxDoneData,
@@ -32,50 +33,57 @@ pathwayTableServer <- function(input, output, session, plots) {
   })
 
   observeEvent(input$buttonPasteRxTimesData, {
-    copyDataToClipboard(finalRxTableDataInput())
-    shinyCatch(
-      {
-        message("Copied data to the clipboard, please paste into Excel")
-      },
-      prefix = ""
-    )
+    if (isDocker == T)
+    {
+      shinyCatch({
+        message("Sorry running in a Docker via Web interface therefore data export functions not available...")
+      }, prefix = '')
+    }
+    else
+    {
+      copyDataToClipboard(finalRxTableDataInput())
+      shinyCatch(
+        {
+          message("Copied data to the clipboard, please paste into app such as Microsoft Excel on a secure computer (patient IDs included).")
+        },
+        prefix = ""
+      )
+    }
   })
 
   observeEvent(input$buttonSaveRxTimesData, {
-    shinyCatch(
+    if (isDocker == T)
+    {
+      shinyCatch({
+        message("Sorry running in a Docker via Web interface therefore data export functions not available...")
+      }, prefix = '')
+    }
+    else
+    {
+      exportFile <- NA
+      shinyCatch({
+          message("If this is a secure computer (patient IDs included), choose a file to export to...")
+        }, prefix = "")
+      result = tryCatch({ exportFile <- file.choose(new = TRUE) }, error = function(err) { logger(err,F) })
+      if (!is.na(exportFile) && exportFile != "")
       {
-        message("Choose a file to export to...")
-      },
-      prefix = ""
-    ) # DOESNT WORK IN A DOCKER
-    exportFile <- NA
-    try(
-      exportFile <- file.choose(new = TRUE)
-    )
-    if (!is.na(exportFile)) {
-      if (!endsWith(exportFile, ".csv")) {
-        exportFile <- paste(exportFile, ".csv", sep = "")
+        if (!endsWith(exportFile, ".csv")) {
+          exportFile <- paste(exportFile, ".csv", sep = "")
+        }
+        shinyCatch({
+            message(paste("Attempting to export data to file", exportFile))
+          }, prefix = "")
+        write.csv(finalRxTableDataInput(), exportFile, row.names = TRUE)
+        shinyCatch({
+            message(paste("Exported data to file", exportFile))
+        }, prefix = "")
       }
-      shinyCatch(
-        {
-          message(paste("Attempting to export data to file", exportFile))
-        },
-        prefix = ""
-      )
-      write.csv(finalRxTableDataInput(), exportFile, row.names = TRUE)
-      shinyCatch(
-        {
-          message(paste("Exported data to file", exportFile))
-        },
-        prefix = ""
-      )
-    } else {
-      shinyCatch(
-        {
-          message(paste("No file selected to export to, no data export performed"))
-        },
-        prefix = ""
-      )
+      else
+      {
+        shinyCatch({
+            message(paste("No file selected to export to, no data export performed"))
+        }, prefix = "")
+      }
     }
   })
 

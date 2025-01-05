@@ -41,30 +41,54 @@ aeTab <- function() {
   )
 }
 
-aeTableServer <- function(input, output, session, api) {
+aeTableServer <- function(input, output, session, isDocker)
+{
   observeEvent(input$buttonPasteAEData, {
-    copyDataToClipboard(aeData)
-    shinyCatch({
-      message("Copied data to the clipboard, please paste into Excel")
-    }, prefix = '')
+    if (isDocker == T)
+    {
+      shinyCatch({
+        message("Sorry running in a Docker via Web interface therefore data export functions not available...")
+      }, prefix = '')
+    }
+    else
+    {
+      copyDataToClipboard(aeData)
+      shinyCatch({
+        message("Copied data to the clipboard, please paste into app such as Microsoft Excel on a secure computer (patient IDs included).")
+      }, prefix = '')
+    }
   })
   
   observeEvent(input$buttonSaveSurvivalData, {
-    shinyCatch({
-      message("Choose a file to export to...")
-    }, prefix = '') # DOESNT WORK IN A DOCKER
-    exportFile = file.choose(new = TRUE)
-    if (!endsWith(exportFile, ".csv"))
+    if (isDocker == T)
     {
-      exportFile = paste(exportFile, ".csv", sep = "")
+      shinyCatch({
+        message("Sorry running in a Docker via Web interface therefore data export functions not available...")
+      }, prefix = '')
     }
-    shinyCatch({
-      message(paste("Attempting to export data to file", exportFile))
-    }, prefix = '')
-    write.csv(aeData, exportFile, row.names = TRUE)
-    shinyCatch({
-      message(paste("Exported data to file", exportFile))
-    }, prefix = '')
+    else
+    {
+      exportFile <- NA
+      shinyCatch({
+        message("If this is a secure computer (patient IDs included), choose a file to export to...")
+      }, prefix = '')
+      result = tryCatch({ exportFile <- file.choose(new = TRUE) }, error = function(err) { logger(err,F) })
+      if (!is.na(exportFile) && exportFile != "")
+      {
+        exportFile = file.choose(new = TRUE)
+        if (!endsWith(exportFile, ".csv"))
+        {
+          exportFile = paste(exportFile, ".csv", sep = "")
+        }
+        shinyCatch({
+          message(paste("Attempting to export data to file", exportFile))
+        }, prefix = '')
+        write.csv(aeData, exportFile, row.names = TRUE)
+        shinyCatch({
+          message(paste("Exported data to file", exportFile))
+        }, prefix = '')
+      }
+    }
   })
 
   output$tableAE <- DT::renderDataTable({

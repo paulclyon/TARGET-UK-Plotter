@@ -1,12 +1,15 @@
 #' initialiseGlobals sets all of the default values
 initialiseGlobals <- function()
 {
+
+  
   # This is the order of the clock stop columns
   clockStopColNames              <<- c("date.stopped","date.restart","reason","free.text")
   rxTableColNames                <<- c("rx.organ","lesion.size","max.depth","closest.serosa","punctures","no.applicators.or.postitions","modality","max.power","min.power","rx.time","new.or.rec","free.text")
   #aeTableColNames                <<- c("PtID","Complication","DateofOnset","DateofResolution","Grade","Description","PostDischarge","Duration","AdditionalInptDays","Intervention","Intervention Date")
   aeTableColNames                <<- c("PtID","Complication","DateofOnset","DateofResolution","Grade","Description","PostDischarge","Duration")
-  dataIntegrityColNames          <<- c("PtID","RefID","Organ(s)","Error")
+  dataIntegrityColNames          <<- c("PtID","RefID","Date","Organ(s)","Error")
+  loggerColNames                 <<- c("TimeStamp","IsError","Message")
   recurrenceColNames             <<- c("imaging.date","exam.type","local.recurrence","new.in.target.organ","distant.progression","disease.status","free-text")
   clinicalfuColNames             <<- c("followup.date","clinician.type","clinician.name","impression","outcome")
   rxdone_organ_list              <<- c()
@@ -104,6 +107,23 @@ initialiseGlobals <- function()
   openAPIoperations              <<- NA
   openAPIschemas                 <<- NA
   
+  # Only clear logger.df once as whilst the process runs the log gets longer...
+  # We have to initialise logger early otherwise we can't log the start up!
+  logger.df <<- data.frame(matrix(ncol = length(loggerColNames), nrow = 0))
+  colnames(logger.df) <<- loggerColNames
+  
+  logger("System information:")
+  logger(Sys.info())
+  shinyVersion <- Sys.getenv("SHINY_SERVER_VERSION")
+  if (!is.na(shinyVersion) && shinyVersion != "")
+  {
+    logger(paste("Running in a docker! Shiny server version = ", Sys.getenv("SHINY_SERVER_VERSION"),sep=""))
+    isDocker <<- T
+  } else {
+    isDocker <<- F
+    logger("Running on a native machine, not a docker")
+  }
+  
   # The HRG Codes for tariff calculations based on 2022/3 Workbook
   tariffCodes <<- data.frame (
     Code =       c("YD01Z",      "Lung_Cryo",   "YG01A",     "YG01B",     "YL02Z",     "YL01Z",       "YH20Z",     "YH20Z"),
@@ -121,7 +141,4 @@ initialiseGlobals <- function()
                     "Bone ablation (MWA)",
                     "Bone ablation (Cryo)")
   )
-  
-  logger("System information:")
-  logger(Sys.info(), TRUE)
 }

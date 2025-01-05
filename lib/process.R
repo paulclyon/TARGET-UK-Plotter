@@ -3,8 +3,8 @@ processData <- function()
 {
   # Initialise important data.frames
   aeData <<- data.frame(matrix(ncol = length(aeTableColNames), nrow = 0))
-  colnames(aeData) <<- aeTableColNames
   dataIntegrity.df <<- data.frame(matrix(ncol = length(dataIntegrityColNames), nrow = 0))
+  colnames(aeData) <<- aeTableColNames
   colnames(dataIntegrity.df) <<- dataIntegrityColNames
   
   # Crunch the Referral Data
@@ -109,7 +109,7 @@ processData <- function()
       if (is.na(lost_to_fu_date)) {
         lost_to_fu <- 0
         lost_to_fu_date <- NA
-        addDataIntegrityError(ptID, error=paste(i, "/", patientCount, " Pt=", ptID, " patient is lost to follow-up but date of lost-to-follow-up not specified or valid, thus cannot count as lost to follow-up.", sep = ""))
+        addDataIntegrityError(ptID, date=lost_to_fu_date, error=paste(i, "/", patientCount, " Pt=", ptID, " patient is lost to follow-up but date of lost-to-follow-up not specified or valid, thus cannot count as lost to follow-up.", sep = ""))
       }
     }
     else
@@ -200,7 +200,7 @@ processData <- function()
         {
           if (recurrence.df$imaging.date[j] != "")
           {
-            addDataIntegrityError(ptID, error=paste(i, "/", patientCount, " Pt=", ptID, " patient's imaging follow-up date (",recurrence.df$imaging.date[j],") is not valid date on row ",j, sep = ""))
+            addDataIntegrityError(ptID, date=recurrence.df$imaging.date[j], error=paste(i, "/", patientCount, " Pt=", ptID, " patient's imaging follow-up date (",recurrence.df$imaging.date[j],") is not valid date on row ",j, sep = ""))
           }
         }
       }
@@ -233,7 +233,7 @@ processData <- function()
     {
       if(!is.na(last_alive_date) && deceased_date < last_alive_date)
       {
-        addDataIntegrityError(ptID, error=paste("Patient recorded as deceased on ",deceased_date," but has follow-up on ",last_alive_date,".", sep = ""))
+        addDataIntegrityError(ptID, date=deceased_date, error=paste("Patient recorded as deceased on ",deceased_date," but has follow-up on ",last_alive_date,".", sep = ""))
       }
       # Whatever else happens they were alive the day before they died
       last_alive_date = deceased_date-1
@@ -407,7 +407,7 @@ processData <- function()
           # If the Ref is NA then set it to the Rx date as next best guess... Otherwise it may be missed from TARGET & Audit
           if (is.na(ref_date))
           {
-            addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), organs=organForRx,
+            addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), date=ref_rx_date, organs=organForRx,
                                   error=paste("Patient for Rx but doesn't have a valid referral date, defaulting to Rx date.", sep = ""))
             ref_date <- ref_rx_date
           }
@@ -518,7 +518,7 @@ processData <- function()
           ref_rx_days = as.numeric(difftime(ref_rx_date, ref_date, units = "days"), units = "days")
           if (ref_rx_days < 0)
           {
-            addDataIntegrityError(ptID, error=paste("Patient's treatment date is before referral date.", sep = ""))
+            addDataIntegrityError(ptID, date=ref_rx_date, error=paste("Patient's treatment date is before referral date.", sep = ""))
           }
           
           # Correct for clockstop
@@ -620,7 +620,7 @@ processData <- function()
           {
             # If deceased but no valid deceased date, log it and use current date as deceased date as best guess
             survival_days <- as.numeric(difftime(deceased_date, Sys.Date(), units = "days"), units = "days")
-            addDataIntegrityError(ptID, error=paste(i, "/", patientCount, " Pt=", ptID, " patient is deceased but date of death not specified or valid, assuming today.", sep = ""))
+            addDataIntegrityError(ptID, date=deceased_date, error=paste(i, "/", patientCount, " Pt=", ptID, " patient is deceased but date of death not specified or valid, thus defaulting to today.", sep = ""))
           }
         }
         else
@@ -673,7 +673,7 @@ processData <- function()
         # Presume they can't die before they recur, but...
         if (!is.na(local_recurrence_days) && survival_days < local_recurrence_days)
         {
-          addDataIntegrityError(ptID, error = paste(i, "/", patientCount, " Pt=", ptID, " patient appears to have died before local recurrence date.", sep = ""))
+          addDataIntegrityError(ptID, date=date_of_first_local_recurrence, error = paste(i, "/", patientCount, " Pt=", ptID, " patient appears to have died before local recurrence date.", sep = ""))
         }
         lrf_survival_days <- survival_days
         lrf_survival_status <- 2   # Dead, treated like recurrence
@@ -931,8 +931,8 @@ calculateTotalTariff <- function(rxData)
   return(totalTariff) 
 }
 
-addDataIntegrityError <- function(ptID = NA, refID = NA, organs = NA, errorStr = NA)
+addDataIntegrityError <- function(ptID = NA, refID = NA, date = NA, organs = NA, errorStr = NA)
 {
-  logger(paste(" >>> Data integrity issue Pt=",ptID," Ref=",refID," (",organs,") >>>:",errorStr, sep=""), TRUE)
-  dataIntegrity.df <<- rbind(dataIntegrity.df,data.frame(PtID=ptID, RefID=refID, Organs=organs, Error=errorStr))
+  logger(paste(" >>> Data integrity issue Pt=",ptID," Ref=",refID," Date=",date," (",organs,") >>>:",errorStr, sep=""), TRUE)
+  dataIntegrity.df <<- rbind(dataIntegrity.df,data.frame(PtID=ptID, RefID=refID, Date=date, Organs=organs, Error=errorStr))
 }

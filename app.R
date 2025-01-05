@@ -4,6 +4,8 @@ source("lib/__init__.R", .GlobalEnv)
 # Clear out any old global variables
 initialiseGlobals()
 
+
+
 Sys.setenv(CASTOR_USER_KEY   = "?")
 Sys.setenv(CASTOR_SECRET     = "?")
 Sys.setenv(CASTOR_URL        = "https://uk.castoredc.com")
@@ -74,7 +76,7 @@ ui <- dashboardPage(
         id = "tablesID",
         tabName = "tables",
         icon = icon("table"),
-        menuSubItem("Pathway Table",        tabName = "rxpathwayTab"),
+        menuSubItem("Pathway Table",        tabName = "rxPathwayTab"),
         menuSubItem("Adverse Events Table", tabName = "aeTab"),
         menuSubItem("Recur./Survival Table",tabName = "survivalTab")
         
@@ -87,7 +89,6 @@ ui <- dashboardPage(
         menuSubItem("Operator Names",       tabName = "operatorNames"),
         menuSubItem("Anaesthetists Names",  tabName = "anaesthetistNames"),
         menuSubItem("Date Integrity Table", tabName = "dataIntegrityTab")
-        
       ), id='validationMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Audit Reports",
@@ -113,7 +114,9 @@ ui <- dashboardPage(
         tabName = "summary",
         icon = icon("clipboard-list")
       ), id='pathwaySummaryMenuItem')),
-      menuItem("Test", tabName = "test", icon = icon("code")),
+      menuItem("Diagnostics", tabName = "diagnostics", icon = icon("code"),
+        menuSubItem("System Logs",          tabName = "loggerTab")
+      ),
       menuItem("Change Log", tabName = "changeLog", icon = icon("list")),
       menuItem("About", tabName = "about", icon = icon("address-card"))
     )
@@ -137,6 +140,7 @@ ui <- dashboardPage(
       tabItem("aeTab",            aeTab()),
       tabItem("survivalTab",      survivalTab()),
       tabItem("dataIntegrityTab", dataIntegrityTab()),
+      tabItem("loggerTab",        loggerTab()),
       tabItem("auditPathway",     auditTab()),
       tabItem("rxPathwaySummary", pathwaySummaryTab()),
       tabItem("recurrenceSummary", "Recurrence Summary Data work in progress!"),
@@ -239,14 +243,15 @@ server <- function(input, output, session)
   tariff <- tariffServer(input, output, session, api)
   pathwayPlotServer(input, output, session, api, plots)
   pathwayPieServer(input, output, session, api, plots)
-  pathwayTableServer(input, output, session, plots)
+  pathwayTableServer(input, output, session, isDocker)
   operatorPlotServer(input, output, session, plots)
   volumePlotServer(input, output, session, api, tariff, plots)
-  aeTableServer(input, output, session, api)
+  aeTableServer(input, output, session, isDocker)
   recurrencePlotServer(input, output, session, api, plots)
   survivalPlotServer(input, output, session, api, plots)
-  survivalTableServer(input, output, session)
-  dataIntegrityTableServer(input, output, session)
+  survivalTableServer(input, output, session, isDocker)
+  dataIntegrityTableServer(input, output, session, isDocker)
+  loggerTableServer(input, output, session, isDocker)
   referralStatusPlotServer(input, output, session, api, plots)
   referralsMapServer(input, output, session, plots)
   pathwaySummaryServer(input, output, session)

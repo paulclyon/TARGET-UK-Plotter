@@ -51,16 +51,6 @@ for (pkg in githubPkgs) {
   }
 }
 
-# Check we have the latest Castor library, if old then force update it!
-castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version), 1, 1))
-if (castorLibMajorVersion < 2) {
-  write(paste("Attempting update of castoRedc library (currently version ", packageVersion("castoRedc"), ")..."), stderr())
-  detach(package:castoRedc, unload = TRUE)
-  remove.packages("castoRedc")
-  remotes::install_github("castoredc/castoRedc", host = "api.github.com", upgrade = "always")
-  library("castoRedc", character.only = TRUE)
-}
-
 # logger function if stderr = TRUE then it goes to stderr, otherwise stdout, may want to update this to use the ShinyApp
 logger <- function(msg, stderr = FALSE) {
   if (Sys.getenv("DEBUG_MODE") == T) {
@@ -70,7 +60,18 @@ logger <- function(msg, stderr = FALSE) {
       write(toString(msg), stderr())
     }
   }
+  logger.df <<- rbind(logger.df,data.frame(TimeStamp=format(Sys.time(), "%a %b %d %X %Y"), IsError=stderr, Message=paste0(msg, collapse="|")))
   return()
+}
+
+# Check we have the latest Castor library, if old then force update it!
+castorLibMajorVersion <- strtoi(substr(toString(packageDescription("castoRedc")$Version), 1, 1))
+if (castorLibMajorVersion < 2) {
+  write(paste("Attempting update of castoRedc library (currently version ", packageVersion("castoRedc"), ")..."), stderr())
+  detach(package:castoRedc, unload = TRUE)
+  remove.packages("castoRedc")
+  remotes::install_github("castoredc/castoRedc", host = "api.github.com", upgrade = "always")
+  library("castoRedc", character.only = TRUE)
 }
 
 #' Source all files in the current directory or provided directory
