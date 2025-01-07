@@ -27,10 +27,11 @@ aeTab <- function() {
         ),
         column(
           width = 4,
-          br(),
           actionButton("buttonPasteAEData", "Copy Data to Clipboard"),
           br(),br(),
-          actionButton("buttonSaveAEData",  "Save Data to File")
+          actionButton("buttonSaveAEData",  "Save Data to File"),
+          br(),br(),
+          actionButton("buttonRefresh",     "Refresh Data")
         )
       )
     ),
@@ -91,7 +92,8 @@ aeTableServer <- function(input, output, session, isDocker)
     }
   })
 
-  output$tableAE <- DT::renderDataTable({
+  filterData <- function()
+  {
     aeData.filtered <- filter(aeData, Grade %in% input$aeGradesCheckbox)
     startDate <- asDateWithOrigin(input$aeTabStartDate)
     endDate <-   asDateWithOrigin(input$aeTabEndDate)
@@ -108,7 +110,16 @@ aeTableServer <- function(input, output, session, isDocker)
       {
         aeData.filtered <- aeData.filtered %>% filter(DateofOnset < endDate)
       }
-    }    
-    DT::datatable(aeData.filtered)
+    }
+    logger("filtered ae data!")
+    return(aeData.filtered)
+  }
+  
+  observeEvent(input$buttonRefresh, {
+    output$tableAE <- DT::renderDataTable({DT::datatable(filterData())})
+  })
+  
+  output$tableAE <- DT::renderDataTable({
+    DT::datatable(filterData())
   })
 }

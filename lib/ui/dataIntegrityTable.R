@@ -3,9 +3,16 @@ dataIntegrityTab <- function() {
     width = 12,
     column(
       width = 4,
-      actionButton("buttonPasteIntegrityData", "Copy Data to Clipboard"),
+      actionButton("buttonPasteIntegrityData", "Copy Data to Clipboard")
+    ),
+    column(
+      width = 4,
       actionButton("buttonSaveIntegrityData",  "Save Data to File")
-    )
+    ),
+    column(
+      width = 4,
+      actionButton("buttonRefresh",  "Refresh Data")
+    ),
   )),
   fluidRow(box(
     width = 12,
@@ -68,6 +75,10 @@ dataIntegrityTableServer <- function(input, output, session, isDocker)
     }
   })
 
+  observeEvent(input$buttonRefresh, {
+    output$tableDataIntegrity <- DT::renderDataTable({DT::datatable(dataIntegrity.df)})
+  })
+  
   output$tableDataIntegrity <- DT::renderDataTable({
     DT::datatable(dataIntegrity.df)
   })

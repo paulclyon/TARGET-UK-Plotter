@@ -3,7 +3,7 @@ pathwayTab <- function() {
     fluidRow(box(
       width = 12,
       column(
-        width = 4,
+        width = 3,
         radioButtons(
           "rxTimesTableRadio",
           "Pathway Table Type",
@@ -11,9 +11,16 @@ pathwayTab <- function() {
         )
       ),
       column(
-        width = 4,
-        actionButton("buttonPasteRxTimesData", "Copy Data to Clipboard"),
+        width = 3,
+        actionButton("buttonPasteRxTimesData", "Copy Data to Clipboard")
+      ),
+      column(
+        width = 3,
         actionButton("buttonSaveRxTimesData", "Save Data to File")
+      ),
+      column(
+        width = 3,
+        actionButton("buttonRefresh", "Refresh")
       )
     )),
     fluidRow(box(
@@ -85,6 +92,10 @@ pathwayTableServer <- function(input, output, session, isDocker)
         }, prefix = "")
       }
     }
+  })
+  
+  observeEvent(input$buttonRefresh, {
+    output$tableRxPathway <- DT::renderDataTable({DT::datatable(finalRxTableDataInput())})
   })
 
   output$tableRxPathway <- DT::renderDataTable({

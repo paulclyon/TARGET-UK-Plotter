@@ -3,8 +3,15 @@ survivalTab <- function() {
     width = 12,
     column(
       width = 4,
-      actionButton("buttonPasteSurvivalData", "Copy Data to Clipboard"),
+      actionButton("buttonPasteSurvivalData", "Copy Data to Clipboard")
+    ),
+    column(
+      width = 4,
       actionButton("buttonSaveSurvivalData",  "Save Data to File")
+    ),
+    column(
+      width = 4,
+      actionButton("buttonRefresh",           "Refresh Data")
     )
   )),
   fluidRow(box(
@@ -68,6 +75,10 @@ survivalTableServer <- function(input, output, session, isDocker)
     }
   })
 
+  observeEvent(input$buttonRefresh, {
+    output$tableSurvival <- DT::renderDataTable({DT::datatable(survivalData)})
+  })
+  
   output$tableSurvival <- DT::renderDataTable({
     DT::datatable(survivalData)
   })

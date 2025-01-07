@@ -4,7 +4,14 @@ loggerTab <- function() {
     column(
       width = 4,
       actionButton("buttonPasteSystemLogs", "Copy System Logs to Clipboard"),
+    ),
+    column(
+      width = 4,
       actionButton("buttonSaveSystemLogs",  "Save System Logs to File")
+    ),
+    column(
+      width = 4,
+      actionButton(inputId = "buttonRefresh", label = "Refresh Logs")
     )
   )),
   fluidRow(box(
@@ -67,6 +74,10 @@ loggerTableServer <- function(input, output, session, isDocker) {
     }
   })
 
+  observeEvent(input$buttonRefresh, {
+    output$tableLogger <- DT::renderDataTable({DT::datatable(logger.df)})
+  })
+  
   output$tableLogger <- DT::renderDataTable({
     DT::datatable(logger.df)
   })

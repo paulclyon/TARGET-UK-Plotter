@@ -33,6 +33,9 @@ recurrencePlotTab <- function() {
           choices = c("Male","Female","Unknown"),
           selected = c("Male","Female","Unknown")
         ),
+      ),
+      column(
+        width = 3,
         actionButton(inputId = "refreshRecurrencePlot", label = "Refresh Plot")
       )
     ),

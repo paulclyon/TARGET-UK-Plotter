@@ -147,7 +147,7 @@ apiConnectedEvent <- function(session, api)
     return()
   }
 
-  logger(paste("API Connected: Found ", length(studyNames[[1]]), " studies", sep = ""))
+  logger(paste("API Connected: Found ", length(studyNames), " studies in total.", sep = ""))
 
   updateActionButton(session,
     inputId = "reloadData",
