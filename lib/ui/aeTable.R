@@ -111,7 +111,6 @@ aeTableServer <- function(input, output, session, isDocker)
         aeData.filtered <- aeData.filtered %>% filter(DateofOnset < endDate)
       }
     }
-    logger("filtered ae data!")
     return(aeData.filtered)
   }
   
