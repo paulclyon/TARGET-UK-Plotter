@@ -16,9 +16,9 @@ V0.20 Badger:   Treatment Volume Plot<br>
 V0.3 Cheetah:   Tariff Volume Plot<br>
                 Waiting pie chart<br>
                 Referral Mapping<br>
-V0.4 Dormouse:  Audit Implementation, Plot Auto-Resizing & Code Cleaning/Factoring (AT)
-                Added logo to load page & improved user and password txt file security
-V0.5 Elephant:  Survival & Recurrence curves and tables
+V0.4 Dormouse:  Audit Implementation, Plot Auto-Resizing & Code Cleaning/Factoring (AT)<br>
+                Added logo to load page & improved user and password txt file security<br>
+V0.5 Elephant:  Survival & Recurrence curves and tables<br>
 V0.6 Flamingo:  Adverse events, System Logs & Data Integrity tables<br>
 
 </pre>
