@@ -365,15 +365,16 @@ processData <- function()
                 virtualRestart = F
               }
               
-              # If we have stopped the clock before the DTT...
-              if (!is.na(ref_dtt_date)) {
-                if (dateClockstopped < ref_dtt_date) {
+              # If we don't yet have a DTT date (for example see in clinic after radiotherapy), or have stopped the clock before the DTT...
+              if (is.na(ref_dtt_date) || (!is.na(ref_dtt_date) && dateClockstopped < ref_dtt_date))
+              {
                   clockstoppedDaysPreDTT <- clockstoppedDaysPreDTT +
                     as.integer(difftime(dateClockstopped, dateClockRestart, units = "days"), units = "days")
-                } else {
+              }
+              else
+              {
                   clockstoppedDaysPostDTT  = clockstoppedDaysPostDTT +
                     as.integer(difftime(dateClockstopped, dateClockRestart, units = "days"), units = "days")
-                }
               }
 
               clockstoppedReason <- paste(clockstoppedReason, " ", j, ":", refclockstop.df$reason[j], sep = "")
