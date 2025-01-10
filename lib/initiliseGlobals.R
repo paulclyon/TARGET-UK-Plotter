@@ -125,13 +125,14 @@ initialiseGlobals <- function()
   }
   
   # The HRG Codes for tariff calculations based on 2022/3 Workbook
+  # Note if its a microwave and the organ is other or multiple, assume same as a liver microwave
   tariffCodes <<- data.frame (
-    Code =       c("YD01Z",      "Lung_Cryo",   "YG01A",     "YG01B",     "YL02Z",     "YL01Z",       "YH20Z",     "YH20Z"),
-    Organ =      c("Lung",       "Lung",        "Liver",     "Liver",     "Kidney",    "Kidney",      "Bone",      "Bone"),
-    Modality =   c("Microwave",  "Cryotherapy", "Microwave", "Microwave", "Microwave", "Cryotherapy", "Microwave", "Cryotherapy"),
-    MaxCCScore = c(20,           20,             20,          1,           20,          20,            20,          20),
-    MinCCScore = c( 0,           0,              2,           0,           0,           0,             0,           0),
-    Tariff =     c(4703,         0,              6564,        5254,        4669,        5253,          2029,        2029),
+    Code =       c("YD01Z",      "Lung_Cryo",   "YG01A",     "YG01B",     "YL02Z",     "YL01Z",       "YH20Z",     "YH20Z",       "XXX",               "YYY"),
+    Organ =      c("Lung",       "Lung",        "Liver",     "Liver",     "Kidney",    "Kidney",      "Bone",      "Bone",        "Other/Unspecified", "Multiple Organs"),
+    Modality =   c("Microwave",  "Cryotherapy", "Microwave", "Microwave", "Microwave", "Cryotherapy", "Microwave", "Cryotherapy", "Microwave",         "Microwave"),
+    MaxCCScore = c(20,           20,             20,          1,           20,          20,            20,          20,            20,                 20),
+    MinCCScore = c( 0,           0,              2,           0,           0,           0,             0,           0,             0,                  0),
+    Tariff =     c(4703,         0,              6564,        5254,        4669,        5253,          2029,        2029,          5254,               5254),
     Description = c("Percutaneous Ablation of Lesion of Respiratory Tract (MWA)",
                     "Percutaneous Ablation of Lesion of Respiratory Tract (Cryo)",
                     "Percutaneous Ablation of Lesion of, Liver or Pancreas, with CC Score 2+",
@@ -139,6 +140,9 @@ initialiseGlobals <- function()
                     "Standard Percutaneous Ablation of Lesion of Kidney (MWA)",
                     "Complex Percutaneous Ablation of Lesion of Kidney (Cryo)",
                     "Bone ablation (MWA)",
-                    "Bone ablation (Cryo)")
+                    "Bone ablation (Cryo)",
+                    "Other/Unspecified (MWA)",
+                    "Multiple Organs (MWA)"
+                    )
   )
 }
