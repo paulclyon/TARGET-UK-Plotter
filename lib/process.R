@@ -395,7 +395,7 @@ processData <- function()
           clockstoppedDaysPostDTT = NA # Don't plot all the zeros, only if it is non-zero
         }
         
-        # Sort Rx Date. Note used to use the ref_date_rx_i field but is is a calculation of anaest_date_i
+        # Sort Rx Date. Note used to use the ref_date_rx_i field but is is a calculation of anaes_date_i
         # and had some issues with it being a lot of NAs but not all NAs (weird), anyway went for the source
         # and it works much better!
         ref_rx_date <- convertToDate(getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i))
@@ -594,8 +594,18 @@ processData <- function()
           rxwait_clockstop_days_postdtt_list <<- append(rxwait_clockstop_days_postdtt_list, clockstoppedDaysPostDTT)
           rxwait_clockstop_reason_list       <<- append(rxwait_clockstop_reason_list,       clockstoppedReason)
         }
-      } # This ends the for loop for each referral for this patient...
-
+      } 
+      else 
+      {
+        # Patient is not for treatment, if they have a treatment date specified this is a data integrity issue to log - they are still ignored from treatment data...
+        logger(paste('converting to date',getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i)))
+        ref_rx_date <- convertToDate(getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i))
+        if (!is.na(ref_rx_date))
+        {
+          addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), date=ref_rx_date, error=paste("Referral info states patient is not for treatment but yet this referral has a treatment date - ignored from treatment data.", sep = ""))
+        }
+      } # This ends the for loop for each referral for this patient ...
+      
       # Now we can do the survival & recurrence anlaysis as we have been through all referrals...
       # We only care about recording survival & recurrence if we have treated the patient
       if (!is.na(date_of_first_rx))
@@ -621,7 +631,7 @@ processData <- function()
           {
             # If deceased but no valid deceased date, log it and use current date as deceased date as best guess
             survival_days <- as.numeric(difftime(deceased_date, Sys.Date(), units = "days"), units = "days")
-            addDataIntegrityError(ptID, date=deceased_date, error=paste(i, "/", patientCount, " Pt=", ptID, " patient is deceased but date of death not specified or valid, thus defaulting to today.", sep = ""))
+            addDataIntegrityError(ptID, date=deceased_date, error=paste("Patient is deceased but date of death not specified or valid, thus defaulting to today.", sep = ""))
           }
         }
         else
@@ -674,7 +684,7 @@ processData <- function()
         # Presume they can't die before they recur, but...
         if (!is.na(local_recurrence_days) && survival_days < local_recurrence_days)
         {
-          addDataIntegrityError(ptID, date=date_of_first_local_recurrence, error = paste(i, "/", patientCount, " Pt=", ptID, " patient appears to have died before local recurrence date.", sep = ""))
+          addDataIntegrityError(ptID, date=date_of_first_local_recurrence, error = paste("Patient appears to have died before local recurrence date.", sep = ""))
         }
         lrf_survival_days <- survival_days
         lrf_survival_status <- 2   # Dead, treated like recurrence
