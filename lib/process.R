@@ -742,6 +742,7 @@ processData <- function()
       last_imaging_follow_up_list  <<- append(last_imaging_follow_up_list, date_of_last_imaging_fu)
     }
   } # This ends the for loop for each patient...
+  logger('FIMXE1')
   
   # The as.Dates() work around is needed to set Dates as the column types otherwise if the first element in the column is NA, it is represented as just the number which is still the date but unredable to the human
   # This is important as this makes them all a Dates object which displays nicely in the tables - you can check the types of the data frame easily with str(survivalData)
@@ -857,6 +858,7 @@ processData <- function()
       LostToFUDate = asDateWithOrigin(survival_lost_to_fu_date)
     )
   }
+  logger('FIMXE2')
 }
 
 # This is a useful function to change variations of anaesthetists names to a single common identifier

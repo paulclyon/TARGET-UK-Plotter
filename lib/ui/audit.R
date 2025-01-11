@@ -98,7 +98,7 @@ auditServer <- function(input, output, session, api, plots) {
         message("If this is a secure computer (patient IDs included), choose a PDF file to export to...")
       }, prefix = "")
       result = tryCatch({ exportFile <- svDialogs::dlg_save(title = "Save R script to", default="targetuk_waiting_time_audit_report.pdf") }, error = function(err) { logger(err,F) })
-      if (!is.na(exportFile$res) && exportFile$res != "")
+      if (length(exportFile$res >0) && !is.na(exportFile$res) && exportFile$res != "")
       {
         if (!endsWith(exportFile$res, ".pdf")) {
           exportFile <- paste(exportFile$res, ".pdf", sep = "")

@@ -46,7 +46,7 @@ volumePlotTab <- function() {
               "Weekly" = "week",
               "Monthly" = "month",
               "Yearly" = "year"),
-            selected = "Monthly"
+            selected = "month"
           )
         ),
         column(
