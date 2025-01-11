@@ -6,6 +6,8 @@ processData <- function()
   dataIntegrity.df <<- data.frame(matrix(ncol = length(dataIntegrityColNames), nrow = 0))
   colnames(aeData) <<- aeTableColNames
   colnames(dataIntegrity.df) <<- dataIntegrityColNames
+  notForRxButRxdCount <<- 0
+  noRefsProcessed <<- 0
   
   # Crunch the Referral Data
   deceased = as.integer()
@@ -251,6 +253,7 @@ processData <- function()
     # For each referral...
     for (iRef in 1:pt_ref_count)
     {
+      noRefsProcessed <<- noRefsProcessed + 1
       ptForRx <- getDataEntry(paste("ref_intention_rx_", as.integer(iRef), sep = ""), i)
       ptOffPathway <- getDataEntry(paste("ref_off_rx_pathway_", as.integer(iRef), sep = ""), i)
 
@@ -602,6 +605,7 @@ processData <- function()
         ref_rx_date <- convertToDate(getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i))
         if (!is.na(ref_rx_date))
         {
+          notForRxButRxdCount <<- notForRxButRxdCount+1
           addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), date=ref_rx_date, error=paste("Referral info states patient is not for treatment but yet this referral has a treatment date - ignored from treatment data.", sep = ""))
         }
       } # This ends the for loop for each referral for this patient ...

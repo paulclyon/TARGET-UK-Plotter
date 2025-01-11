@@ -30,8 +30,28 @@ required_pkgs <- c(
   "PostcodesioR",
   "leaflet", # to render the mapview
   "lubridate",
-  "withr"
-) # Consider "tinytex" to generate pdf?
+  "withr",
+  "svDialogs",
+  "tinytex"
+)
+
+# Install tinyytex if not installed already
+if (tinytex::check_installed('framed') == FALSE)
+{
+  tinytex::install_tinytex()
+}
+
+# FIXME Install LaTeX packages to make PDF from HTML
+#install.packages("rmarkdown")
+#install.packages("knitr")
+#install.packages("tinytex")
+#tinytex::install_tinytex()
+#install.packages("here")
+#install.packages("tidyverse")
+#install.packages("broom")
+#install.packages("fs")
+#install.packages("usethis")
+
 
 for (pkg in required_pkgs) {
   if (!require(pkg, character.only = TRUE)) {

@@ -99,6 +99,8 @@ initialiseGlobals <- function()
   fieldData                      <<- NA
   referralMap                    <<- NULL
   dataIntegrity.df               <<- NA
+  notForRxButRxdCount            <<- 0
+  noRefsProcessed                <<- 0
   
   # The Open API stuff is used to write to Castor...
   castorOpenAPI                  <<- NA

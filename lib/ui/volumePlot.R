@@ -42,11 +42,11 @@ volumePlotTab <- function() {
           radioButtons(
             "volumePlotDurationRadio",
             "Duration of Plot",
-            c(
+            choices = c(
               "Weekly" = "week",
               "Monthly" = "month",
-              "Yearly" = "year"
-            )
+              "Yearly" = "year"),
+            selected = "Monthly"
           )
         ),
         column(

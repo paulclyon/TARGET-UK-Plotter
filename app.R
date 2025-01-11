@@ -3,9 +3,6 @@ source("lib/__init__.R", .GlobalEnv)
 
 # Clear out any old global variables
 initialiseGlobals()
-
-
-
 Sys.setenv(CASTOR_USER_KEY   = "?")
 Sys.setenv(CASTOR_SECRET     = "?")
 Sys.setenv(CASTOR_URL        = "https://uk.castoredc.com")
@@ -88,7 +85,7 @@ ui <- dashboardPage(
         icon = icon("table"),
         menuSubItem("Operator Names",       tabName = "operatorNames"),
         menuSubItem("Anaesthetists Names",  tabName = "anaesthetistNames"),
-        menuSubItem("Date Integrity Table", tabName = "dataIntegrityTab")
+        menuSubItem("Data Integrity Table", tabName = "dataIntegrityTab")
       ), id='validationMenuItem')),
       hidden(tagAppendAttributes(menuItem(
         "Audit Reports",

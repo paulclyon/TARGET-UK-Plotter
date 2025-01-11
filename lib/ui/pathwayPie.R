@@ -12,7 +12,9 @@ pathwayPieTab <- function() {
               "Treated Pie" = "treatedPie",
               "Waiting Pie" = "waitingPie"
             )
-          )
+          ),
+          br(),br(),
+          actionButton(inputId = "refreshRxPie", label = "Refresh Pie Chart")
         ),
         column(
           width = 3,
@@ -36,11 +38,16 @@ pathwayPieTab <- function() {
             "Organs to Chart",
             choices = organFactors,
             selected = organFactors
-          ),
+          )
         ),
         column(
           width = 3,
-          actionButton(inputId = "refreshRxPie", label = "Refresh Pie Chart")
+          div(style=
+              "background-color: lightgrey;
+               border: 5px solid blue;
+               padding: 5px;
+               margin: 5px;",
+          textOutput("informationalPathwayPie"))
         )
       )
     ),
@@ -90,7 +97,6 @@ pathwayPieServer <- function(input, output, session, api, plots) {
       if (!is.list(selectedData())) {
         return(plot.new())
       }
-
       plots$activePlot <- selectedPiePlot()
       plots$activePlot
     },
@@ -107,4 +113,19 @@ pathwayPieServer <- function(input, output, session, api, plots) {
   observeEvent(input$refreshRxPie, {
     plots$activePlot <- ggplot()
   })
+  
+  
+  informationalText <- reactive({
+    headerText <- "Informational:\n"
+    if(notForRxButRxdCount > 0)
+    {
+      rxDoneText <- paste(headerText,"\n",notForRxButRxdCount,"/",noRefsProcessed," treatment dates have been excluded from the analysis due to referral data integrity errors; see Data Integrity Table.",sep="")
+    }
+    switch(input$rxTimesPieRadio,
+           "treatedPie" = paste(headerText,nrow(rxDoneData),"referrals which have completed treatment analysed in total"),
+           "waitingPie" = paste(headerText,nrow(rxWaitData),"without treatment dates in total, ",length(which(sapply(is.na(rxWaitData$RefDate),isTRUE))),"of which omitted due to no valid referral date.")
+    )
+  })
+  
+  output$informationalPathwayPie <- renderText({ informationalText() })
 }

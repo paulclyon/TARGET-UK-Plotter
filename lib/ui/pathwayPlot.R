@@ -11,7 +11,9 @@ pathwayPlotTab <- function() {
               "Treated Plot" = "rxdonePlot",
               "Waiting Plot" = "rxwaitPlot"
             )
-          )
+          ),
+          br(),br(),
+          actionButton(inputId = "refreshRxPlot", label = "Refresh Plot"),
         ),
         column(
           width = 3,
@@ -29,17 +31,22 @@ pathwayPlotTab <- function() {
           )
         ),
         column(
-          width = 6,
+          width = 3,
           checkboxGroupInput(
             "rxPlotSelectedOrgans",
             "Organs to Plot",
             choices = organFactors,
             selected = organFactors
-          ),
+          )
         ),
         column(
           width = 3,
-          actionButton(inputId = "refreshRxPlot", label = "Refresh Plot")
+          div(style=
+              "background-color: lightgrey;
+               border: 5px solid blue;
+               padding: 5px;
+               margin: 5px;",
+          textOutput("informationalPathwayPlot"))
         )
       )
     ),
@@ -52,7 +59,8 @@ pathwayPlotTab <- function() {
   )
 }
 
-pathwayPlotServer <- function(input, output, session, api, plots) {
+pathwayPlotServer <- function(input, output, session, api, plots)
+{
   finalRxPlotInput <- reactive({
     switch(input$rxTimesPlotRadio,
       "rxdonePlot" = rxdonePlot,
@@ -66,7 +74,7 @@ pathwayPlotServer <- function(input, output, session, api, plots) {
       "rxwaitPlot" = rxWaitData
     )
   })
-
+  
   observeEvent(input$plotRxPathwaySize, {
     plots$activePlot <- ggplot()
   })
@@ -104,6 +112,22 @@ pathwayPlotServer <- function(input, output, session, api, plots) {
   # This works to a point in that it resets the scale but it doesn't reload the data
   # Not really sure how this works at all if I am honest! I don't assign it to a real plot, weird
   observeEvent(input$refreshRxPlot, {
+    logger(paste('count',notForRxButRxdCount))
     plots$activePlot <- ggplot()
   })
+  
+  informationalText <- reactive({
+    headerText <- "Informational:\n"
+    rxDoneText <- ""
+    if(notForRxButRxdCount > 0)
+    {
+      rxDoneText <- paste(notForRxButRxdCount,"/",noRefsProcessed," treatment dates have been excluded from the analysis due to referral data integrity errors; see Data Integrity Table.",sep="")
+    }
+    switch(input$rxTimesPlotRadio,
+           "rxdonePlot" = paste(headerText,rxDoneText, sep=""),
+           "rxwaitPlot" = paste(headerText,nrow(rxWaitData)," on waiting list of ",noRefsProcessed," processed referrals.", sep="")
+    )
+  })
+  
+  output$informationalPathwayPlot <- renderText({ informationalText() })
 }

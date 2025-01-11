@@ -58,12 +58,17 @@ makeRxWaitPie <- function(strStart, strEnd, selectedOrgans) {
   if (!is.data.frame(rxWaitData) || nrow(rxWaitData) <= 0) {
     return(ggplot())
   }
-
+  
   filtered_df <- rxWaitData |>
-    full_join(rxDoneData) |>
-    filter(is.na(RxDate) | RxDate < end) |> # Only include those that have not been treated or treated by the end date
-    filter(RefDate < end) |> # Only include those that have been referred by the end date
+    filter(between(RefDate, start, end)) |>
     filter(Organs %in% selectedOrgans)
+
+  # More complex way of doing it which I used to do but now doesn't make sense...
+  #filtered_df <- rxWaitData |>
+  #  full_join(rxDoneData) |>
+  #  filter(is.na(RxDate) | RxDate < end) |> # Only include those that have not been treated or treated by the end date
+  #  filter(RefDate < end) |> # Only include those that have been referred by the end date
+  #  filter(Organs %in% selectedOrgans)
 
   if (!is.data.frame(filtered_df) || nrow(filtered_df) <= 0) {
     return(ggplot())
