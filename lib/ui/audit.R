@@ -41,16 +41,32 @@ auditTab <- function() {
   )
 }
 
-auditServer <- function(input, output, session, api, plots) {
-  
+auditServer <- function(input, output, session, api, plots)
+{
   rmdAuditFile <- c(Sys.getenv("AUDIT_PATHWAY_RMD"))
+  mdAuditFile <- c(Sys.getenv("AUDIT_PATHWAY_MD"))
   
   finalRefAuditInput <- reactive({
-    # This does the knitting bit ready to make the HTML by running the knit function
-    sapply(rmdAuditFile, knit, quiet = T)
-
-    # This makes the MD file which is basically just HTML in a file
-    htmltools::includeMarkdown(Sys.getenv("AUDIT_PATHWAY_MD"))
+    tryCatch(
+    {
+      # Clear the old HTML file if it exists...
+      if (file.exists(mdAuditFile))
+      {
+        showNotification(paste("Cleaning out the old HTML file '",mdAuditFile,"'",sep=""))
+        file.remove(mdAuditFile)
+      }
+      
+      # This does the knitting bit ready to make the HTML by running the knit function
+      # This makes the MD file which is basically just HTML in a file, which we then return as includeMarkdown()
+      sapply(rmdAuditFile, knit, quiet = T)
+      htmltools::includeMarkdown(mdAuditFile)
+    },
+    error = function(errorMessage) {
+      logger(conditionMessage(errorMessage),T)
+      showNotification(conditionMessage(errorMessage))
+      # Choose a return value in case of error
+      NA
+    })
   })
 
   observe({
@@ -68,12 +84,30 @@ auditServer <- function(input, output, session, api, plots) {
     audit_end_date   <<- input$auditDate2
     audit_organs     <<- input$organAuditCheckbox
 
-    # This is the magic - embed the output into the observe event to allow refresh!
-    # So simple but still not quite working - maybe make something reactive ... keep working Paul
-    output$summaryRefAudit <- renderPrint({
+    # Elegant way to regenerate the HTML such that is does allow dynamic refresh
+    output$summaryRefAudit <- renderUI({
+      shinyCatch({
+        message(paste("Generating the audit from file '",Sys.getenv("AUDIT_PATHWAY_RMD"),"' to file '",Sys.getenv("AUDIT_PATHWAY_MD"),"'",sep=""))
+      }, prefix = "")
+      tryCatch(
+      {
+        includeHTML(rmarkdown::render(rmdAuditFile))
+      },
+      error = function(errorMessage) {
+        logger(conditionMessage(errorMessage),T)
+        showNotification(conditionMessage(errorMessage))
+        errorMessage # Return value in case of error
+      })
+    })
+    
+    # This is one way to do the magic - embed the output into the observe event to allow refresh!
+    # But doesn't allow multiple refreshes, see the more simple elegant solution I used
+    output$summaryRefAudit2 <- renderPrint({
       if (api$connected == T && api$loaded == T)
       {
+        showNotification(paste("Generating the audit from file '",Sys.getenv("AUDIT_PATHWAY_RMD"),"'",sep=""))
         thisHTML <- finalRefAuditInput()
+        showNotification(paste("Audit generation completed, see file '",Sys.getenv("AUDIT_PATHWAY_MD"),"'",sep=""))
       }
       else
       {

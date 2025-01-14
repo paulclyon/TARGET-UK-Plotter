@@ -4,7 +4,6 @@
 # https://stackoverflow.com/questions/67154658/how-to-extract-longitude-and-latitude-using-postal-code-and-ggmap-function
 # https://stackoverflow.com/questions/77947837/getting-distance-between-2-uk-postcodes-in-r
 
-
 # Return a list of lattiude and longitude for a post code
 # If only the district level postcode is provided, then the first post code in the district is used
 getGeoForPostcode <- function(postcode)
