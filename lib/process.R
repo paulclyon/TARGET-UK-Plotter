@@ -41,11 +41,11 @@ processData <- function()
     } 
     else if (sex == 1)
     {
-      sex <- "Male"
+      sex <- "Female"
     }
     else if (sex == 2)
     {
-      sex <- "Female"
+      sex <- "Male"
     }
     else
     {
@@ -472,9 +472,10 @@ processData <- function()
             # These complications occurred early, ie. during the admission of the ablation
             earlyAETableMatrix <- jsonlite::fromJSON(earlyAETableJSON)
             earlyAETable.df <- data.frame(matrix(unlist(earlyAETableMatrix), ncol = 5, byrow = T))
-            earlyAETable.df <- cbind(ptID,earlyAETable.df)  # Add the Patient ID
-            earlyAETable.df <- cbind(earlyAETable.df,0)     # Add the post-discharge field i.e. early means before discharge
-            earlyAETable.df <- cbind(earlyAETable.df,NA)    # Add the duration field
+            earlyAETable.df <- cbind(organForRx,earlyAETable.df)  # Add the Organ for Rx
+            earlyAETable.df <- cbind(ptID,earlyAETable.df)        # Add the Patient ID
+            earlyAETable.df <- cbind(earlyAETable.df,0)           # Add the post-discharge field i.e. early means before discharge
+            earlyAETable.df <- cbind(earlyAETable.df,NA)          # Add the duration field
             colnames(earlyAETable.df) <- aeTableColNames
             for (j in 1:nrow(earlyAETable.df))
             {
@@ -495,6 +496,7 @@ processData <- function()
             # These complications occurred later, after discharge
             lateAETableMatrix <- jsonlite::fromJSON(lateAETableJSON)
             lateAETable.df <- data.frame(matrix(unlist(lateAETableMatrix), ncol = 4, byrow = T)) # FIXME get the description field added in
+            lateAETable.df <- cbind(organForRx,lateAETable.df)  # Add the Organ for Rx
             lateAETable.df <- cbind(ptID,lateAETable.df)  # Add the Patient ID
             lateAETable.df <- cbind(lateAETable.df,"-")   # Add the description field FIXME
             lateAETable.df <- cbind(lateAETable.df,1)     # Add the post-discharge field i.e. late means after discharge

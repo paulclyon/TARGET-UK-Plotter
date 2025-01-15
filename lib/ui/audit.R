@@ -91,7 +91,9 @@ auditServer <- function(input, output, session, api, plots)
       }, prefix = "")
       tryCatch(
       {
-        includeHTML(rmarkdown::render(rmdAuditFile))
+        # Could also set knit_root_dir parameter but it is probably more trouble than it is worth
+        # The default is the directory of the input file .Rmd which works fine, and if specified, is relative to that dir
+        includeHTML(rmarkdown::render(rmdAuditFile, output_dir=Sys.getenv("REPORT_OUTPUT_DIR")))
       },
       error = function(errorMessage) {
         logger(conditionMessage(errorMessage),T)
@@ -100,29 +102,29 @@ auditServer <- function(input, output, session, api, plots)
       })
     })
     
-    # This is one way to do the magic - embed the output into the observe event to allow refresh!
+    # This is another way to do the magic - embed the output into the observe event to allow refresh!
     # But doesn't allow multiple refreshes, see the more simple elegant solution I used
-    output$summaryRefAudit2 <- renderPrint({
-      if (api$connected == T && api$loaded == T)
-      {
-        showNotification(paste("Generating the audit from file '",Sys.getenv("AUDIT_PATHWAY_RMD"),"'",sep=""))
-        thisHTML <- finalRefAuditInput()
-        showNotification(paste("Audit generation completed, see file '",Sys.getenv("AUDIT_PATHWAY_MD"),"'",sep=""))
-      }
-      else
-      {
-        thisHTML <-
-          "There is no study data loaded at present - cannot run the audit"
-      }
-      thisHTML
-    })
+    #output$summaryRefAudit2 <- renderPrint({
+    #  if (api$connected == T && api$loaded == T)
+    #  {
+    #    showNotification(paste("Generating the audit from file '",Sys.getenv("AUDIT_PATHWAY_RMD"),"'",sep=""))
+    #    thisHTML <- finalRefAuditInput()
+    #    showNotification(paste("Audit generation completed, see file '",Sys.getenv("AUDIT_PATHWAY_MD"),"'",sep=""))
+    #  }
+    #  else
+    #  {
+    #    thisHTML <-
+    #      "There is no study data loaded at present - cannot run the audit"
+    #  }
+    #  thisHTML
+    #})
   })
   
   observeEvent(input$buttonAuditToPDF, {
     if (isDocker == T)
     {
       shinyCatch({
-        message("Sorry running in a Docker via Web interface therefore data export functions not available...")
+        message("Sorry running in a Docker via Web interface therefore audit PDF export function not available...")
       }, prefix = '')
     }
     else
@@ -140,10 +142,21 @@ auditServer <- function(input, output, session, api, plots)
         shinyCatch({
           message(paste("Attempting to export PDF to file (make take some time if first PDF export)...", exportFile$res))
         }, prefix = "")
-        rmarkdown::render(rmdAuditFile,"pdf_document", output_file=exportFile$res, quiet=FALSE)
-        shinyCatch({
-          message(paste("Exported PDF to file", exportFile$res))
-        }, prefix = "")
+        if (file.access(exportFile$res, mode=2) != -1)  # 0 success i.e. writable (mode 2) / -1 failure
+        {
+          # Could also set knit_root_dir parameter but it is probably more trouble than it is worth
+          # The default is the directory of the input file .Rmd which works fine, and if specified, is relative to that dir
+          rmarkdown::render(rmdAuditFile,"pdf_document", output_dir=Sys.getenv("REPORT_OUTPUT_DIR"), output_file=exportFile$res, quiet=FALSE)
+          shinyCatch({
+            message(paste("Exported PDF to file", exportFile$res))
+          }, prefix = "")          
+        }
+        else
+        {
+          shinyCatch({
+            message(paste("Cannot write access file '", exportFile$res,"' for writing to...",sep=""))
+          }, prefix = "")   
+        }
       }
       else
       {

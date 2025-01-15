@@ -10,6 +10,7 @@ Sys.setenv(DEBUG_MODE        = TRUE)
 Sys.setenv(DATE_FORMAT       = "%d-%m-%Y")
 Sys.setenv(AUDIT_PATHWAY_RMD = "audit/audit-pathway.rmd")
 Sys.setenv(AUDIT_PATHWAY_MD  = "audit-pathway.md")
+Sys.setenv(REPORT_OUTPUT_DIR = "reports")
 Sys.setenv(USERKEY_TXT       = "../userkey.txt")
 Sys.setenv(SECRET_TXT        = "../secret.txt")
 theTotalTariff <- 0
