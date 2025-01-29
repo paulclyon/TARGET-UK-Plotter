@@ -437,13 +437,25 @@ processData <- function()
           anaesthetistString2[anaesthetistString2 == ''] <- NA
           anaesthetistString3[anaesthetistString3 == ''] <- NA
           
-          # Get the modality of the treatment (for cost code purposes)
+          rxFreeText <- ""
+          
+          # Get the free text for Rx and the modality of the treatment (for cost code purposes)
           rxTableJSON <- getDataEntry(paste("rx_tumour_rx_matrix_", as.integer(iRef), sep = ""), i, T)
           if (!is.na(rxTableJSON) && str_length(rxTableJSON) > 0 )
           {
             rxTableMatrix <- jsonlite::fromJSON(rxTableJSON)
             rxTable.df <- data.frame(matrix(unlist(rxTableMatrix), ncol = 12, byrow = T))
             colnames(rxTable.df) <- rxTableColNames
+            
+            # Get the free text for the treatments and concat into a string for the Treatment pathway table
+            for (j in 1:nrow(rxTable.df))
+            {
+              thisRxFreeText <- rxTable.df$free.text[j]
+              if (!is.na(thisRxFreeText) && thisRxFreeText != "")
+              {
+                rxFreeText <- paste(rxFreeText," ",j,":",thisRxFreeText,sep="")
+              }
+            }
             
             # For each row in the matrix find out which modality has been used
             # once a modality has been found we are done
@@ -471,7 +483,7 @@ processData <- function()
           {
             # These complications occurred early, ie. during the admission of the ablation
             earlyAETableMatrix <- jsonlite::fromJSON(earlyAETableJSON)
-            earlyAETable.df <- data.frame(matrix(unlist(earlyAETableMatrix), ncol = 5, byrow = T))
+            earlyAETable.df <- data.frame(matrix(unlist(earlyAETableMatrix), ncol = 7, byrow = T))
             earlyAETable.df <- cbind(organForRx,earlyAETable.df)  # Add the Organ for Rx
             earlyAETable.df <- cbind(ptID,earlyAETable.df)        # Add the Patient ID
             earlyAETable.df <- cbind(earlyAETable.df,0)           # Add the post-discharge field i.e. early means before discharge
@@ -495,12 +507,11 @@ processData <- function()
           {
             # These complications occurred later, after discharge
             lateAETableMatrix <- jsonlite::fromJSON(lateAETableJSON)
-            lateAETable.df <- data.frame(matrix(unlist(lateAETableMatrix), ncol = 4, byrow = T)) # FIXME get the description field added in
+            lateAETable.df <- data.frame(matrix(unlist(lateAETableMatrix), ncol = 7, byrow = T)) # FIXME get the description field added in
             lateAETable.df <- cbind(organForRx,lateAETable.df)  # Add the Organ for Rx
-            lateAETable.df <- cbind(ptID,lateAETable.df)  # Add the Patient ID
-            lateAETable.df <- cbind(lateAETable.df,"-")   # Add the description field FIXME
-            lateAETable.df <- cbind(lateAETable.df,1)     # Add the post-discharge field i.e. late means after discharge
-            lateAETable.df <- cbind(lateAETable.df,NA)    # Add the duration field
+            lateAETable.df <- cbind(ptID,lateAETable.df)        # Add the Patient ID
+            lateAETable.df <- cbind(lateAETable.df,1)           # Add the post-discharge field i.e. late means after discharge
+            lateAETable.df <- cbind(lateAETable.df,NA)          # Add the duration field
             colnames(lateAETable.df) <- aeTableColNames
             for (j in 1:nrow(lateAETable.df))
             {
@@ -574,6 +585,7 @@ processData <- function()
           rxdone_anaesthetist2_list          <<- append(rxdone_anaesthetist2_list,            anaesthetistString2)
           rxdone_anaesthetist3_list          <<- append(rxdone_anaesthetist3_list,            anaesthetistString3)
           rxdone_postcode_list               <<- append(rxdone_postcode_list,                 postcode)
+          rxdone_freetext_list               <<- append(rxdone_freetext_list,                 rxFreeText)
         }
         else
         {
@@ -780,7 +792,8 @@ processData <- function()
       ClockStopDaysPreDTT = as.numeric(rxdone_clockstop_days_predtt_list),
       ClockStopDaysPostDTT = as.numeric(rxdone_clockstop_days_postdtt_list),
       ClockStopWhy = rxdone_clockstop_reason_list,
-      Postcode = rxdone_postcode_list
+      Postcode = rxdone_postcode_list,
+      FreeText = rxdone_freetext_list
     )
     
   } else {

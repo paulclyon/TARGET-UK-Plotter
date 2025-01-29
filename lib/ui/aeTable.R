@@ -37,8 +37,8 @@ aeTab <- function() {
     ),
     fluidRow(box(
       width = 12,
-      DT::dataTableOutput("tableAE"))
-    )
+      DT::dataTableOutput("tableAE"), style = "overflow-y: scroll;overflow-x: scroll;"
+    ))
   )
 }
 

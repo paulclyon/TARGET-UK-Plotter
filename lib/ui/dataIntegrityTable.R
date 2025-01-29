@@ -16,7 +16,7 @@ dataIntegrityTab <- function() {
   )),
   fluidRow(box(
     width = 12,
-    DT::dataTableOutput("tableDataIntegrity")
+    DT::dataTableOutput("tableDataIntegrity"), style = "overflow-y: scroll;overflow-x: scroll;"
   )))
 }
 

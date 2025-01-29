@@ -16,7 +16,7 @@ loggerTab <- function() {
   )),
   fluidRow(box(
     width = 12,
-    DT::dataTableOutput("tableLogger")
+    DT::dataTableOutput("tableLogger"), style = "overflow-y: scroll;overflow-x: scroll;"
   )))
 }
 

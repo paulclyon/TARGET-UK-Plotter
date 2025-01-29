@@ -29,6 +29,7 @@ V0.6  Flamingo:  Adverse events, System Logs & Data Integrity tables
 V0.7  Gazelle:   Plot informationals, Audit Save to PDF option
                  Fix waiting pie chart
                  Data integrity detection of treated not for treatments
+                 Table scroll bars, free text to treatment table, adverse events table fix
                  <br>
 </pre>
 

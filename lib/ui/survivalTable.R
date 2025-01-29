@@ -16,7 +16,7 @@ survivalTab <- function() {
   )),
   fluidRow(box(
     width = 12,
-    DT::dataTableOutput("tableSurvival")
+    DT::dataTableOutput("tableSurvival"), style = "overflow-y: scroll;overflow-x: scroll;"
   )))
 }
 

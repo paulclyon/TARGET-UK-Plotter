@@ -25,7 +25,7 @@ pathwayTab <- function() {
     )),
     fluidRow(box(
       width = 12,
-      DT::dataTableOutput("tableRxPathway")
+      DT::dataTableOutput("tableRxPathway"), style = "overflow-y: scroll;overflow-x: scroll;"
     ))
   )
 }
