@@ -10,7 +10,8 @@ pathwayPlotTab <- function() {
             c(
               "Treated Plot" = "rxdonePlot",
               "Waiting Plot" = "rxwaitPlot",
-              "Monthly Waiting List" = "monthlyWaitingPlot"
+              "Monthly Waiting List" = "monthlyWaitingPlot",
+              "Statistical Process Control (SPC) Plot" = "spcRxTimePlot"
             )
           ),
           br(),br(),
@@ -64,9 +65,10 @@ pathwayPlotServer <- function(input, output, session, api, plots)
 {
   finalRxPlotInput <- reactive({
     switch(input$rxTimesPlotRadio,
-      "rxdonePlot" = rxdonePlot,
-      "rxwaitPlot" = rxwaitPlot,
-      "monthlyWaitingPlot" = monthlyWaitingPlot
+      "rxdonePlot"         = rxdonePlot,
+      "rxwaitPlot"         = rxwaitPlot,
+      "monthlyWaitingPlot" = monthlyWaitingPlot,
+      "spcRxTimePlot"      = spcRxTimePlot # FIXME over to you Andy
     )
   })
 

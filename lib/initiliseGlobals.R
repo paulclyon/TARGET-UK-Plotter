@@ -86,6 +86,7 @@ initialiseGlobals <- function()
   rxdonePlot                     <<- ggplot()
   rxwaitPlot                     <<- ggplot()
   monthlyWaitingPlot             <<- ggplot()
+  spcRxTimePlot                  <<- ggplot()
   operatorPlot                   <<- ggplot()
   patientData                    <<- NA
   studyData                      <<- NA
