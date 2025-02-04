@@ -1,4 +1,51 @@
-makeRxPathwayPlots <- function() {
+# Populate monthlyRxWaitData which is basically a list of patients on the waiting list each month
+processMonthlyRxWaitingList <- function(startDate,endDate)
+{
+  firstRefDate <- min(rxDoneData$RefDate, na.rm=T)
+  lastRefDate  <- max(rxDoneData$RefDate, na.rm=T)
+  monthSpan    <- interval(firstRefDate, lastRefDate) %/% months(1)
+  
+  # Combine the rxDone and rxWait data frames into allDates data frame
+  allRefDates <- c(rxDoneData$RefDate, rxWaitData$RefDate)
+  allRxDates <-  c(rxDoneData$RxDate, rep(NA, length(rxWaitData$RefDate)))
+  allDates <- data.frame(refDate=allRefDates, rxDate=allRxDates)
+  
+  # Loose records with ref date of NA or outside the date bounds provided, if provided
+  allDates <- allDates %>% filter(!is.na(refDate))
+  if (isConvertibleToDate(startDate)) allDates <- allDates %>% filter(refDate >= convertToDate(startDate))
+  if (isConvertibleToDate(endDate))   allDates <- allDates %>% filter(refDate <= convertToDate(endDate))
+
+  # Go through each month for which we have referral data one by one
+  monthlyRxWaitDates <- c()
+  monthlyRxWaitCounts <- c()
+  for (m in 1:monthSpan)
+  {
+    thisMonthsDate <- convertToDate(format(firstRefDate %m+% months(m), "01-%m-%Y"))
+    monthlyRxWaitCount <- 0
+    for (j in 1:nrow(rxDoneData))
+    {
+      if (thisMonthsDate >= as.Date(allRefDates[j]))
+      {
+        if (is.na(allRxDates[j]) || as.Date(allRxDates[j]) > thisMonthsDate)
+        {
+          monthlyRxWaitCount <- monthlyRxWaitCount + 1
+        }
+      }
+    }
+    monthlyRxWaitDates  <- c(monthlyRxWaitDates, convertToDate(thisMonthsDate))
+    monthlyRxWaitCounts <- c(monthlyRxWaitCounts, monthlyRxWaitCount)
+  }
+  monthlyRxWaitData <<- data.frame(
+    MonthStart = as.Date(monthlyRxWaitDates),
+    PtsOnWaitingList = monthlyRxWaitCounts)
+}
+
+makeRxPathwayPlots <- function(startDate, endDate)
+{
+  processMonthlyRxWaitingList(startDate, endDate)
+  monthlyWaitingPlot <<- ggplot(monthlyRxWaitData, aes(x = MonthStart, y = PtsOnWaitingList)) +
+    geom_line()
+  
   if (!is.null(nrow(rxDoneData))) {
     rxdonePlotColors <<- c(
       "Ref to DTT"           = "red",
@@ -6,7 +53,8 @@ makeRxPathwayPlots <- function() {
       "Ref to Rx"            = "green",
       "Clock Stops Pre-DTT"  = "purple",
       "Clock Stops Post-DTT" = "cyan",
-      "Operator1"            = "blue"
+      "Operator1"            = "blue",
+      "Waiting List"         = "orange"
     )
     rxdonePlot <<- ggplot(rxDoneData, aes(x = RxDate, text = paste(ID, " (", Organs, ")\n", ClockStopWhy, sep = ""))) +
       geom_point(aes(y = Ref_DTT, color = "Ref to DTT")) +
@@ -90,7 +138,9 @@ makeRxPathwayPlots <- function() {
       guides(color = guide_legend("Patients with DTT...")) +
       labs(y = "Number of Days") +
       ggtitle("Time on Waiting List")
-  } else {
+  }
+  else
+  {
     rxwaitPlot <<- ggplot()
   }
 }

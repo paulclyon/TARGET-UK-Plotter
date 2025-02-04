@@ -9,7 +9,8 @@ pathwayPlotTab <- function() {
             "Pathway Plot Type",
             c(
               "Treated Plot" = "rxdonePlot",
-              "Waiting Plot" = "rxwaitPlot"
+              "Waiting Plot" = "rxwaitPlot",
+              "Monthly Waiting List" = "monthlyWaitingPlot"
             )
           ),
           br(),br(),
@@ -64,14 +65,16 @@ pathwayPlotServer <- function(input, output, session, api, plots)
   finalRxPlotInput <- reactive({
     switch(input$rxTimesPlotRadio,
       "rxdonePlot" = rxdonePlot,
-      "rxwaitPlot" = rxwaitPlot
+      "rxwaitPlot" = rxwaitPlot,
+      "monthlyWaitingPlot" = monthlyWaitingPlot
     )
   })
 
   finalRxTableDataInput <- reactive({
     switch(input$rxTimesPlotRadio,
       "rxdonePlot" = rxDoneData,
-      "rxwaitPlot" = rxWaitData
+      "rxwaitPlot" = rxWaitData,
+      "monthlyWaitingPlot" = monthlyRxWaitData
     )
   })
   
@@ -85,11 +88,20 @@ pathwayPlotServer <- function(input, output, session, api, plots)
       return(plot.new())
     }
 
-    p <- finalRxPlotInput() +
-      scale_x_date(limits = as.Date(
-        c(input$rxPlotStartDate, input$rxPlotEndDate), format = "%d/%m/%Y")) +
-        theme(legend.position = "bottom")
-    p <- p %+% subset(finalRxTableDataInput(), Organs %in% input$rxPlotSelectedOrgans)
+    p <- finalRxPlotInput() 
+    if (input$rxTimesPlotRadio == "monthlyWaitingPlot")
+    {
+      disable("rxPlotSelectedOrgans")
+    }
+    else
+    {
+      enable("rxPlotSelectedOrgans")
+      p <- p +
+        scale_x_date(limits = as.Date(
+          c(input$rxPlotStartDate, input$rxPlotEndDate), format = "%d/%m/%Y")) +
+          theme(legend.position = "bottom")
+      p <- p %+% subset(finalRxTableDataInput(), Organs %in% input$rxPlotSelectedOrgans)
+    }
     p
   })
 
@@ -125,7 +137,8 @@ pathwayPlotServer <- function(input, output, session, api, plots)
     }
     switch(input$rxTimesPlotRadio,
            "rxdonePlot" = paste(headerText,rxDoneText, sep=""),
-           "rxwaitPlot" = paste(headerText,nrow(rxWaitData)," on waiting list of ",noRefsProcessed," processed referrals.", sep="")
+           "rxwaitPlot" = paste(headerText,nrow(rxWaitData)," on waiting list of ",noRefsProcessed," processed referrals, of which ",sum(!is.na(rxWaitData$RefDate))," have a valid referral date.", sep=""),
+           "monthlyWaitingPlot" = paste(headerText,nrow(rxWaitData)," on waiting list of ",noRefsProcessed," processed referrals (all organs), of which ",sum(!is.na(rxWaitData$RefDate))," have a valid referral date.", sep="")
     )
   })
   

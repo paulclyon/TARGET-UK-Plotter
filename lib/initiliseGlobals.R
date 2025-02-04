@@ -1,8 +1,6 @@
 #' initialiseGlobals sets all of the default values
 initialiseGlobals <- function()
 {
-
-  
   # This is the order of the clock stop columns
   clockStopColNames              <<- c("date.stopped","date.restart","reason","free.text")
   rxTableColNames                <<- c("rx.organ","lesion.size","max.depth","closest.serosa","punctures","no.applicators.or.postitions","modality","max.power","min.power","rx.time","new.or.rec","free.text")
@@ -81,11 +79,13 @@ initialiseGlobals <- function()
   # The major dataframes
   rxDoneData                     <<- NA
   rxWaitData                     <<- NA
+  monthlyRxWaitData              <<- NA
   refclockstop.df                <<- NA
   recurrence.df                  <<- NA
   clinicalfu.df                  <<- NA
   rxdonePlot                     <<- ggplot()
   rxwaitPlot                     <<- ggplot()
+  monthlyWaitingPlot             <<- ggplot()
   operatorPlot                   <<- ggplot()
   patientData                    <<- NA
   studyData                      <<- NA

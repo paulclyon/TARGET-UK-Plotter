@@ -226,8 +226,7 @@ reloadStudyEvent <- function(input, output, session, api) {
   sapply(c("chartsMenuItem", "tablesMenuItem", "validationMenuItem", "auditMenuItem", "summaryMenuItem", "pathwaySummaryMenuItem"), shinyjs::show)
 
   # Make the pathway plots...
-  # TODO: make reactive based on the status of the processed Data
-  makeRxPathwayPlots()
+  makeRxPathwayPlots(input$rxPlotStartDate, input$rxPlotEndDate)
   makeTreatmentVolumePlot(rxDoneData, input$volumePlotDurationRadio)
   progress$set(message = "Completed loading & processing.", value = 1.0)
   showNotification("Completed data processing, plot/tables should now be available to view...")
