@@ -47,6 +47,7 @@ operatorPlotTab <- function() {
 
 operatorPlotServer <- function(input, output, session, plots) {
   finalOperatorPlotInput <- reactive({
+    makeOperatorPlot()
     operatorPlot
   })
 

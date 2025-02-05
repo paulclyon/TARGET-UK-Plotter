@@ -8,10 +8,10 @@ pathwayPlotTab <- function() {
             "rxTimesPlotRadio",
             "Pathway Plot Type",
             c(
-              "Treated Plot" = "rxdonePlot",
-              "Waiting Plot" = "rxwaitPlot",
-              "Monthly Waiting List" = "monthlyWaitingPlot",
-              "Statistical Process Control (SPC) Plot" = "spcRxTimePlot"
+              "Treated Plot"             = "rxdonePlot",
+              "Treatment Times SPC Plot" = "spcRxTimePlot",
+              "Waiting Plot"             = "rxwaitPlot",
+              "Monthly Waiting List"     = "monthlyWaitingPlot"
             )
           ),
           br(),br(),
@@ -64,46 +64,34 @@ pathwayPlotTab <- function() {
 pathwayPlotServer <- function(input, output, session, api, plots)
 {
   finalRxPlotInput <- reactive({
-    switch(input$rxTimesPlotRadio,
-      "rxdonePlot"         = rxdonePlot,
-      "rxwaitPlot"         = rxwaitPlot,
-      "monthlyWaitingPlot" = monthlyWaitingPlot,
-      "spcRxTimePlot"      = spcRxTimePlot # FIXME over to you Andy
+    # Update the plots based on radiobuttons etc
+    # This is an efficient way of doing things so that the plots are only made as the radiobuttons are updated
+    p <- switch(input$rxTimesPlotRadio,
+      "rxdonePlot"         = makeRxDonePlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
+      "rxwaitPlot"         = makeRxWaitPlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
+      "spcRxTimePlot"      = makeRxDonePlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans), # FIXME over to you Andy
+      "monthlyWaitingPlot" = makeWaitingListPlot(input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans)
     )
+    p
   })
 
   finalRxTableDataInput <- reactive({
-    switch(input$rxTimesPlotRadio,
-      "rxdonePlot" = rxDoneData,
-      "rxwaitPlot" = rxWaitData,
+    returnData <- switch(input$rxTimesPlotRadio,
+      "rxdonePlot"         = rxDoneData,
+      "rxwaitPlot"         = rxWaitData,
       "monthlyWaitingPlot" = monthlyRxWaitData
     )
+    returnData
   })
   
   observeEvent(input$plotRxPathwaySize, {
     plots$activePlot <- ggplot()
   })
 
-  filteredPlot <- reactive({
+  filteredPlot <- reactive(
+  {
     filteredRxData <- finalRxTableDataInput()
-    if (!is.list(filteredRxData)) {
-      return(plot.new())
-    }
-
-    p <- finalRxPlotInput() 
-    if (input$rxTimesPlotRadio == "monthlyWaitingPlot")
-    {
-      disable("rxPlotSelectedOrgans")
-    }
-    else
-    {
-      enable("rxPlotSelectedOrgans")
-      p <- p +
-        scale_x_date(limits = as.Date(
-          c(input$rxPlotStartDate, input$rxPlotEndDate), format = "%d/%m/%Y")) +
-          theme(legend.position = "bottom")
-      p <- p %+% subset(finalRxTableDataInput(), Organs %in% input$rxPlotSelectedOrgans)
-    }
+    p <- finalRxPlotInput() # FIXME Need a fix if empty ie. if (!is.list(filteredRxData))
     p
   })
 
@@ -126,7 +114,6 @@ pathwayPlotServer <- function(input, output, session, api, plots)
   # This works to a point in that it resets the scale but it doesn't reload the data
   # Not really sure how this works at all if I am honest! I don't assign it to a real plot, weird
   observeEvent(input$refreshRxPlot, {
-    logger(paste('count',notForRxButRxdCount))
     plots$activePlot <- ggplot()
   })
   
