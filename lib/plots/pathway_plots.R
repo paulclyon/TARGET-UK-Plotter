@@ -5,7 +5,6 @@ processMonthlyRxWaitingList <- function(startDate,endDate,organs)
   firstRefDate <- min(c(rxWaitData$RefDate, rxDoneData$RefDate), na.rm=T)
   lastRefDate  <- max(c(rxWaitData$RefDate, rxDoneData$RefDate), na.rm=T)
   if (isConvertibleToDate(endDate)) lastRefDate  <- min(lastRefDate,convertToDate(endDate))
-  monthSpan    <- interval(firstRefDate, lastRefDate) %/% months(1)
   
   # Combine the rxDone and rxWait data frames into allDates data frame
   allRefDates <- c(rxDoneData$RefDate, rxWaitData$RefDate)
@@ -32,10 +31,12 @@ processMonthlyRxWaitingList <- function(startDate,endDate,organs)
   if (nrow(allDates)>0)
   {
     waitingListCount <- 0
+    monthSpan <- interval(firstRefDate, lastRefDate) %/% months(1)
     for (m in 1:monthSpan)
     {
       lastMonthsDate <- convertToDate(format(min(allDates$refDate) %m+% months(m-1), "01-%m-%Y"))
       thisMonthsDate <- convertToDate(format(min(allDates$refDate) %m+% months(m),   "01-%m-%Y"))
+      logger(paste("Checking",lastMonthsDate,thisMonthsDate))
       refCount <- 0
       rxCount  <- 0
       
@@ -142,9 +143,12 @@ makeRxWaitPlot <- function(startDate, endDate, organs)
       "Clock Stops Pre-DTT"  = "purple",
       "Clock Stops Post-DTT" = "cyan"
     )
+    # FIXME: the issue is here if two are referred on same day then they are plotted exactly on top of each other
+    # There are different librarys to handle it including jitter, but I had no success
+    # The next best work around is to make opacification 0.3 with alpha, so you know if there is one hiding, but tooltiptext doesn't show other PtID
     rxwaitPlot <<- ggplot(rxWaitData.filtered, aes(x = RefDate, text = paste(ID, " (", Organs, ")\n", "Provisional RxDate=", ProvisionalRxDate, ClockStopWhy, sep = ""))) +
-      geom_point(aes(y = Ref_DTT, colour = "Days to DTT"), size=1) +
-      geom_point(aes(y = DaysWaiting, colour = "Days Waiting"), size=1) +
+      geom_point(aes(y = Ref_DTT, colour = "Days to DTT", alpha=0.2), size=1) +
+      geom_point(aes(y = DaysWaiting, colour = "Days Waiting", alpha=0.2), size=1) +
       geom_point(aes(y = ClockStopDaysPreDTT, color = "Clock Stops Pre-DTT"), size=1) +
       geom_point(aes(y = ClockStopDaysPostDTT, color = "Clock Stops Post-DTT"), size=1) +
       theme(legend.position = "bottom") +

@@ -7,7 +7,9 @@ pathwayTab <- function() {
         radioButtons(
           "rxTimesTableRadio",
           "Pathway Table Type",
-          c("Treated" = "rxdoneTable", "Waiting" = "rxwaitTable")
+          c("Treated" = "rxdoneTable",
+            "Current Waiting" = "rxwaitTable",
+            "Monthly Waiting List" = "monthlyWaitTable")
         )
       ),
       column(
@@ -34,8 +36,9 @@ pathwayTableServer <- function(input, output, session, isDocker)
 {
   finalRxTableDataInput <- reactive({
     switch(input$rxTimesTableRadio,
-      "rxdoneTable" = rxDoneData,
-      "rxwaitTable" = rxWaitData
+      "rxdoneTable"      = rxDoneData,
+      "rxwaitTable"      = rxWaitData,
+      "monthlyWaitTable" = monthlyRxWaitData
     )
   })
 
