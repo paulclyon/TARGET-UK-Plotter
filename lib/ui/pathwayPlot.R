@@ -127,7 +127,7 @@ pathwayPlotServer <- function(input, output, session, api, plots)
     switch(input$rxTimesPlotRadio,
            "rxdonePlot" = paste(headerText,rxDoneText, sep=""),
            "rxwaitPlot" = paste(headerText,nrow(rxWaitData)," on waiting list of ",noRefsProcessed," processed referrals, of which ",sum(!is.na(rxWaitData$RefDate))," have a valid referral date.", sep=""),
-           "monthlyWaitingPlot" = paste(headerText,"Up to the last specified date, there are ",dplyr::last(monthlyRxWaitData$OnWaitingList)," patients on waiting list for the selected organs.", sep="")
+           "monthlyWaitingPlot" = paste(headerText,"Up to date ",as.Date(dplyr::last(monthlyRxWaitData$MonthStart)) - as.difftime(1,units="days")," there are ",dplyr::last(monthlyRxWaitData$OnWaitingList)," patients on waiting list for the selected organs.", sep="")
     )
   })
   

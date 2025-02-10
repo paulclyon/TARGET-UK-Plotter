@@ -31,23 +31,22 @@ processMonthlyRxWaitingList <- function(startDate,endDate,organs)
   if (nrow(allDates)>0)
   {
     waitingListCount <- 0
-    monthSpan <- interval(firstRefDate, lastRefDate) %/% months(1)
+    monthSpan <- interval(firstRefDate, lastRefDate) %/% months(1) + 1
     for (m in 1:monthSpan)
     {
       lastMonthsDate <- convertToDate(format(min(allDates$refDate) %m+% months(m-1), "01-%m-%Y"))
       thisMonthsDate <- convertToDate(format(min(allDates$refDate) %m+% months(m),   "01-%m-%Y"))
-      logger(paste("Checking",lastMonthsDate,thisMonthsDate))
       refCount <- 0
       rxCount  <- 0
       
       for (j in 1:nrow(allDates))
       {
-        if (allDates$refDate[j] >= lastMonthsDate && allDates$refDate[j] <= thisMonthsDate)
+        if (allDates$refDate[j] >= lastMonthsDate && allDates$refDate[j] < thisMonthsDate)
         {
           refCount <- refCount + 1
           waitingListCount <- waitingListCount + 1
         }
-        if (!is.na(allDates$rxDate[j]) && allDates$rxDate[j] >= lastMonthsDate && allDates$rxDate[j] <= thisMonthsDate)
+        if (!is.na(allDates$rxDate[j]) && allDates$rxDate[j] >= lastMonthsDate && allDates$rxDate[j] < thisMonthsDate)
         {
           rxCount <- rxCount + 1
           waitingListCount <- waitingListCount - 1          
@@ -69,7 +68,8 @@ processMonthlyRxWaitingList <- function(startDate,endDate,organs)
   # Whilst we could do this upfront like endDate the difficulty is it won't know about referrals made before the cut off
   # start date which is an important offset as it affects everything moving forward, and it would underrepresent the true
   # waiting list, hence only loose the ones at the start once we have the referral data...
-  if (isConvertibleToDate(startDate)) monthlyRxWaitData <<- monthlyRxWaitData %>% filter(MonthStart >= convertToDate(startDate))
+  startPlotDate <- floor_date(convertToDate(startDate),unit="month")-as.difftime(1,units="days")
+  if (isConvertibleToDate(startDate)) monthlyRxWaitData <<- monthlyRxWaitData %>% filter(MonthStart >= startPlotDate)
 }
 
 makeRxDonePlot <- function(startDate, endDate, organs)
@@ -107,9 +107,10 @@ makeRxDonePlot <- function(startDate, endDate, organs)
       geom_point(aes(y = ClockStopDaysPostDTT, color = "Clock Stops Post-DTT"), size=1) +
       theme(legend.position = "bottom") +
       scale_color_manual(values = rxdonePlotColors) +
-      guides(color = guide_legend("Treated Patients...")) +
+      guides(color = guide_legend("Treated Patients:\n")) +
       labs(y = "Number of Days") +
-      ggtitle("Time to Treatment") +
+      labs(title = paste0("Time to Treatment (Generated ",format(Sys.time(), "%a %b %d %Y %X"),")")) +
+      theme(plot.title = element_text(size = 10)) +
       scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
   }
@@ -153,9 +154,10 @@ makeRxWaitPlot <- function(startDate, endDate, organs)
       geom_point(aes(y = ClockStopDaysPostDTT, color = "Clock Stops Post-DTT"), size=1) +
       theme(legend.position = "bottom") +
       scale_color_manual(values = rxwaitPlotColors) +
-      guides(color = guide_legend("Patients with DTT...")) +
+      guides(color = guide_legend("Patients with DTT:\n")) +
       labs(y = "Number of Days") +
-      ggtitle("Time on Waiting List") +
+      labs(title =  paste0("Time on Waiting List (Generated ",format(Sys.time(), "%a %b %d %Y %X"),")")) +
+      theme(plot.title = element_text(size = 10)) +
       scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
   }
@@ -187,7 +189,8 @@ makeOperatorPlot <- function(startDate, endDate, organs)
     scale_y_continuous(breaks = seq(0, 100, by = 1)) + # Use this to get an integer y-axis, the 100 is the number of max ticks after which x>100 still plots tickless
     # guides(color=guide_legend("1o Operator Legend")) +
     labs(x = "Date", y = "Ablation Count") +
-    ggtitle("Primary Operator Logbook") +
+    labs(title = paste0("Primary Operator Logbook (Generated ",format(Sys.time(), "%a %b %d %Y %X"),")")) +
+    theme(plot.title = element_text(size = 10)) +
     theme(legend.position = "bottom") +
     opColScale
   
@@ -208,8 +211,12 @@ makeWaitingListPlot <- function(startDate, endDate, organs)
     geom_point(size = 1) +
     geom_point(aes(y = Referred, color = "Referred")) +
     geom_point(aes(y = Treated, color = "Treated")) +
+    geom_vline(xintercept = as.numeric(Sys.Date()), 
+               color = "purple", linetype = "dotted", size = 0.5) +
     scale_color_manual(values = monthlyWaitingPlotColors) +
-    ggtitle(paste0("Monthly Treatment Waiting List")) +
+    guides(color = guide_legend("Waiting List by Month:\n")) +
+    labs(title = paste0("Monthly Treatment Waiting List (Generated ",format(Sys.time(), "%a %b %d %Y %X"),")")) +
+    theme(plot.title = element_text(size = 10)) +
     scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   }
