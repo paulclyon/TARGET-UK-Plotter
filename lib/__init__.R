@@ -80,6 +80,9 @@ logger <- function(msg, stderr = FALSE) {
       write(toString(msg), stderr())
     }
   }
+  if (!exists('logger.df')) {
+    logger.df <<- data.frame()
+  }
   logger.df <<- rbind(logger.df,data.frame(TimeStamp=format(Sys.time(), "%a %b %d %X %Y"), IsError=stderr, Message=paste0(msg, collapse="|")))
   return()
 }
