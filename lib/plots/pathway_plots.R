@@ -24,9 +24,13 @@ processMonthlyRxWaitingList <- function(startDate,endDate,organs)
   
   # Go through each month for which we have referral data one by one
   monthlyWaitingListDates  <- c()
-  monthlyRefCounts         <- c()
-  monthlyRxCounts          <- c()
+  monthlyCounts            <- c()
+  type                     <- c()
+  
+  #monthlyRefCounts         <- c()
+  #monthlyRxCounts          <- c()
   monthlyWaitingTotal      <- c()
+  monthlyRefAndRxd         <- c()
   
   if (nrow(allDates)>0)
   {
@@ -52,17 +56,19 @@ processMonthlyRxWaitingList <- function(startDate,endDate,organs)
           waitingListCount <- waitingListCount - 1          
         }
       }
-      monthlyWaitingListDates  <- c(monthlyWaitingListDates, convertToDate(thisMonthsDate))
-      monthlyRefCounts         <- c(monthlyRefCounts, refCount)
-      monthlyRxCounts          <- c(monthlyRxCounts, rxCount)
-      monthlyWaitingTotal      <- c(monthlyWaitingTotal, waitingListCount)
+      monthlyWaitingListDates  <- c(monthlyWaitingListDates, rep(convertToDate(lastMonthsDate),2))
+      monthlyCounts            <- c(monthlyCounts, c(refCount,rxCount))
+      type                     <- c(type, c("Referred","Treated"))
+      #monthlyRxCounts          <- c(monthlyRxCounts, rxCount)
+      #monthlyRefAndRxd         <- c(monthlyRefAndRxd,c(refCount,rxCount))
+      monthlyWaitingTotal      <- c(monthlyWaitingTotal, c(0,waitingListCount))
     }
   }
   
   monthlyRxWaitData <<- data.frame(
-    MonthStart    = as.Date(monthlyWaitingListDates),
-    Referred      = monthlyRefCounts,
-    Treated       = monthlyRxCounts,
+    MonthStart     = as.Date(monthlyWaitingListDates),
+    Counts         = monthlyCounts,
+    Type           = type,
     OnWaitingList = monthlyWaitingTotal)
 
   # Whilst we could do this upfront like endDate the difficulty is it won't know about referrals made before the cut off
@@ -206,18 +212,20 @@ makeWaitingListPlot <- function(startDate, endDate, organs)
       "Referred"         = "orange",
       "Treated"          = "green"
     )
-  monthlyWaitingPlot <<- ggplot(monthlyRxWaitData, aes(x = MonthStart, y = OnWaitingList, color = "Waiting Total")) +
-    geom_line(color="black") +
-    geom_point(size = 1) +
-    geom_point(aes(y = Referred, color = "Referred")) +
-    geom_point(aes(y = Treated, color = "Treated")) +
+  
+  # FIXME: Works well but when running from the app (not command line) I get the following warning which I don't know how to fix:
+  #  Warning: 'bar' objects don't have these attributes: 'mode'
+  monthlyWaitingPlot <<- ggplot() +
+    geom_line(data=filter(monthlyRxWaitData,Type=="Treated"),aes(x = MonthStart, y = OnWaitingList, color = "Waiting Total"))  +
+    geom_point(data=filter(monthlyRxWaitData,Type=="Treated"),aes(x = MonthStart, y = OnWaitingList, color = "Waiting Total"), size = 1) +
+    geom_bar(data=monthlyRxWaitData, aes(fill=Type, x = MonthStart, y = Counts), stat="identity", alpha=0.75, just=0, position = "dodge2") +
+    scale_fill_manual(values = c("gray","lightgreen")) +
+    scale_x_date(date_breaks = "month", date_labels = "%b-%y") + 
     geom_vline(xintercept = as.numeric(Sys.Date()), 
-               color = "purple", linetype = "dotted", size = 0.5) +
-    scale_color_manual(values = monthlyWaitingPlotColors) +
+                 color = "purple", linetype = "dotted", size = 0.5) +
     guides(color = guide_legend("Waiting List by Month:\n")) +
     labs(title = paste0("Monthly Treatment Waiting List (Generated ",format(Sys.time(), "%a %b %d %Y %X"),")")) +
     theme(plot.title = element_text(size = 10)) +
-    scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   }
   else

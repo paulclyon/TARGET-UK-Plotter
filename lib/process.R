@@ -483,7 +483,7 @@ processData <- function()
           {
             # These complications occurred early, ie. during the admission of the ablation
             earlyAETableMatrix <- jsonlite::fromJSON(earlyAETableJSON)
-            earlyAETable.df <- data.frame(matrix(unlist(earlyAETableMatrix), ncol = 7, byrow = T))
+            earlyAETable.df <- data.frame(matrix(unlist(earlyAETableMatrix), ncol = 8, byrow = T))
             earlyAETable.df <- cbind(organForRx,earlyAETable.df)  # Add the Organ for Rx
             earlyAETable.df <- cbind(ptID,earlyAETable.df)        # Add the Patient ID
             earlyAETable.df <- cbind(earlyAETable.df,0)           # Add the post-discharge field i.e. early means before discharge
@@ -507,7 +507,7 @@ processData <- function()
           {
             # These complications occurred later, after discharge
             lateAETableMatrix <- jsonlite::fromJSON(lateAETableJSON)
-            lateAETable.df <- data.frame(matrix(unlist(lateAETableMatrix), ncol = 7, byrow = T)) # FIXME get the description field added in
+            lateAETable.df <- data.frame(matrix(unlist(lateAETableMatrix), ncol = 8, byrow = T)) # FIXME get the description field added in
             lateAETable.df <- cbind(organForRx,lateAETable.df)  # Add the Organ for Rx
             lateAETable.df <- cbind(ptID,lateAETable.df)        # Add the Patient ID
             lateAETable.df <- cbind(lateAETable.df,1)           # Add the post-discharge field i.e. late means after discharge

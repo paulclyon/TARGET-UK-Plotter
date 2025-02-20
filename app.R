@@ -5,6 +5,7 @@ source("lib/__init__.R", .GlobalEnv)
 initialiseGlobals()
 Sys.setenv(CASTOR_USER_KEY   = "?")
 Sys.setenv(CASTOR_SECRET     = "?")
+Sys.setenv(CASTOR_DEFAULT_STUDY = NA)
 Sys.setenv(CASTOR_URL        = "https://uk.castoredc.com")
 Sys.setenv(DEBUG_MODE        = TRUE)
 Sys.setenv(DATE_FORMAT       = "%d-%m-%Y")
@@ -13,6 +14,7 @@ Sys.setenv(AUDIT_PATHWAY_MD  = "audit-pathway.md")
 Sys.setenv(REPORT_OUTPUT_DIR = "reports")
 Sys.setenv(USERKEY_TXT       = "../userkey.txt")
 Sys.setenv(SECRET_TXT        = "../secret.txt")
+Sys.setenv(DEFAULT_STUDY_TXT = "../defaultstudy.txt")
 theTotalTariff <- 0
 
 if (file.exists(Sys.getenv("SECRET_TXT"))) {
@@ -28,6 +30,14 @@ if (file.exists(Sys.getenv("USERKEY_TXT"))) {
   tryCatch(
     Sys.setenv(CASTOR_USER_KEY = readChar(
       Sys.getenv("USERKEY_TXT"), file.info(Sys.getenv("USERKEY_TXT"))$size
+    ))
+  )
+}
+if (file.exists(Sys.getenv("DEFAULT_STUDY_TXT"))) {
+  # Load from the defaultstudy.txt if present.
+  tryCatch(
+    Sys.setenv(CASTOR_DEFAULT_STUDY = readChar(
+      Sys.getenv("DEFAULT_STUDY_TXT"), file.info(Sys.getenv("DEFAULT_STUDY_TXT"))$size
     ))
   )
 }

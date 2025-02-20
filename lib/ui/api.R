@@ -157,7 +157,7 @@ apiConnectedEvent <- function(session, api)
 
   updateSelectInput(session, "studyDropdown",
     choices = studyNames,
-    selected = NULL
+    selected = Sys.getenv("CASTOR_DEFAULT_STUDY")
   )
 
   shinyjs::show("studyDropdownGroup")
