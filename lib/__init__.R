@@ -36,9 +36,11 @@ required_pkgs <- c(
 )
 
 # Install tinyytex if not installed already
-if (tinytex::check_installed('framed') == FALSE)
-{
-  tinytex::install_tinytex()
+if (tinytex::check_installed("framed") == FALSE) {
+  if (length(suppressWarnings(tryCatch(
+    tinytex:::kpsewhich("framed.sty", stdout = TRUE), error = function(e) ""))) == 0) {
+    tinytex::install_tinytex()
+  }
 }
 
 # FIXME Install LaTeX packages to make PDF from HTML
