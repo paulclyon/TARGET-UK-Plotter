@@ -38,8 +38,9 @@ rxDoneAuditData <- rxDoneData %>%
 
 <!-- PCL: I had to do an ugly global variable hack to get audit_start_date and audit_end_date visible from this file, but it works-->
 <h1>Ablation Waiting Time Audit</h1>
-<br>
+
 Audit Generated on:
+
 ```{r}
 renderText({
   format(Sys.time(), "%a %b %d %X %Y")
@@ -60,15 +61,14 @@ auditPeriodText <- paste(format.Date(audit_start_date, "%e %b %Y"),
   sep = ""
 )
 
-rxDoneAuditData %>%
-  mutate(Ref_DTT = if_else(Ref_DTT < 0, NA, Ref_DTT)) %>%
-  filter(!is.na(Ref_DTT)) %>%
+rxDoneAuditData |>
+  mutate(Ref_DTT = if_else(Ref_DTT < 0, NA, Ref_DTT)) |>
+  filter(!is.na(Ref_DTT)) |>
   mutate(
     within10 = ifelse(Ref_DTT <= 10, 1, 0),
     within21 = ifelse(Ref_DTT <= 21, 1, 0)
-  ) %>%
-  overall_group("Organs") %>%
-
+  ) |>
+  overall_group("Organs") |>
   summarise(
     mean = round(mean(Ref_DTT, na.rm = T), 1),
     median = round(median(Ref_DTT, na.rm = T), 1),
@@ -77,15 +77,15 @@ rxDoneAuditData %>%
     "w10%" = round(sum(within10, na.rm = T) / n() * 100, 1),
     "w21%" = round(sum(within21, na.rm = T) / n() * 100, 1),
     n = n()
-  ) %>%
+  ) |>
   mutate(
     Organs = if_else(is.na(Organs), "All Organs", Organs),
     "Organ Treated" = paste(Organs, " (N=", n, ")", sep = "")
-  ) %>%
-  ungroup() %>%
-  filter(Organs == "All Organs" | Organs %in% audit_organs) %>%
-  select("Organ Treated", mean, median, "w10%", "w21%") %>%
-  kbl(col.names = c("Organ Treated", ("Mean time\n(days)"), ("Median\n(days)"), ("% within 10 days\n(Local std.)"), ("% within 21 days\n(Local std.)"))) %>%
+  ) |>
+  ungroup() |>
+  filter(Organs == "All Organs" | Organs %in% audit_organs) |>
+  select("Organ Treated", mean, median, "w10%", "w21%") |>
+  kbl(col.names = c("Organ Treated", ("Mean time\n(days)"), ("Median\n(days)"), ("% within 10 days\n(Local std.)"), ("% within 21 days\n(Local std.)"))) |>
   add_header_above(
     data.frame(
       paste("Time from Referral Received-to-DTT\n",
@@ -93,23 +93,25 @@ rxDoneAuditData %>%
         sep = ""
       ), 5
     )
-  ) %>%
+  ) |>
   kable_styling()
 
 ```
+
 Mean, median (days) and percentage of referrals meeting defined time standards from Referral received and the date the treatment is discussed in clinic with the patient who wants to go ahead with ablation (decision to treat; DTT).
 
 <h2>Ablation DTT to Rx Times</h2>
+
 ```{r dtt_rx}
-rxDoneAuditData %>%
-  mutate(DTT_Rx = if_else(DTT_Rx < 0, NA, DTT_Rx)) %>%
-  filter(!is.na(DTT_Rx)) %>%
+rxDoneAuditData |>
+  mutate(DTT_Rx = if_else(DTT_Rx < 0, NA, DTT_Rx)) |>
+  filter(!is.na(DTT_Rx)) |>
   mutate(
     within31 = ifelse(DTT_Rx <= 31, 1, 0),
     within45 = ifelse(DTT_Rx <= 45, 1, 0),
     within60 = ifelse(DTT_Rx <= 60, 1, 0)
-  ) %>%
-  overall_group("Organs") %>%
+  ) |>
+  overall_group("Organs") |>
   summarise(
     mean = round(mean(DTT_Rx, na.rm = T), 1),
     median = round(median(DTT_Rx, na.rm = T), 1),
@@ -119,14 +121,14 @@ rxDoneAuditData %>%
     "w45%" = round(sum(within45, na.rm = T) / n() * 100, 1),
     "w60%" = round(sum(within60, na.rm = T) / n() * 100, 1),
     n = n()
-  ) %>%
+  ) |>
   mutate(
     Organs = if_else(is.na(Organs), "All Organs", Organs),
     "Organ (n)" = paste(Organs, " (N=", n, ")", sep = "")
-  ) %>%
-  ungroup() %>%
-  filter(Organs == "All Organs" | Organs %in% audit_organs) %>%
-  select("Organ (n)", mean, median, "w31%", "w45%", "w60%") %>%
+  ) |>
+  ungroup() |>
+  filter(Organs == "All Organs" | Organs %in% audit_organs) |>
+  select("Organ (n)", mean, median, "w31%", "w45%", "w60%") |>
   kbl(col.names = c(
     "Organ Treated",
     ("Mean time\n(days)"),
@@ -134,7 +136,7 @@ rxDoneAuditData %>%
     ("% within 31 days\n(Cancer std.)"),
     ("% within 45 days\n(Local std.)"),
     ("% within 60 days\n(Local std.)")
-  )) %>%
+  )) |>
   add_header_above(
     data.frame(
       paste("Time from DTT-to-Ablation\n",
@@ -142,7 +144,7 @@ rxDoneAuditData %>%
         sep = ""
       ), 6
     )
-  ) %>%
+  ) |>
   kable_styling()
 ```
 
@@ -150,27 +152,26 @@ Mean, median (days) and percentage of referrals meeting defined time standards f
 
 <h2>Ablation Referral to Rx Times</h2>
 ```{r ref_rx}
-rxDoneAuditData %>%
-  mutate(Ref_RxDone = if_else(Ref_RxDone < 0, NA, Ref_RxDone)) %>%
-  filter(!is.na(Ref_RxDone)) %>%
-  mutate(within90 = ifelse(Ref_RxDone <= 90, 1, 0)) %>%
-  overall_group("Organs") %>%
-
+rxDoneAuditData |>
+  mutate(Ref_RxDone = if_else(Ref_RxDone < 0, NA, Ref_RxDone)) |>
+  filter(!is.na(Ref_RxDone)) |>
+  mutate(within90 = ifelse(Ref_RxDone <= 90, 1, 0)) |>
+  overall_group("Organs") |>
   summarise(
     mean = round(mean(Ref_RxDone, na.rm = T), 1),
     median = round(median(Ref_RxDone, na.rm = T), 1),
     "w90" = round(sum(within90, na.rm = T), 1),
     "w90%" = round(sum(within90, na.rm = T) / n() * 100, 1),
     n = n(),
-  ) %>%
+  ) |>
   mutate(
     Organs = if_else(is.na(Organs), "All Organs", Organs),
     "Organ (n)" = paste(Organs, " (N=", n, ")", sep = "")
-  ) %>%
-  ungroup() %>%
-  filter(Organs == "All Organs" | Organs %in% audit_organs) %>%
-  select("Organ (n)", mean, median, "w90%") %>%
-  kbl(col.names = c("Organ Treated", ("Mean time\n(days)"), ("Median\n(days)"), ("% within 90 days\n(Local std.)"))) %>%
+  ) |>
+  ungroup() |>
+  filter(Organs == "All Organs" | Organs %in% audit_organs) |>
+  select("Organ (n)", mean, median, "w90%") |>
+  kbl(col.names = c("Organ Treated", ("Mean time\n(days)"), ("Median\n(days)"), ("% within 90 days\n(Local std.)"))) |>
   add_header_above(
     data.frame(
       paste("Time from Referral received-to-Ablation\n",
@@ -178,15 +179,14 @@ rxDoneAuditData %>%
         sep = ""
       ), 4
     )
-  ) %>%
+  ) |>
   kable_styling()
-
 ```
 Mean, median (days) and percentage of referrals meeting defined time standard from the referral received date to treatment date overall.
 
 <h2>Ablation Referral Days Stopped (Pre- or Post-DTT)</h2>
 ```{r daystopped_pre_or_post_dtt}
-rxDoneAuditData %>%
+rxDoneAuditData |>
   mutate(
     clockstopped = if_else(
       is.na(ClockStopDaysPreDTT),
@@ -198,18 +198,19 @@ rxDoneAuditData %>%
       if_else(is.na(ClockStopDaysPostDTT), 0, abs(ClockStopDaysPostDTT)),
       if_else(is.na(ClockStopDaysPostDTT), abs(ClockStopDaysPreDTT), abs(ClockStopDaysPreDTT + ClockStopDaysPostDTT)),
     ),
-  ) %>%
-  group_by(clockstopped) %>%
-  mutate(n = n(), clockstopped = paste(clockstopped, " (N=", n, ")", sep = "")) %>%
-  summarise(mean = round(mean(daysStopped), 1), median = round(median(daysStopped), 1)) %>%
-  kbl(col.names = c("Clock Status", "Mean time\n(days)", "Median\n(days)")) %>%
+  ) |>
+  group_by(clockstopped) |>
+  mutate(n = n(), clockstopped = paste(clockstopped, " (N=", n, ")", sep = "")) |>
+  summarise(mean = round(mean(daysStopped), 1), median = round(median(daysStopped), 1)) |>
+  kbl(col.names = c("Clock Status", "Mean time\n(days)", "Median\n(days)")) |>
   kable_styling()
 ```
 
 <h2>Ablation Referral Days Stopped (Pre- and Post-DTT Combined)</h2>
+
 ```{r daystopped_pre_and_post_dtt}
 # This groups clock stops before and after DTT all into the same group
-rxDoneAuditData %>%
+rxDoneAuditData |>
   mutate(
     clockstopped=if_else(
       is.na(ClockStopDaysPreDTT),
@@ -220,17 +221,19 @@ rxDoneAuditData %>%
       if_else(is.na(ClockStopDaysPostDTT), 0, abs(ClockStopDaysPostDTT)),
       if_else(is.na(ClockStopDaysPostDTT), abs(ClockStopDaysPreDTT), abs(ClockStopDaysPreDTT + ClockStopDaysPostDTT)),
     ),
-  ) %>%
-  group_by(clockstopped) %>%
-  mutate(n = n(), clockstopped = paste(clockstopped, " (N=", n, ")", sep = "")) %>%
-  summarise(mean = round(mean(daysStopped), 1), median = round(median(daysStopped), 1)) %>%
-  kbl(col.names = c("Clock Status", "Mean time\n(days)", "Median\n(days)")) %>%
+  ) |>
+  group_by(clockstopped) |>
+  mutate(n = n(), clockstopped = paste(clockstopped, " (N=", n, ")", sep = "")) |>
+  summarise(mean = round(mean(daysStopped), 1), median = round(median(daysStopped), 1)) |>
+  kbl(col.names = c("Clock Status", "Mean time\n(days)", "Median\n(days)")) |>
   kable_styling()
 ```
 
 <h2>Ablation Referral Clockstops</h2>
+
 ```{r clockstop}
-  rxDoneAuditData %>% mutate(
+  rxDoneAuditData |>
+  mutate(
     clockstopped=if_else(
       is.na(ClockStopDaysPreDTT),
       if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped Post DTT'),
@@ -240,43 +243,20 @@ rxDoneAuditData %>%
       if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT),
       if_else(is.na(ClockStopDaysPostDTT), ClockStopDaysPreDTT, ClockStopDaysPreDTT + ClockStopDaysPostDTT),
     ),
-  ) %>%
-  filter(clockstopped != "Not Stopped") %>%
-  select(ID, ClockStopWhy) %>%
-  kbl(col.names = c("ID", "Reason for clock stop")) %>%
+  ) |>
+  filter(clockstopped != "Not Stopped") |>
+  select(ID, ClockStopWhy) |>
+  kbl(col.names = c("ID", "Reason for clock stop")) |>
   kable_styling()
 ```
 
 ## Including Plots
-
 ```{r ttt_plot, echo=FALSE}
-rxDoneAuditDataplot <- ggplot(rxDoneAuditData, aes(x = RxDate, text = paste(ID, " (", Organs, ")\n", ClockStopWhy, sep = ""))) +
-  geom_point(aes(y = Ref_DTT, color = "Ref to DTT")) +
-  geom_point(aes(y = DTT_Rx, color = "DTT to Rx")) +
-  geom_point(aes(y = Ref_RxDone, color = "Ref to Rx")) +
-  geom_point(aes(y = ClockStopDaysPreDTT, color = "Clock Stops Pre-DTT")) +
-  geom_point(aes(y = ClockStopDaysPostDTT, color = "Clock Stops Post-DTT")) +
-  theme(legend.position = "bottom") +
-  scale_color_manual(values = rxdonePlotColors) +
-  guides(color = guide_legend("Treated Patients...")) +
-  labs(y = "Number of Days") +
-  ggtitle("Time to Treatment")
-
-# PCL: Not sure this makes sense now we can change dates of audit dynamically
-# break.vec <- seq(from = as.Date("2023-01-01"), to = as.Date("2024-01-01"),
-#                   by = "month")
-# labels.vec <- strftime(break.vec, "%b")
-# labels.vec[1] <- "Jan '23"
-# labels.vec[13] <- "Jan '24"
 
 rxDoneAuditDataplot <- commonRxDonePlot(rxDoneAuditData) +
   ggtitle("Time to Treatment")
-    
- rxDoneAuditDataplot 
- #    scale_x_date(limits = as.Date(c('2022-12-31', '2023-12-31'), format = "%d/%m/%Y", origin='1970-01-01'), #breaks=break.vec,  labels=labels.vec, expand=c(0.1,0)) +
- #    theme(legend.position="bottom")
- 
 
+rxDoneAuditDataplot
 ```
 
 ```{r organ_pie}
