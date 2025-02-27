@@ -37,11 +37,10 @@ rxDoneAuditData <- rxDoneData %>%
   filter(RxDate >= as.Date(audit_start_date) & RxDate < as.Date(audit_end_date)) 
 ```
 
-
 <!-- PCL: I had to do an ugly global variable hack to get audit_start_date and audit_end_date visible from this file, but it works-->
 <h1>Ablation Waiting Time Audit</h1>
 <br>
-Audit Generated on: 
+Audit Generated on:
 ```{r}
 renderText({
   format(Sys.time(), "%a %b %d %X %Y")
@@ -68,9 +67,9 @@ rxDoneAuditData %>%
   summarise(mean=round(mean(Ref_DTT, na.rm=T), 1),
             median=round(median(Ref_DTT, na.rm=T), 1),
             w10=(sum(within10, na.rm=T)),
-            w21=(sum(within21, na.rm=T)), 
+            w21=(sum(within21, na.rm=T)),
             'w10%'=round(sum(within10, na.rm=T)/n()*100, 1),
-            'w21%'=round(sum(within21, na.rm=T)/n()*100, 1), 
+            'w21%'=round(sum(within21, na.rm=T)/n()*100, 1),
             n=n()) %>%
   
   mutate(Organs=if_else(is.na(Organs), 'All Organs', Organs),
@@ -85,6 +84,7 @@ rxDoneAuditData %>%
             auditPeriodText,
             sep=""), 5) ) %>%
   kable_styling()
+
 ```
 Mean, median (days) and percentage of referrals meeting defined time standards from Referral received and the date the treatment is discussed in clinic with the patient who wants to go ahead with ablation (decision to treat; DTT).
 
@@ -114,6 +114,7 @@ rxDoneAuditData %>%
             sep=""), 6) ) %>%
   kable_styling()
 ```
+
 Mean, median (days) and percentage of referrals meeting defined time standards from the decision to treat clinic date (DTT) and the day of ablation treatment.
 
 <h2>Ablation Referral to Rx Times</h2>
@@ -123,7 +124,7 @@ rxDoneAuditData %>%
   overall_group("Organs") %>%
   summarise(mean=round(mean(Ref_RxDone, na.rm=T), 1),
             median=round(median(Ref_RxDone, na.rm=T), 1),
-            'w90'=round(sum(within90, na.rm=T), 1), 
+            'w90'=round(sum(within90, na.rm=T), 1),
             'w90%'=round(sum(within90, na.rm=T)/n()*100, 1),
             n=n(),
             ) %>%
@@ -140,6 +141,7 @@ rxDoneAuditData %>%
             sep=""), 4) ) %>%
 
   kable_styling()
+
 ```
 Mean, median (days) and percentage of referrals meeting defined time standard from the referral received date to treatment date overall.
 
@@ -167,10 +169,10 @@ rxDoneAuditData %>%
 <h2>Ablation Referral Days Stopped (Pre- and Post-DTT Combined)</h2>
 ```{r daystopped_pre_and_post_dtt}
 # This groups clock stops before and after DTT all into the same group
-rxDoneAuditData %>% 
+rxDoneAuditData %>%
   mutate(
     clockstopped=if_else(
-      is.na(ClockStopDaysPreDTT), 
+      is.na(ClockStopDaysPreDTT),
       if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped'),
       if_else(is.na(ClockStopDaysPostDTT), 'Stopped', 'Stopped')),
     daysStopped=if_else(
@@ -178,20 +180,19 @@ rxDoneAuditData %>%
       if_else(is.na(ClockStopDaysPostDTT), 0, abs(ClockStopDaysPostDTT)),
       if_else(is.na(ClockStopDaysPostDTT), abs(ClockStopDaysPreDTT), abs(ClockStopDaysPreDTT+ClockStopDaysPostDTT)),
     ),
-  ) %>% 
-  group_by(clockstopped) %>% 
+  ) %>%
+  group_by(clockstopped) %>%
   mutate(n=n(),clockstopped=paste(clockstopped, ' (N=', n,')', sep='')) %>%
   summarise(mean=round(mean(daysStopped), 1), median=round(median(daysStopped), 1))%>%
   kbl(col.names=c('Clock Status', 'Mean time\n(days)', 'Median\n(days)')) %>%
   kable_styling()
 ```
 
-
 <h2>Ablation Referral Clockstops</h2>
 ```{r clockstop}
   rxDoneAuditData %>% mutate(
     clockstopped=if_else(
-      is.na(ClockStopDaysPreDTT), 
+      is.na(ClockStopDaysPreDTT),
       if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped Post DTT'),
       if_else(is.na(ClockStopDaysPostDTT), 'Stopped Pre DTT', 'Stopped Both Pre and Post DTT')),
     daysStopped=if_else(
@@ -204,21 +205,12 @@ rxDoneAuditData %>%
   kable_styling()
 ```
 
-
 ## Including Plots
+
 ```{r ttt_plot, echo=FALSE}
 
-rxDoneAuditDataplot <- ggplot(rxDoneAuditData, aes(x=RxDate, text=paste(ID, ' (',Organs,')\n', ClockStopWhy, sep=''))) +
-      geom_point( aes(y=Ref_DTT,              color="Ref to DTT")) + 
-      geom_point( aes(y=DTT_Rx,               color="DTT to Rx")) + 
-      geom_point( aes(y=Ref_RxDone,           color="Ref to Rx")) +
-      geom_point( aes(y=ClockStopDaysPreDTT,  color="Clock Stops Pre-DTT")) +
-      geom_point( aes(y=ClockStopDaysPostDTT, color="Clock Stops Post-DTT")) +
-      theme(legend.position="bottom") +
-      scale_color_manual(values = rxdonePlotColors) +
-      guides(color=guide_legend("Treated Patients...")) +
-      labs(y="Number of Days") +
-      ggtitle("Time to Treatment")
+rxDoneAuditDataplot <- commonRxDonePlot(rxDoneAuditData) +
+  ggtitle("Time to Treatment")
   
   # PCL: Not sure this makes sense now we can change dates of audit dynamically
   #break.vec <- seq(from = as.Date("2023-01-01"), to = as.Date("2024-01-01"),
@@ -249,9 +241,10 @@ rxDoneAuditData %>%
 ```
 
 ## Long waits
+
 <h2>Ablation Long Waits</h2>
 ```{r longwaits}
-rxDoneAuditData %>% 
+rxDoneAuditData %>%
   filter(Ref_RxDone > 120) %>%
   mutate(ClockStopDaysPreDTT=if_else(is.na(ClockStopDaysPreDTT), 0, ClockStopDaysPreDTT),
          ClockStopDaysPostDTT=if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT)) %>%

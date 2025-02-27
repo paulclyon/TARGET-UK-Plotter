@@ -1,7 +1,7 @@
 # Populate monthlyRxWaitData which is basically a list of patients on the waiting list each month
 processMonthlyRxWaitingList <- function(startDate,endDate,organs)
 {
-  showNotification("Generating treeatment waiting list...")
+  showNotification("Generating treatment waiting list...")
   firstRefDate <- min(c(rxWaitData$RefDate, rxDoneData$RefDate), na.rm=T)
   lastRefDate  <- max(c(rxWaitData$RefDate, rxDoneData$RefDate), na.rm=T)
   if (isConvertibleToDate(endDate)) lastRefDate  <- min(lastRefDate,convertToDate(endDate))
@@ -66,7 +66,7 @@ processMonthlyRxWaitingList <- function(startDate,endDate,organs)
   }
   
   monthlyRxWaitData <<- data.frame(
-    MonthStart     = as.Date(monthlyWaitingListDates),
+    MonthStart     = asDateWithOrigin(monthlyWaitingListDates),
     Counts         = monthlyCounts,
     Type           = type,
     OnWaitingList = monthlyWaitingTotal)
@@ -78,25 +78,41 @@ processMonthlyRxWaitingList <- function(startDate,endDate,organs)
   if (isConvertibleToDate(startDate)) monthlyRxWaitData <<- monthlyRxWaitData %>% filter(MonthStart >= startPlotDate)
 }
 
-makeRxDonePlot <- function(startDate, endDate, organs)
-{
+makeRxDonePlot <- function(startDate, endDate, organs) {
   # Filter the dates and organs
   rxDoneData.filtered <- rxDoneData
-  if (isConvertibleToDate(startDate))
-  {
+
+  if (isConvertibleToDate(startDate)) {
     rxDoneData.filtered <- rxDoneData.filtered %>% filter(RxDate >= convertToDate(startDate))
   }
-  if (isConvertibleToDate(endDate))
-  {
+
+  if (isConvertibleToDate(endDate)) {
     rxDoneData.filtered <- rxDoneData.filtered %>% filter(RxDate <= convertToDate(endDate))
   }
-  if (length(organs)>0)
-  {
+
+  if (length(organs) > 0) {
     rxDoneData.filtered <- rxDoneData.filtered %>% filter(Organs %in% organs)
   }
-  if (!is.null(nrow(rxDoneData.filtered)))
-  {
-    rxdonePlotColors <<- c(
+
+  if (!is.null(nrow(rxDoneData.filtered))) {
+    rxdonePlot <<- commonRxDonePlot(rxDoneData.filtered) +
+      labs(title = paste0("Time to Treatment (Generated ", format(Sys.time(), "%a %b %d %Y %X"), ")")) +
+      theme(plot.title = element_text(size = 10))
+  } else {
+    rxdonePlot <<- NA
+  }
+  rxdonePlot
+}
+
+commonRxDonePlot <- function(filteredData, pointSize = 1, legend.position = "bottom") {
+  donePlot <- ggplot(filteredData, aes(x = RxDate, text = paste(ID, " (", Organs, ")\n", ClockStopWhy, sep = ""))) +
+    geom_point(aes(y = Ref_DTT, color = "Ref to DTT"), size = pointSize) +
+    geom_point(aes(y = DTT_Rx, color = "DTT to Rx"), size = pointSize) +
+    geom_point(aes(y = Ref_RxDone, color = "Ref to Rx"), size = pointSize) +
+    geom_point(aes(y = ClockStopDaysPreDTT, color = "Clock Stops Pre-DTT"), size = pointSize) +
+    geom_point(aes(y = ClockStopDaysPostDTT, color = "Clock Stops Post-DTT"), size = pointSize) +
+    theme(legend.position = legend.position) +
+    scale_color_manual(values = c(
       "Ref to DTT"           = "red",
       "DTT to Rx"            = "yellow",
       "Ref to Rx"            = "green",
@@ -104,27 +120,13 @@ makeRxDonePlot <- function(startDate, endDate, organs)
       "Clock Stops Post-DTT" = "cyan",
       "Operator1"            = "blue",
       "Waiting List"         = "orange"
-    )
-    rxdonePlot <<- ggplot(rxDoneData.filtered, aes(x = RxDate, text = paste(ID, " (", Organs, ")\n", ClockStopWhy, sep = ""))) +
-      geom_point(aes(y = Ref_DTT, color = "Ref to DTT"), size=1) +
-      geom_point(aes(y = DTT_Rx, color = "DTT to Rx"), size=1) +
-      geom_point(aes(y = Ref_RxDone, color = "Ref to Rx"), size=1) +
-      geom_point(aes(y = ClockStopDaysPreDTT, color = "Clock Stops Pre-DTT"), size=1) +
-      geom_point(aes(y = ClockStopDaysPostDTT, color = "Clock Stops Post-DTT"), size=1) +
-      theme(legend.position = "bottom") +
-      scale_color_manual(values = rxdonePlotColors) +
-      guides(color = guide_legend("Treated Patients:\n")) +
-      labs(y = "Number of Days") +
-      labs(title = paste0("Time to Treatment (Generated ",format(Sys.time(), "%a %b %d %Y %X"),")")) +
-      theme(plot.title = element_text(size = 10)) +
-      scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  }
-  else
-  {
-    rxdonePlot <<- NA
-  }
-  rxdonePlot
+    )) +
+    guides(color = guide_legend("Treated Patients:\n", position = "right"), ) +
+    labs(y = "Number of Days") +
+    scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  donePlot
 }
 
 makeRxWaitPlot <- function(startDate, endDate, organs)
