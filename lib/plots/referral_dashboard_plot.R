@@ -136,7 +136,7 @@ processReferralTimesPerPeriod <- function(doneData, waitingData, start, end, ran
 }
 
 refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly") {
-  maxY <- max(25, ceiling((max(referralTimes$MeanRefToDTT) + 1) / 5) * 5)
+  maxY <- max(25, ceiling((max(referralTimes$MeanRefToDTT, na.rm = T) + 1) / 5) * 5)
 
   referralTimes |>
     mutate(BreachStatus = if_else(MeanRefToDTT > 10, if_else(MeanRefToDTT > 21, ">21 days", ">10 days"), "<10 days")) |>
@@ -174,9 +174,15 @@ refToDTTCountPlot <- function(referralTimes, range_by = "Monthly") {
     ) |>
     pivot_longer(cols = -PeriodStart, names_to = "Breach Status", values_to = "Count") |>
     mutate(
+      `Breach Status` = case_match(
+        `Breach Status`,
+        `RefToDTT ≤10 days` = "≤10 days",
+        `RefToDTT ≤21 days` = "≤21 days",
+        `RefToDTT >21 days` = ">21 days"
+      ),
       `Breach Status` = factor(
         `Breach Status`,
-        levels = c("RefToDTT >21 days", "RefToDTT ≤21 days", "RefToDTT ≤10 days")
+        levels = c(">21 days", "≤21 days", "≤10 days")
       )
     ) |>
     ggplot() +
@@ -198,11 +204,15 @@ refToDTTCountPlot <- function(referralTimes, range_by = "Monthly") {
       y = "Number of Patients"
     ) +
     theme(plot.title = element_text(size = 10)) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.spacing.y = unit(0.1, "cm"))
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.spacing.y = unit(0.1, "cm"),
+      legend.position = "bottom"
+    )
 }
 
 dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
-  maxY <- max(65, ceiling((max(referralTimes$MeanDTTToRx) + 1) / 5) * 5)
+  maxY <- max(65, ceiling((max(referralTimes$MeanDTTToRx, na.rm = T) + 1) / 5) * 5)
 
   referralTimes |>
     mutate(BreachStatus = case_when(
@@ -246,13 +256,20 @@ dttToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
     ) |>
     pivot_longer(cols = -PeriodStart, names_to = "Breach Status", values_to = "Count") |>
     mutate(
+      `Breach Status` = case_match(
+        `Breach Status`,
+        `DTTToRx ≤31 days` = "≤31 days",
+        `DTTToRx ≤45 days` = "≤45 days",
+        `DTTToRx ≤60 days` = "≤60 days",
+        `DTTToRx >60 days` = ">60 days"
+      ),
       `Breach Status` = factor(
         `Breach Status`,
         levels = c(
-          "DTTToRx >60 days",
-          "DTTToRx ≤60 days",
-          "DTTToRx ≤45 days",
-          "DTTToRx ≤31 days"
+          ">60 days",
+          "≤60 days",
+          "≤45 days",
+          "≤31 days"
         )
       )
     ) |>
@@ -275,11 +292,15 @@ dttToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
       y = "Number of Patients"
     ) +
     theme(plot.title = element_text(size = 10)) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.spacing.y = unit(0.1, "cm"))
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.spacing.y = unit(0.1, "cm"),
+      legend.position = "bottom"
+    )
 }
 
 refToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
-  maxY <- max(90, ceiling((max(referralTimes$MeanRefToRx) + 1) / 5) * 5)
+  maxY <- max(90, ceiling((max(referralTimes$MeanRefToRx, na.rm = T) + 1) / 5) * 5)
 
   referralTimes |>
     mutate(BreachStatus = if_else(MeanRefToRx > 90, ">90 days", "<90 days")) |>
@@ -313,7 +334,12 @@ refToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
     select(PeriodStart, `RefToRx ≤90 days`, `RefToRx >90 days`) |>
     pivot_longer(cols = -PeriodStart, names_to = "Breach Status", values_to = "Count") |>
     mutate(
-      `Breach Status` = factor(`Breach Status`, levels = c("RefToRx >90 days", "RefToRx ≤90 days"))
+      `Breach Status` = case_match(
+        `Breach Status`,
+        `RefToRx ≤90 days` = "≤90 days",
+        `RefToRx >90 days` = ">90 days"
+      ),
+      `Breach Status` = factor(`Breach Status`, levels = c(">90 days", "≤90 days"))
     ) |>
     ggplot() +
     geom_bar(aes(x = PeriodStart, y = Count, fill = `Breach Status`),
@@ -334,5 +360,9 @@ refToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
       y = "Number of Patients"
     ) +
     theme(plot.title = element_text(size = 10)) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.spacing.y = unit(0.1, "cm"))
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.spacing.y = unit(0.1, "cm"),
+      legend.position = "bottom"
+    )
 }
