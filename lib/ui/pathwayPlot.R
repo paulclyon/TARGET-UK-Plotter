@@ -9,7 +9,6 @@ pathwayPlotTab <- function() {
             "Pathway Plot Type",
             c(
               "Treated Plot"             = "rxdonePlot",
-              "Treatment Times SPC Plot" = "spcRxTimePlot",
               "Waiting Plot"             = "rxwaitPlot",
               "Monthly Waiting List"     = "monthlyWaitingPlot"
             )
@@ -69,7 +68,6 @@ pathwayPlotServer <- function(input, output, session, api, plots)
     p <- switch(input$rxTimesPlotRadio,
       "rxdonePlot"         = makeRxDonePlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
       "rxwaitPlot"         = makeRxWaitPlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
-      "spcRxTimePlot"      = makeRxDonePlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans), # FIXME over to you Andy
       "monthlyWaitingPlot" = makeWaitingListPlot(input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans)
     )
     p
