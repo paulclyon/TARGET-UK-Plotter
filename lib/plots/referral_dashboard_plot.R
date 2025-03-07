@@ -176,9 +176,9 @@ refToDTTCountPlot <- function(referralTimes, range_by = "Monthly") {
     mutate(
       `Breach Status` = case_match(
         `Breach Status`,
-        `RefToDTT ≤10 days` = "≤10 days",
-        `RefToDTT ≤21 days` = "≤21 days",
-        `RefToDTT >21 days` = ">21 days"
+        "RefToDTT ≤10 days" ~ "≤10 days",
+        "RefToDTT ≤21 days" ~ "≤21 days",
+        "RefToDTT >21 days" ~ ">21 days"
       ),
       `Breach Status` = factor(
         `Breach Status`,
@@ -258,10 +258,10 @@ dttToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
     mutate(
       `Breach Status` = case_match(
         `Breach Status`,
-        `DTTToRx ≤31 days` = "≤31 days",
-        `DTTToRx ≤45 days` = "≤45 days",
-        `DTTToRx ≤60 days` = "≤60 days",
-        `DTTToRx >60 days` = ">60 days"
+        "DTTToRx ≤31 days" ~ "≤31 days",
+        "DTTToRx ≤45 days" ~ "≤45 days",
+        "DTTToRx ≤60 days" ~ "≤60 days",
+        "DTTToRx >60 days" ~ ">60 days"
       ),
       `Breach Status` = factor(
         `Breach Status`,
@@ -336,8 +336,8 @@ refToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
     mutate(
       `Breach Status` = case_match(
         `Breach Status`,
-        `RefToRx ≤90 days` = "≤90 days",
-        `RefToRx >90 days` = ">90 days"
+        "RefToRx ≤90 days" ~ "≤90 days",
+        "RefToRx >90 days" ~ ">90 days"
       ),
       `Breach Status` = factor(`Breach Status`, levels = c(">90 days", "≤90 days"))
     ) |>
