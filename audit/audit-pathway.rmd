@@ -36,11 +36,10 @@ rxDoneAuditData <- rxDoneData %>%
   filter(RxDate >= as.Date(audit_start_date) & RxDate < as.Date(audit_end_date))
 ```
 
-
 <!-- PCL: I had to do an ugly global variable hack to get audit_start_date and audit_end_date visible from this file, but it works-->
 <h1>Ablation Waiting Time Audit</h1>
 <br>
-Audit Generated on: 
+Audit Generated on:
 ```{r}
 renderText({
   format(Sys.time(), "%a %b %d %X %Y")
@@ -69,6 +68,7 @@ rxDoneAuditData %>%
     within21 = ifelse(Ref_DTT <= 21, 1, 0)
   ) %>%
   overall_group("Organs") %>%
+
   summarise(
     mean = round(mean(Ref_DTT, na.rm = T), 1),
     median = round(median(Ref_DTT, na.rm = T), 1),
@@ -95,6 +95,7 @@ rxDoneAuditData %>%
     )
   ) %>%
   kable_styling()
+
 ```
 Mean, median (days) and percentage of referrals meeting defined time standards from Referral received and the date the treatment is discussed in clinic with the patient who wants to go ahead with ablation (decision to treat; DTT).
 
@@ -144,6 +145,7 @@ rxDoneAuditData %>%
   ) %>%
   kable_styling()
 ```
+
 Mean, median (days) and percentage of referrals meeting defined time standards from the decision to treat clinic date (DTT) and the day of ablation treatment.
 
 <h2>Ablation Referral to Rx Times</h2>
@@ -153,6 +155,7 @@ rxDoneAuditData %>%
   filter(!is.na(Ref_RxDone)) %>%
   mutate(within90 = ifelse(Ref_RxDone <= 90, 1, 0)) %>%
   overall_group("Organs") %>%
+
   summarise(
     mean = round(mean(Ref_RxDone, na.rm = T), 1),
     median = round(median(Ref_RxDone, na.rm = T), 1),
@@ -177,6 +180,7 @@ rxDoneAuditData %>%
     )
   ) %>%
   kable_styling()
+
 ```
 Mean, median (days) and percentage of referrals meeting defined time standard from the referral received date to treatment date overall.
 
@@ -207,12 +211,11 @@ rxDoneAuditData %>%
 # This groups clock stops before and after DTT all into the same group
 rxDoneAuditData %>%
   mutate(
-    clockstopped = if_else(
+    clockstopped=if_else(
       is.na(ClockStopDaysPreDTT),
-      if_else(is.na(ClockStopDaysPostDTT), "Not Stopped", "Stopped"),
-      if_else(is.na(ClockStopDaysPostDTT), "Stopped", "Stopped")
-    ),
-    daysStopped = if_else(
+      if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped'),
+      if_else(is.na(ClockStopDaysPostDTT), 'Stopped', 'Stopped')),
+    daysStopped=if_else(
       is.na(ClockStopDaysPreDTT),
       if_else(is.na(ClockStopDaysPostDTT), 0, abs(ClockStopDaysPostDTT)),
       if_else(is.na(ClockStopDaysPostDTT), abs(ClockStopDaysPreDTT), abs(ClockStopDaysPreDTT + ClockStopDaysPostDTT)),
@@ -225,17 +228,14 @@ rxDoneAuditData %>%
   kable_styling()
 ```
 
-
 <h2>Ablation Referral Clockstops</h2>
 ```{r clockstop}
-rxDoneAuditData %>%
-  mutate(
-    clockstopped = if_else(
+  rxDoneAuditData %>% mutate(
+    clockstopped=if_else(
       is.na(ClockStopDaysPreDTT),
-      if_else(is.na(ClockStopDaysPostDTT), "Not Stopped", "Stopped Post DTT"),
-      if_else(is.na(ClockStopDaysPostDTT), "Stopped Pre DTT", "Stopped Both Pre and Post DTT")
-    ),
-    daysStopped = if_else(
+      if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped Post DTT'),
+      if_else(is.na(ClockStopDaysPostDTT), 'Stopped Pre DTT', 'Stopped Both Pre and Post DTT')),
+    daysStopped=if_else(
       is.na(ClockStopDaysPreDTT),
       if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT),
       if_else(is.na(ClockStopDaysPostDTT), ClockStopDaysPreDTT, ClockStopDaysPreDTT + ClockStopDaysPostDTT),
@@ -247,8 +247,8 @@ rxDoneAuditData %>%
   kable_styling()
 ```
 
-
 ## Including Plots
+
 ```{r ttt_plot, echo=FALSE}
 rxDoneAuditDataplot <- ggplot(rxDoneAuditData, aes(x = RxDate, text = paste(ID, " (", Organs, ")\n", ClockStopWhy, sep = ""))) +
   geom_point(aes(y = Ref_DTT, color = "Ref to DTT")) +
@@ -269,9 +269,14 @@ rxDoneAuditDataplot <- ggplot(rxDoneAuditData, aes(x = RxDate, text = paste(ID, 
 # labels.vec[1] <- "Jan '23"
 # labels.vec[13] <- "Jan '24"
 
-rxDoneAuditDataplot
-#    scale_x_date(limits = as.Date(c('2022-12-31', '2023-12-31'), format = "%d/%m/%Y", origin='1970-01-01'), #breaks=break.vec,  labels=labels.vec, expand=c(0.1,0)) +
-#    theme(legend.position="bottom")
+rxDoneAuditDataplot <- commonRxDonePlot(rxDoneAuditData) +
+  ggtitle("Time to Treatment")
+    
+ rxDoneAuditDataplot 
+ #    scale_x_date(limits = as.Date(c('2022-12-31', '2023-12-31'), format = "%d/%m/%Y", origin='1970-01-01'), #breaks=break.vec,  labels=labels.vec, expand=c(0.1,0)) +
+ #    theme(legend.position="bottom")
+ 
+
 ```
 
 ```{r organ_pie}
@@ -291,6 +296,7 @@ rxDoneAuditData %>%
 ```
 
 ## Long waits
+
 <h2>Ablation Long Waits</h2>
 ```{r longwaits}
 rxDoneAuditData %>%

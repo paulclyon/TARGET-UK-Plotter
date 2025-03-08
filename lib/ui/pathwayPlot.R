@@ -1,7 +1,8 @@
 pathwayPlotTab <- function() {
   list(
     fluidRow(
-      tabPanel("RxPathwayPlots",
+      tabPanel(
+        "RxPathwayPlots",
         column(
           width = 3,
           radioButtons(
@@ -13,7 +14,8 @@ pathwayPlotTab <- function() {
               "Monthly Waiting List"     = "monthlyWaitingPlot"
             )
           ),
-          br(),br(),
+          br(),
+          br(),
           actionButton(inputId = "refreshRxPlot", label = "Refresh Plot"),
         ),
         column(
@@ -42,12 +44,14 @@ pathwayPlotTab <- function() {
         ),
         column(
           width = 3,
-          div(style=
+          div(
+            style =
               "background-color: lightgrey;
                border: 5px solid blue;
                padding: 5px;
                margin: 5px;",
-          textOutput("informationalPathwayPlot"))
+            textOutput("informationalPathwayPlot")
+          )
         )
       )
     ),
@@ -60,12 +64,13 @@ pathwayPlotTab <- function() {
   )
 }
 
-pathwayPlotServer <- function(input, output, session, api, plots)
-{
+pathwayPlotServer <- function(input, output, session, api, plots) {
   finalRxPlotInput <- reactive({
     # Update the plots based on radiobuttons etc
     # This is an efficient way of doing things so that the plots are only made as the radiobuttons are updated
     p <- switch(input$rxTimesPlotRadio,
+      "rxdonePlot"         = makeRxDonePlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
+      "rxwaitPlot"         = makeRxWaitPlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
       "rxdonePlot"         = makeRxDonePlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
       "rxwaitPlot"         = makeRxWaitPlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
       "monthlyWaitingPlot" = makeWaitingListPlot(input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans)
@@ -81,13 +86,12 @@ pathwayPlotServer <- function(input, output, session, api, plots)
     )
     returnData
   })
-  
+
   observeEvent(input$plotRxPathwaySize, {
     plots$activePlot <- ggplot()
   })
 
-  filteredPlot <- reactive(
-  {
+  filteredPlot <- reactive({
     filteredRxData <- finalRxTableDataInput()
     p <- finalRxPlotInput() # FIXME Need a fix if empty ie. if (!is.list(filteredRxData))
     p
@@ -114,20 +118,34 @@ pathwayPlotServer <- function(input, output, session, api, plots)
   observeEvent(input$refreshRxPlot, {
     plots$activePlot <- ggplot()
   })
-  
+
   informationalText <- reactive({
     headerText <- "Informational:\n"
     rxDoneText <- ""
-    if(notForRxButRxdCount > 0)
-    {
-      rxDoneText <- paste(notForRxButRxdCount,"/",noRefsProcessed," treatment dates have been excluded from the analysis due to referral data integrity errors; see Data Integrity Table.",sep="")
+    if (notForRxButRxdCount > 0) {
+      rxDoneText <- paste(notForRxButRxdCount, "/", noRefsProcessed,
+        " treatment dates have been excluded from the analysis due to referral data integrity errors;",
+        " see Data Integrity Table.",
+        sep = ""
+      )
     }
     switch(input$rxTimesPlotRadio,
-           "rxdonePlot" = paste(headerText,rxDoneText, sep=""),
-           "rxwaitPlot" = paste(headerText,nrow(rxWaitData)," on waiting list of ",noRefsProcessed," processed referrals, of which ",sum(!is.na(rxWaitData$RefDate))," have a valid referral date.", sep=""),
-           "monthlyWaitingPlot" = paste(headerText,"Up to date ",as.Date(dplyr::last(monthlyRxWaitData$MonthStart)) - as.difftime(1,units="days")," there are ",dplyr::last(monthlyRxWaitData$OnWaitingList)," patients on waiting list for the selected organs.", sep="")
+      "rxdonePlot" = paste(headerText, rxDoneText, sep = ""),
+      "rxwaitPlot" = paste(headerText, nrow(rxWaitData), " on waiting list of ",
+        noRefsProcessed, " processed referrals, of which ",
+        sum(!is.na(rxWaitData$RefDate)), " have a valid referral date.",
+        sep = ""
+      ),
+      "monthlyWaitingPlot" = paste(headerText, "Up to date ",
+        as.Date(dplyr::last(monthlyRxWaitData$MonthStart)) - as.difftime(1, units = "days"),
+        " there are ", dplyr::last(monthlyRxWaitData$OnWaitingList),
+        " patients on waiting list for the selected organs.",
+        sep = ""
+      )
     )
   })
-  
-  output$informationalPathwayPlot <- renderText({ informationalText() })
+
+  output$informationalPathwayPlot <- renderText({
+    informationalText()
+  })
 }

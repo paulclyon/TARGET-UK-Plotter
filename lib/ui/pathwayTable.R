@@ -7,9 +7,11 @@ pathwayTab <- function() {
         radioButtons(
           "rxTimesTableRadio",
           "Pathway Table Type",
-          c("Treated" = "rxdoneTable",
+          c(
+            "Treated" = "rxdoneTable",
             "Current Waiting" = "rxwaitTable",
-            "Monthly Waiting List" = "monthlyWaitTable")
+            "Monthly Waiting List" = "monthlyWaitTable"
+          )
         )
       ),
       column(
@@ -22,7 +24,7 @@ pathwayTab <- function() {
       ),
       column(
         width = 3,
-        actionButton("buttonRefresh", "Refresh")
+        actionButton("buttonRefreshTimesData", "Refresh")
       )
     )),
     fluidRow(box(
@@ -32,8 +34,7 @@ pathwayTab <- function() {
   )
 }
 
-pathwayTableServer <- function(input, output, session, isDocker)
-{
+pathwayTableServer <- function(input, output, session, isDocker) {
   finalRxTableDataInput <- reactive({
     switch(input$rxTimesTableRadio,
       "rxdoneTable"      = rxDoneData,
@@ -43,14 +44,14 @@ pathwayTableServer <- function(input, output, session, isDocker)
   })
 
   observeEvent(input$buttonPasteRxTimesData, {
-    if (isDocker == T)
-    {
-      shinyCatch({
-        message("Sorry running in a Docker via Web interface therefore data export functions not available...")
-      }, prefix = '')
-    }
-    else
-    {
+    if (isDocker == T) {
+      shinyCatch(
+        {
+          message("Sorry running in a Docker via Web interface therefore data export functions not available...")
+        },
+        prefix = ""
+      )
+    } else {
       copyDataToClipboard(finalRxTableDataInput())
       shinyCatch(
         {
@@ -62,43 +63,61 @@ pathwayTableServer <- function(input, output, session, isDocker)
   })
 
   observeEvent(input$buttonSaveRxTimesData, {
-    if (isDocker == T)
-    {
-      shinyCatch({
-        message("Sorry running in a Docker via Web interface therefore data export functions not available...")
-      }, prefix = '')
-    }
-    else
-    {
+    if (isDocker == T) {
+      shinyCatch(
+        {
+          message("Sorry running in a Docker via Web interface therefore data export functions not available...")
+        },
+        prefix = ""
+      )
+    } else {
       exportFile <- NA
-      shinyCatch({
+      shinyCatch(
+        {
           message("If this is a secure computer (patient IDs included), choose a file to export to...")
-        }, prefix = "")
-      result = tryCatch({ exportFile <- file.choose(new = TRUE) }, error = function(err) { logger(err,F) })
-      if (!is.na(exportFile) && exportFile != "")
-      {
+        },
+        prefix = ""
+      )
+      result <- tryCatch(
+        {
+          exportFile <- file.choose(new = TRUE)
+        },
+        error = function(err) {
+          logger(err, F)
+        }
+      )
+      if (!is.na(exportFile) && exportFile != "") {
         if (!endsWith(exportFile, ".csv")) {
           exportFile <- paste(exportFile, ".csv", sep = "")
         }
-        shinyCatch({
+        shinyCatch(
+          {
             message(paste("Attempting to export data to file", exportFile))
-          }, prefix = "")
+          },
+          prefix = ""
+        )
         write.csv(finalRxTableDataInput(), exportFile, row.names = TRUE)
-        shinyCatch({
+        shinyCatch(
+          {
             message(paste("Exported data to file", exportFile))
-        }, prefix = "")
-      }
-      else
-      {
-        shinyCatch({
+          },
+          prefix = ""
+        )
+      } else {
+        shinyCatch(
+          {
             message(paste("No file selected to export to, no data export performed"))
-        }, prefix = "")
+          },
+          prefix = ""
+        )
       }
     }
   })
-  
-  observeEvent(input$buttonRefresh, {
-    output$tableRxPathway <- DT::renderDataTable({DT::datatable(finalRxTableDataInput())})
+
+  observeEvent(input$buttonRefreshTimesData, {
+    output$tableRxPathway <- DT::renderDataTable({
+      DT::datatable(finalRxTableDataInput())
+    })
   })
 
   output$tableRxPathway <- DT::renderDataTable({

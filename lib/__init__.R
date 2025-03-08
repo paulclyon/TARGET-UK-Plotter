@@ -36,9 +36,11 @@ required_pkgs <- c(
 )
 
 # Install tinyytex if not installed already
-if (tinytex::check_installed('framed') == FALSE)
-{
-  tinytex::install_tinytex()
+if (tinytex::check_installed("framed") == FALSE) {
+  if (length(suppressWarnings(tryCatch(
+    tinytex:::kpsewhich("framed.sty", stdout = TRUE), error = function(e) ""))) == 0) {
+    tinytex::install_tinytex()
+  }
 }
 
 # FIXME Install LaTeX packages to make PDF from HTML
@@ -79,6 +81,9 @@ logger <- function(msg, stderr = FALSE) {
     } else {
       write(toString(msg), stderr())
     }
+  }
+  if (!exists('logger.df')) {
+    logger.df <<- data.frame()
   }
   logger.df <<- rbind(logger.df,data.frame(TimeStamp=format(Sys.time(), "%a %b %d %X %Y"), IsError=stderr, Message=paste0(msg, collapse="|")))
   return()
