@@ -10,7 +10,6 @@ pathwayPlotTab <- function() {
             "Pathway Plot Type",
             c(
               "Treated Plot"             = "rxdonePlot",
-              "Treatment Times SPC Plot" = "spcRxTimePlot",
               "Waiting Plot"             = "rxwaitPlot",
               "Monthly Waiting List"     = "monthlyWaitingPlot"
             )
@@ -70,10 +69,10 @@ pathwayPlotServer <- function(input, output, session, api, plots) {
     # Update the plots based on radiobuttons etc
     # This is an efficient way of doing things so that the plots are only made as the radiobuttons are updated
     p <- switch(input$rxTimesPlotRadio,
-      "rxdonePlot"         = makeRxDonePlot(input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
-      "rxwaitPlot"         = makeRxWaitPlot(input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
-      # FIXME: spcRxTimePlot needs further fixes: over to you Andy
-      "spcRxTimePlot"      = makeRxDonePlot(input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
+      "rxdonePlot"         = makeRxDonePlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
+      "rxwaitPlot"         = makeRxWaitPlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
+      "rxdonePlot"         = makeRxDonePlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
+      "rxwaitPlot"         = makeRxWaitPlot(     input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans),
       "monthlyWaitingPlot" = makeWaitingListPlot(input$rxPlotStartDate, input$rxPlotEndDate, input$rxPlotSelectedOrgans)
     )
     p
