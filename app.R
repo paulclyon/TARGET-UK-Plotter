@@ -72,12 +72,12 @@ ui <- dashboardPage(
         icon = icon("chart-simple"),
         menuSubItem("Pathway Plots", tabName = "rxPathwayPlots"),
         menuSubItem("Pathway Pies", tabName = "rxPathwayPies"),
+        menuSubItem("Wait Times Dashboard", tabName = "waitTimesDashboard"),
         menuSubItem("Operator Plot", tabName = "operatorPlots"),
         menuSubItem("Volume Plot", tabName = "volumePlots"),
         menuSubItem("Recurrence Plot", tabName = "recurrencePlot"),
         menuSubItem("Survival Plot", tabName = "survivalPlot"),
         menuSubItem("Referral Status Plot", tabName = "referralStatus"),
-        menuSubItem("Referral Dashboard Plot", tabName = "referralDashboard"),
         menuSubItem("Referral Maps", tabName = "referralMaps")
       ), id = "chartsMenuItem")),
       hidden(tagAppendAttributes(menuItem(
@@ -145,7 +145,7 @@ ui <- dashboardPage(
       tabItem("recurrencePlot", recurrencePlotTab()),
       tabItem("survivalPlot", survivalPlotTab()),
       tabItem("referralStatus", referralStatusPlotTab()),
-      tabItem("referralDashboard", referralDashboardPlotTab()),
+      tabItem("waitTimesDashboard", waitTimesDashboardPlotTab()),
       tabItem("referralMaps", referralMapTab()),
       tabItem("rxPathwayTab", pathwayTab()),
       tabItem("aeTab", aeTab()),
@@ -268,7 +268,7 @@ server <- function(input, output, session) {
   dataIntegrityTableServer(input, output, session, isDocker)
   loggerTableServer(input, output, session, isDocker)
   referralStatusPlotServer(input, output, session, api, plots)
-  referralDashboardPlotServer(input, output, session, api, plots)
+  waitTimesDashboardPlotServer(input, output, session, api, plots)
   referralsMapServer(input, output, session, plots)
   pathwaySummaryServer(input, output, session)
   survivalSummaryServer(input, output, session)

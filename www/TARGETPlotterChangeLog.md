@@ -32,6 +32,9 @@ V0.7  Gazelle:   Plot informationals, Audit Save to PDF option
                  Table scroll bars, free text to treatment table, adverse events table fix
                  Added monthly waiting list plot
                  <br>
+V0.8  Hedgehog:  Added SPC treatment time waiting plots (AT)
+                 Improved audit report for treatment waiting times (AT)
+                 <br>
 </pre>
 
 Code Implementation by (PCL) unless otherwise specified<br>

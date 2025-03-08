@@ -1,4 +1,4 @@
-processReferralTimesPerPeriod <- function(doneData, waitingData, start, end, range_by_string) {
+processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_by_string) {
   range_by <- "month"
   if (grepl("(\\d+ )?((day)|(week)|(month)|(quarter)|(year))s?", range_by_string)) {
     range_by <- range_by_string
@@ -155,8 +155,9 @@ refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly") {
     labs(
       title =
         paste0(
-          stringr::str_to_title(range_by),
-          " Referral to DTT Times (Generated ",
+          "Referral to DTT Time ",
+          "(By ",stringr::str_to_title(range_by),")",
+          "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
       x = "",
@@ -196,8 +197,9 @@ refToDTTCountPlot <- function(referralTimes, range_by = "Monthly") {
     labs(
       title =
         paste0(
-          stringr::str_to_title(range_by),
-          " Referral to DTT Counts (Generated ",
+          "Referral to DTT Count ",
+          "(By ",stringr::str_to_title(range_by),")",
+          "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
       x = "",
@@ -237,8 +239,9 @@ dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
     labs(
       title =
         paste0(
-          stringr::str_to_title(range_by),
-          " DTT to Rx Times (Generated ",
+          "DTT to Rx Times ",
+          "(By ",stringr::str_to_title(range_by),")",
+          "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
       x = "",
@@ -284,8 +287,9 @@ dttToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
     labs(
       title =
         paste0(
-          stringr::str_to_title(range_by),
-          " DTT to Rx Counts (Generated ",
+          "DTT to Rx Counts ",
+          "(By ",stringr::str_to_title(range_by),")",
+          "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
       x = "",
@@ -318,9 +322,11 @@ refToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
     labs(
       title =
         paste0(
-          stringr::str_to_title(range_by),
-          " Referral to Rx Times (Generated ",
+          "Referral to Rx Time ",
+          "(By ",stringr::str_to_title(range_by),")",
+          "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
+          
         ),
       x = "",
       y = "Number of Days"
@@ -352,8 +358,9 @@ refToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
     labs(
       title =
         paste0(
-          stringr::str_to_title(range_by),
-          " Referral to Rx Counts (Generated ",
+          "Referral to Rx Count ",
+          "(By ",stringr::str_to_title(range_by),")",
+          "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
       x = "",
