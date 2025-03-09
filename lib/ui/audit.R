@@ -131,9 +131,11 @@ auditServer <- function(input, output, session, api, plots)
     {
       exportFile <- NA
       shinyCatch({
-        message("If this is a secure computer (patient IDs included), choose a PDF file to export to...")
+        message("If this is a secure computer (patient IDs included), choose a PDF file to export in a directory with write access...")
       }, prefix = "")
-      result = tryCatch({ exportFile <- svDialogs::dlg_save(title = "Save R script to", default="targetuk_waiting_time_audit_report.pdf") }, error = function(err) { logger(err,F) })
+      outputPDF <- "targetuk_waiting_time_audit_report.pdf"
+      if (dir.exists("reports")) outputPDF <- paste0("reports/",outputPDF)
+      result = tryCatch({ exportFile <- svDialogs::dlg_save(title = "Save R script to", default=outputPDF) }, error = function(err) { logger(err,F) })
       if (length(exportFile$res >0) && !is.na(exportFile$res) && exportFile$res != "")
       {
         if (!endsWith(exportFile$res, ".pdf")) {
