@@ -3,8 +3,10 @@ title: "Ablation Waiting Time Audit Report"
 header-includes:
 - \usepackage{pdflscape}
 output:
-  html_document: default
-  pdf_document: default
+  html_document:
+    toc: true
+  pdf_document:
+    toc: true
 date: "2024-01-29"
 ---
 
@@ -30,28 +32,22 @@ overall_group <- function(data, col_name) {
   subset(d12, select = -c(summary_level))
 }
 
+auditLength <- as.Date(audit_end_date) - as.Date(audit_start_date)
+auditStart <- as.Date(audit_start_date)
+auditEnd <- as.Date(audit_end_date)
+
 # Remove Dummy patient numbers from the data
-rxDoneAuditData <- rxDoneData %>%
-  filter((ID != "000-1" & ID != "00000-1" & ID != "000000-1")) %>%
-  filter(RxDate >= as.Date(audit_start_date) & RxDate < as.Date(audit_end_date))
-```
+rxWaitAuditData <- rxWaitData |>
+  filter((ID != "000-1" & ID != "00000-1" & ID != "000000-1"))
 
-<!-- PCL: I had to do an ugly global variable hack to get audit_start_date and audit_end_date visible from this file, but it works-->
-<h1>Ablation Waiting Time Audit</h1>
+rxDoneAuditData <- rxDoneData |>
+  filter((ID != "000-1" & ID != "00000-1" & ID != "000000-1")) |>
+  filter(RxDate >= auditStart & RxDate < auditEnd)
 
-Audit Generated on:
+rxDoneAuditDataPreceding <- rxDoneData |>
+  filter((ID != "000-1" & ID != "00000-1" & ID != "000000-1")) |>
+  filter(RxDate >= (auditStart - auditLength) & RxDate < auditStart)
 
-```{r}
-renderText({
-  format(Sys.time(), "%a %b %d %X %Y")
-})
-```
-<br>
-Audit Period from: `r audit_start_date` to: `r audit_end_date`<br><br>
-Organs included in audit: `r paste(audit_organs)`<br>
-
-<h2>Ablation Referral to DTT Times</h2>
-```{r ref_dtt}
 auditPeriodText <- paste(format.Date(audit_start_date, "%e %b %Y"),
   "–",
   format.Date(audit_end_date, "%e %b %Y"),
@@ -60,32 +56,117 @@ auditPeriodText <- paste(format.Date(audit_start_date, "%e %b %Y"),
   " month period)",
   sep = ""
 )
+
+auditPrecedingText <- paste(format.Date(auditStart - auditLength, "%e %b %Y"),
+  "–",
+  format.Date(auditStart, "%e %b %Y"),
+  sep = ""
+)
+
+t.significantMarker <- function(p.value) {
+  if (is.na(p.value)) {
+    ""
+  } else if (p.value < 0.05) {
+    " *"
+  } else {
+    ""
+  }
+}
+
+getTTestPValue <- function(organ, column) {
+  tryCatch(
+    {
+      t.test(
+        rxDoneAuditData |>
+          filter(organ == "All Organs" | Organs == organ) |>
+          pull(column),
+        rxDoneAuditDataPreceding |>
+          filter(organ == "All Organs" | Organs == organ) |>
+          pull(column)
+      )$p.value |> t.significantMarker()
+    },
+    error = function(e) {
+      ""
+    }
+  )
+}
+
+z.significantMarker <- function(p.value) {
+  if (is.na(p.value)) {
+    ""
+  } else if (p.value < 0.05) {
+    " †"
+  } else {
+    ""
+  }
+}
+
+getZTestPValue <- function(current, preceding, organ, column) {
+  tryCatch(
+    {
+      prop.test(
+        x = c(
+          current = current[current$Organs == organ, column],
+          preceding = preceding[preceding$Organs == organ, column]
+        ),
+        n = c(
+          current = current[current$Organs == organ, "n"],
+          preceding = preceding[preceding$Organs == organ, "n"]
+        )
+      )$p.value |> z.significantMarker()
+    },
+    error = function(e) {
+      ""
+    }
+  )
+}
 ```
 
-```{r ref_dtt_tableh}
-rxDoneAuditData |>
-  mutate(Ref_DTT = if_else(Ref_DTT < 0, NA, Ref_DTT)) |>
-  filter(!is.na(Ref_DTT)) |>
-  mutate(
-    within10 = ifelse(Ref_DTT <= 10, 1, 0),
-    within21 = ifelse(Ref_DTT <= 21, 1, 0)
-  ) |>
-  overall_group("Organs") |>
-  summarise(
-    mean = round(mean(Ref_DTT, na.rm = T), 1),
-    median = round(median(Ref_DTT, na.rm = T), 1),
-    w10 = (sum(within10, na.rm = T)),
-    w21 = (sum(within21, na.rm = T)),
-    "w10%" = round(sum(within10, na.rm = T) / n() * 100, 1),
-    "w21%" = round(sum(within21, na.rm = T) / n() * 100, 1),
-    n = n()
-  ) |>
-  mutate(
-    Organs = if_else(is.na(Organs), "All Organs", Organs),
-    "Organ Treated" = paste(Organs, " (N=", n, ")", sep = "")
-  ) |>
-  ungroup() |>
-  filter(Organs == "All Organs" | Organs %in% audit_organs) |>
+<!-- PCL: I had to do an ugly global variable hack to get audit_start_date and audit_end_date visible from this file, but it works-->
+
+Audit Generated on:
+
+```{r}
+renderText({
+  format(Sys.time(), "%a %b %d %X %Y")
+})
+```
+
+
+Audit Period from: `r audit_start_date` to: `r audit_end_date`<br><br>
+Organs included in audit: `r paste(audit_organs)`<br>
+
+## Ablation Referral to DTT Times
+
+```{r ref_dtt_table}
+generateDTTTable <- function(doneData) {
+  doneData |>
+    mutate(Ref_DTT = if_else(Ref_DTT < 0, NA, Ref_DTT)) |>
+    mutate(
+      within10 = ifelse(Ref_DTT <= 10, 1, 0),
+      within21 = ifelse(Ref_DTT <= 21, 1, 0)
+    ) |>
+    overall_group("Organs") |>
+    summarise(
+      mean = round(mean(Ref_DTT, na.rm = T), 1),
+      median = round(median(Ref_DTT, na.rm = T), 1),
+      w10 = (sum(within10, na.rm = T)),
+      w21 = (sum(within21, na.rm = T)),
+      "w10%" = round(sum(within10, na.rm = T) / n() * 100, 1),
+      "w21%" = round(sum(within21, na.rm = T) / n() * 100, 1),
+      n = n()
+    ) |>
+    mutate(
+      Organs = if_else(is.na(Organs), "All Organs", Organs),
+      "Organ Treated" = paste(Organs, " (N=", n, ")", sep = "")
+    ) |>
+    ungroup() |>
+    filter(Organs == "All Organs" | Organs %in% audit_organs)
+}
+
+dttTable <- generateDTTTable(rxDoneAuditData)
+
+dttTable |>
   select("Organ Treated", mean, median, "w10%", "w21%") |>
   kbl(col.names = c(
     "Organ Treated",
@@ -107,34 +188,134 @@ rxDoneAuditData |>
 
 Mean, median (days) and percentage of referrals meeting defined time standards from Referral received and the date the treatment is discussed in clinic with the patient who wants to go ahead with ablation (decision to treat; DTT).
 
-<h2>Ablation DTT to Rx Times</h2>
+```{r ref_dtt_boxplot}
+rxDoneAuditData |>
+  mutate(Ref_DTT = if_else(Ref_DTT < 0, NA, Ref_DTT)) |>
+  ggplot(aes(x = Organs, y = Ref_DTT, color = Organs)) +
+  geom_hline(yintercept = 10, linetype = "dashed", color = "orange") +
+  geom_hline(yintercept = 21, linetype = "dashed", color = "red") +
+  geom_boxplot() +
+  ggtitle(paste("Time from Referral Received-to-DTT\n",
+    auditPeriodText,
+    sep = ""
+  )) +
+  labs(y = "Days", x = "Organ Treated") +
+  theme(legend.position = "bottom")
+```
+
+### Comparison with Preceding Audit Period
+
+```{r ref_dtt_table_preceding_section, echo=FALSE, warning=FALSE}
+preceding <- generateDTTTable(rxDoneAuditDataPreceding)
+
+refdtt.tests <- c(audit_organs, "All Organs") |>
+  purrr::map(function(organ) {
+    tibble(
+      Organs = organ,
+      t.test.significantMarker = getTTestPValue(organ, "Ref_DTT"),
+      w10.test.significantMarker = getZTestPValue(
+        current = dttTable,
+        preceding = preceding,
+        organ = organ,
+        column = "w10"
+      ),
+      w21.test.significantMarker = getZTestPValue(
+        current = dttTable,
+        preceding = preceding,
+        organ = organ,
+        column = "w21"
+      ),
+    )
+  }) |>
+  dplyr::bind_rows()
+```
+
+
+```{r ref_dtt_table_preceding_section3, echo=FALSE}
+dttTable |>
+  full_join(preceding, by = "Organs", suffix = c("", ".Preceding")) |>
+  left_join(refdtt.tests, by = "Organs") |>
+  mutate(
+    "Organ Treated" = paste(Organs, " (N=", n, ", (", n.Preceding, "))", sep = ""),
+    mean = paste(mean, " (", mean.Preceding, ")", t.test.significantMarker, sep = ""),
+    median = paste(median, " (", median.Preceding, ")", sep = ""),
+    "w10%" = paste(`w10%`, " (", `w10%.Preceding`, ")", w10.test.significantMarker, sep = ""),
+    "w21%" = paste(`w21%`, " (", `w21%.Preceding`, ")", w21.test.significantMarker, sep = "")
+  ) |>
+  select("Organ Treated", mean, median, "w10%", "w21%") |>
+  kbl(col.names = c(
+    "Organ Treated",
+    "Mean time\n(days)",
+    "Median\n(days)",
+    "% within 10 days\n(Local std.)",
+    "% within 21 days\n(Local std.)"
+  )) |>
+  add_header_above(
+    data.frame(
+      paste("Time from Referral Received-to-DTT\n",
+        auditPeriodText, " vs ", auditPrecedingText,
+        sep = ""
+      ), 5
+    )
+  ) |>
+  kable_styling()
+```
+
+* Numbers in brackets represent the results in the preceding audit period
+* \* - Significant difference between the current and preceding audit period (t-test)
+* † - Significant difference between the current and preceding audit period (z-test for proportions)
+
+```{r ref_dtt_boxplot_preceding, echo=FALSE, warning=FALSE}
+rxDoneAuditData |>
+  select(Organs, Ref_DTT) |>
+  mutate(Period = "Current") |>
+  dplyr::rows_append(rxDoneAuditDataPreceding |> select(Organs, Ref_DTT) |> mutate(Period = "Preceding")) |>
+  mutate(Ref_DTT = if_else(Ref_DTT < 0, NA, Ref_DTT)) |>
+  ggplot(aes(x = Organs, y = Ref_DTT, color = Period)) +
+  geom_hline(yintercept = 10, linetype = "dashed", color = "orange") +
+  geom_hline(yintercept = 21, linetype = "dashed", color = "red") +
+  geom_boxplot(position = "dodge2") +
+  ggtitle(paste("Time from Referral Received-to-DTT\n",
+    auditPeriodText, " vs ", auditPrecedingText,
+    sep = ""
+  )) +
+  labs(y = "Days", x = "Organ Treated") +
+  theme(legend.position = "bottom")
+```
+
+## Ablation DTT to Rx Times
 
 ```{r dtt_rx}
-rxDoneAuditData |>
-  mutate(DTT_Rx = if_else(DTT_Rx < 0, NA, DTT_Rx)) |>
-  filter(!is.na(DTT_Rx)) |>
-  mutate(
-    within31 = ifelse(DTT_Rx <= 31, 1, 0),
-    within45 = ifelse(DTT_Rx <= 45, 1, 0),
-    within60 = ifelse(DTT_Rx <= 60, 1, 0)
-  ) |>
-  overall_group("Organs") |>
-  summarise(
-    mean = round(mean(DTT_Rx, na.rm = T), 1),
-    median = round(median(DTT_Rx, na.rm = T), 1),
-    w45 = (sum(within45, na.rm = T)),
-    w60 = (sum(within60, na.rm = T)),
-    "w31%" = round(sum(within31, na.rm = T) / n() * 100, 1),
-    "w45%" = round(sum(within45, na.rm = T) / n() * 100, 1),
-    "w60%" = round(sum(within60, na.rm = T) / n() * 100, 1),
-    n = n()
-  ) |>
-  mutate(
-    Organs = if_else(is.na(Organs), "All Organs", Organs),
-    "Organ (n)" = paste(Organs, " (N=", n, ")", sep = "")
-  ) |>
-  ungroup() |>
-  filter(Organs == "All Organs" | Organs %in% audit_organs) |>
+generateDTTtoRxTable <- function(doneData) {
+  doneData |>
+    mutate(DTT_Rx = if_else(DTT_Rx < 0, NA, DTT_Rx)) |>
+    mutate(
+      within31 = ifelse(DTT_Rx <= 31, 1, 0),
+      within45 = ifelse(DTT_Rx <= 45, 1, 0),
+      within60 = ifelse(DTT_Rx <= 60, 1, 0)
+    ) |>
+    overall_group("Organs") |>
+    summarise(
+      mean = round(mean(DTT_Rx, na.rm = T), 1),
+      median = round(median(DTT_Rx, na.rm = T), 1),
+      w45 = (sum(within45, na.rm = T)),
+      w60 = (sum(within60, na.rm = T)),
+      "w31%" = round(sum(within31, na.rm = T) / n() * 100, 1),
+      "w45%" = round(sum(within45, na.rm = T) / n() * 100, 1),
+      "w60%" = round(sum(within60, na.rm = T) / n() * 100, 1),
+      n = n()
+    ) |>
+    mutate(
+      Organs = if_else(is.na(Organs), "All Organs", Organs),
+      "Organ (n)" = paste(Organs, " (N=", n, ")", sep = "")
+    ) |>
+    ungroup() |>
+    filter(Organs == "All Organs" | Organs %in% audit_organs)
+}
+
+dttRxTable <- generateDTTtoRxTable(rxDoneAuditData)
+
+dttRxTable |>
   select("Organ (n)", mean, median, "w31%", "w45%", "w60%") |>
   kbl(col.names = c(
     "Organ Treated",
@@ -157,26 +338,136 @@ rxDoneAuditData |>
 
 Mean, median (days) and percentage of referrals meeting defined time standards from the decision to treat clinic date (DTT) and the day of ablation treatment.
 
-<h2>Ablation Referral to Rx Times</h2>
-```{r ref_rx}
+```{r dtt_rx_boxplot, echo=FALSE, warning=FALSE}
 rxDoneAuditData |>
-  mutate(Ref_RxDone = if_else(Ref_RxDone < 0, NA, Ref_RxDone)) |>
-  filter(!is.na(Ref_RxDone)) |>
-  mutate(within90 = ifelse(Ref_RxDone <= 90, 1, 0)) |>
-  overall_group("Organs") |>
-  summarise(
-    mean = round(mean(Ref_RxDone, na.rm = T), 1),
-    median = round(median(Ref_RxDone, na.rm = T), 1),
-    "w90" = round(sum(within90, na.rm = T), 1),
-    "w90%" = round(sum(within90, na.rm = T) / n() * 100, 1),
-    n = n(),
-  ) |>
+  mutate(DTT_Rx = if_else(DTT_Rx < 0, NA, DTT_Rx)) |>
+  ggplot(aes(x = Organs, y = DTT_Rx, color = Organs)) +
+  geom_hline(yintercept = 31, linetype = "dashed", color = "orange") +
+  geom_hline(yintercept = 45, linetype = "dashed", color = "red") +
+  geom_hline(yintercept = 60, linetype = "dashed", color = "darkred") +
+  geom_boxplot() +
+  ggtitle(paste("Time from DTT-to-Ablation\n",
+    auditPeriodText,
+    sep = ""
+  )) +
+  labs(y = "Days", x = "Organ Treated") +
+  theme(legend.position = "bottom")
+```
+
+### Comparison with Preceding Audit Period
+
+```{r dtt_rx_table_preceding_section, echo=FALSE, warning=FALSE}
+dttRx.preceding <- generateDTTtoRxTable(rxDoneAuditDataPreceding)
+
+dttRx.tests <- c(audit_organs, "All Organs") |>
+  purrr::map(function(organ) {
+    tibble(
+      Organs = organ,
+      t.test.significantMarker = getTTestPValue(organ, "DTT_Rx"),
+      w31.test.significantMarker = getZTestPValue(
+        current = dttRxTable,
+        preceding = dttRx.preceding,
+        organ = organ,
+        column = "w31"
+      ),
+      w45.test.significantMarker = getZTestPValue(
+        current = dttRxTable,
+        preceding = dttRx.preceding,
+        organ = organ,
+        column = "w45"
+      ),
+      w60.test.significantMarker = getZTestPValue(
+        current = dttRxTable,
+        preceding = dttRx.preceding,
+        organ = organ,
+        column = "w60"
+      ),
+    )
+  }) |>
+  dplyr::bind_rows()
+```
+
+```{r dtt_rx_table_preceding_section2, echo=FALSE}
+dttRxTable |>
+  full_join(dttRx.preceding, by = "Organs", suffix = c("", ".Preceding")) |>
+  left_join(dttRx.tests, by = "Organs") |>
   mutate(
-    Organs = if_else(is.na(Organs), "All Organs", Organs),
-    "Organ (n)" = paste(Organs, " (N=", n, ")", sep = "")
+    "Organ Treated" = paste(Organs, " (N=", n, ", (", n.Preceding, "))", sep = ""),
+    mean = paste(mean, " (", mean.Preceding, ")", t.test.significantMarker, sep = ""),
+    median = paste(median, " (", median.Preceding, ")", sep = ""),
+    "w31%" = paste(`w31%`, " (", `w31%.Preceding`, ")", w31.test.significantMarker, sep = ""),
+    "w45%" = paste(`w45%`, " (", `w45%.Preceding`, ")", w45.test.significantMarker, sep = ""),
+    "w60%" = paste(`w60%`, " (", `w60%.Preceding`, ")", w60.test.significantMarker, sep = "")
   ) |>
-  ungroup() |>
-  filter(Organs == "All Organs" | Organs %in% audit_organs) |>
+  select("Organ Treated", mean, median, "w31%", "w45%", "w60%") |>
+  kbl(col.names = c(
+    "Organ Treated",
+    "Mean time\n(days)",
+    "Median\n(days)",
+    "% within 31 days\n(Local std.)",
+    "% within 45 days\n(Local std.)",
+    "% within 60 days\n(Local std.)"
+  )) |>
+  add_header_above(
+    data.frame(
+      paste("Time from DTT-to-Ablation\n",
+        auditPeriodText, " vs ", auditPrecedingText,
+        sep = ""
+      ), 6
+    )
+  ) |>
+  kable_styling()
+```
+
+* Numbers in brackets represent the results in the preceding audit period
+* \* - Significant difference between the current and preceding audit period (t-test)
+* † - Significant difference between the current and preceding audit period (z-test for proportions)
+
+```{r dtt_rx_boxplot_preceding, echo=FALSE, warning=FALSE}
+rxDoneAuditData |>
+  select(Organs, DTT_Rx) |>
+  mutate(Period = "Current") |>
+  dplyr::rows_append(rxDoneAuditDataPreceding |> select(Organs, DTT_Rx) |> mutate(Period = "Preceding")) |>
+  mutate(DTT_Rx = if_else(DTT_Rx < 0, NA, DTT_Rx)) |>
+  ggplot(aes(x = Organs, y = DTT_Rx, color = Period)) +
+  geom_hline(yintercept = 31, linetype = "dashed", color = "orange") +
+  geom_hline(yintercept = 45, linetype = "dashed", color = "red") +
+  geom_hline(yintercept = 60, linetype = "dashed", color = "darkred") +
+  geom_boxplot(position = "dodge2") +
+  ggtitle(paste("Time from DTT-to-Ablation\n",
+    auditPeriodText, " vs ", auditPrecedingText,
+    sep = ""
+  )) +
+  labs(y = "Days", x = "Organ Treated") +
+  theme(legend.position = "bottom")
+```
+
+## Ablation Referral to Rx Times
+
+```{r ref_rx}
+generateRefToRxTable <- function(doneData) {
+  doneData |>
+    mutate(Ref_RxDone = if_else(Ref_RxDone < 0, NA, Ref_RxDone)) |>
+    mutate(within90 = ifelse(Ref_RxDone <= 90, 1, 0)) |>
+    overall_group("Organs") |>
+    summarise(
+      mean = round(mean(Ref_RxDone, na.rm = T), 1),
+      median = round(median(Ref_RxDone, na.rm = T), 1),
+      "w90" = round(sum(within90, na.rm = T), 1),
+      "w90%" = round(sum(within90, na.rm = T) / n() * 100, 1),
+      n = n(),
+    ) |>
+    mutate(
+      Organs = if_else(is.na(Organs), "All Organs", Organs),
+      "Organ (n)" = paste(Organs, " (N=", n, ")", sep = "")
+    ) |>
+    ungroup() |>
+    filter(Organs == "All Organs" | Organs %in% audit_organs)
+}
+
+refToRxTable <- generateRefToRxTable(rxDoneAuditData)
+
+refToRxTable |>
   select("Organ (n)", mean, median, "w90%") |>
   kbl(col.names = c("Organ Treated", ("Mean time\n(days)"), ("Median\n(days)"), ("% within 90 days\n(Local std.)"))) |>
   add_header_above(
@@ -191,7 +482,109 @@ rxDoneAuditData |>
 ```
 Mean, median (days) and percentage of referrals meeting defined time standard from the referral received date to treatment date overall.
 
-<h2>Ablation Referral Days Stopped (Pre- or Post-DTT)</h2>
+```{r ref_rx_boxplot, echo=FALSE, warning=FALSE}
+rxDoneAuditData |>
+  mutate(Ref_RxDone = if_else(Ref_RxDone < 0, NA, Ref_RxDone)) |>
+  ggplot(aes(x = Organs, y = Ref_RxDone, color = Organs)) +
+  geom_hline(yintercept = 90, linetype = "dashed", color = "red") +
+  geom_boxplot() +
+  ggtitle(paste("Time from Referral received-to-Ablation\n",
+    auditPeriodText,
+    sep = ""
+  )) +
+  labs(y = "Days", x = "Organ Treated") +
+  theme(legend.position = "bottom")
+```
+
+### Comparison with Preceding Audit Period
+
+```{r ref_rx_table_preceding_section, echo=FALSE, warning=FALSE}
+refRx.preceding <- generateRefToRxTable(rxDoneAuditDataPreceding)
+
+refRx.tests <- c(audit_organs, "All Organs") |>
+  purrr::map(function(organ) {
+    tibble(
+      Organs = organ,
+      t.test.significantMarker = getTTestPValue(organ, "Ref_RxDone"),
+      w90.test.significantMarker = getZTestPValue(
+        current = refRxTable,
+        preceding = RefRx.preceding,
+        organ = organ,
+        column = "w90"
+      ),
+    )
+  }) |>
+  dplyr::bind_rows()
+```
+
+```{r ref_rx_table_preceding_section2, echo=FALSE}
+refToRxTable |>
+  full_join(refRx.preceding, by = "Organs", suffix = c("", ".Preceding")) |>
+  left_join(refRx.tests, by = "Organs") |>
+  mutate(
+    "Organ Treated" = paste(Organs, " (N=", n, ", (", n.Preceding, "))", sep = ""),
+    mean = paste(mean, " (", mean.Preceding, ")", t.test.significantMarker, sep = ""),
+    median = paste(median, " (", median.Preceding, ")", sep = ""),
+    "w90%" = paste(`w90%`, " (", `w90%.Preceding`, ")", w90.test.significantMarker, sep = ""),
+  ) |>
+  select("Organ Treated", mean, median, "w90%") |>
+  kbl(col.names = c(
+    "Organ Treated",
+    "Mean time\n(days)",
+    "Median\n(days)",
+    "% within 90 days\n(Local std.)"
+  )) |>
+  add_header_above(
+    data.frame(
+      paste("Time from Referral received-to-Ablation\n",
+        auditPeriodText, " vs ", auditPrecedingText,
+        sep = ""
+      ), 4
+    )
+  ) |>
+  kable_styling()
+```
+
+* Numbers in brackets represent the results in the preceding audit period
+* \* - Significant difference between the current and preceding audit period (t-test)
+* † - Significant difference between the current and preceding audit period (z-test for proportions)
+
+```{r ref_rx_boxplot_preceding, echo=FALSE, warning=FALSE}
+rxDoneAuditData |>
+  select(Organs, Ref_RxDone) |>
+  mutate(Period = "Current") |>
+  dplyr::rows_append(rxDoneAuditDataPreceding |> select(Organs, Ref_RxDone) |> mutate(Period = "Preceding")) |>
+  mutate(Ref_RxDone = if_else(Ref_RxDone < 0, NA, Ref_RxDone)) |>
+  ggplot(aes(x = Organs, y = Ref_RxDone, color = Period)) +
+  geom_hline(yintercept = 90, linetype = "dashed", color = "red") +
+  geom_boxplot(position = "dodge2") +
+  ggtitle(paste("Time from Referral received-to-Ablation\n",
+    auditPeriodText, " vs ", auditPrecedingText,
+    sep = ""
+  )) +
+  labs(y = "Days", x = "Organ Treated") +
+  theme(legend.position = "bottom")
+```
+
+## Clock Stops causing negative Referral to DTT and DTT to Rx times
+
+```{r negative_clockstop}
+rxDoneAuditData |>
+  filter(Ref_DTT < 0 | DTT_Rx < 0) |>
+  select(ID, Organs, Ref_DTT, DTT_Rx, ClockStopDaysPreDTT, ClockStopDaysPostDTT) |>
+  kbl(col.names = c(
+    "ID",
+    "Organ Treated",
+    "Referral to DTT\n(days)",
+    "DTT to Rx\n(days)",
+    "Clock Stop Pre DTT\n(days)",
+    "Clock Stop Post DTT\n(days)"
+  )) |>
+  kable_styling()
+```
+
+## Ablation Referral Days Stopped (Pre- or Post-DTT)
+
 ```{r daystopped_pre_or_post_dtt}
 rxDoneAuditData |>
   mutate(
@@ -213,7 +606,7 @@ rxDoneAuditData |>
   kable_styling()
 ```
 
-<h2>Ablation Referral Days Stopped (Pre- and Post-DTT Combined)</h2>
+## Ablation Referral Days Stopped (Pre- and Post-DTT Combined)
 
 ```{r daystopped_pre_and_post_dtt}
 # This groups clock stops before and after DTT all into the same group
@@ -237,7 +630,7 @@ rxDoneAuditData |>
   kable_styling()
 ```
 
-<h2>Ablation Referral Clockstops</h2>
+## Ablation Referral Clockstops
 
 ```{r clockstop}
 rxDoneAuditData |>
@@ -259,13 +652,15 @@ rxDoneAuditData |>
   kable_styling()
 ```
 
-## Including Plots
+## Time to Treatment Plot
 ```{r ttt_plot, echo=FALSE}
 rxDoneAuditDataplot <- commonRxDonePlot(rxDoneAuditData) +
   ggtitle("Time to Treatment")
 
 rxDoneAuditDataplot
 ```
+
+## Organ Treatment Piechart
 
 ```{r organ_pie}
 rxDoneAuditData %>%
@@ -283,9 +678,34 @@ rxDoneAuditData %>%
   scale_fill_brewer(palette = "Set1", name = "Tumour Type")
 ```
 
+## Wait time plots
+
+```{r wait_time_plots, echo=FALSE, warning=FALSE}
+referralTimes <- processWaitTimesPerPeriod(
+  rxDoneAuditData,
+  rxWaitAuditData,
+  audit_start_date,
+  audit_end_date,
+  "month"
+)
+```
+
+```{r refToDTTMeanPlot, echo=FALSE, warning=FALSE}
+refToDTTMeanPlot(referralTimes, "Month")
+```
+
+
+```{r dttToRxMeanPlot, echo=FALSE, warning=FALSE}
+dttToRxMeanPlot(referralTimes, "Month")
+```
+
+```{r refToRxMeanPlot, echo=FALSE, warning=FALSE}
+refToRxMeanPlot(referralTimes, "Month")
+```
+
+
 ## Long waits
 
-<h2>Ablation Long Waits</h2>
 ```{r longwaits}
 rxDoneAuditData %>%
   filter(Ref_RxDone > 120) %>%
