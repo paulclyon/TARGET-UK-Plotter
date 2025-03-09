@@ -95,7 +95,6 @@ rxDoneAuditData |>
     )
   ) |>
   kable_styling()
-
 ```
 
 Mean, median (days) and percentage of referrals meeting defined time standards from Referral received and the date the treatment is discussed in clinic with the patient who wants to go ahead with ablation (decision to treat; DTT).
@@ -212,11 +211,12 @@ rxDoneAuditData |>
 # This groups clock stops before and after DTT all into the same group
 rxDoneAuditData |>
   mutate(
-    clockstopped=if_else(
+    clockstopped = if_else(
       is.na(ClockStopDaysPreDTT),
-      if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped'),
-      if_else(is.na(ClockStopDaysPostDTT), 'Stopped', 'Stopped')),
-    daysStopped=if_else(
+      if_else(is.na(ClockStopDaysPostDTT), "Not Stopped", "Stopped"),
+      if_else(is.na(ClockStopDaysPostDTT), "Stopped", "Stopped")
+    ),
+    daysStopped = if_else(
       is.na(ClockStopDaysPreDTT),
       if_else(is.na(ClockStopDaysPostDTT), 0, abs(ClockStopDaysPostDTT)),
       if_else(is.na(ClockStopDaysPostDTT), abs(ClockStopDaysPreDTT), abs(ClockStopDaysPreDTT + ClockStopDaysPostDTT)),
@@ -232,13 +232,14 @@ rxDoneAuditData |>
 <h2>Ablation Referral Clockstops</h2>
 
 ```{r clockstop}
-  rxDoneAuditData |>
+rxDoneAuditData |>
   mutate(
-    clockstopped=if_else(
+    clockstopped = if_else(
       is.na(ClockStopDaysPreDTT),
-      if_else(is.na(ClockStopDaysPostDTT), 'Not Stopped', 'Stopped Post DTT'),
-      if_else(is.na(ClockStopDaysPostDTT), 'Stopped Pre DTT', 'Stopped Both Pre and Post DTT')),
-    daysStopped=if_else(
+      if_else(is.na(ClockStopDaysPostDTT), "Not Stopped", "Stopped Post DTT"),
+      if_else(is.na(ClockStopDaysPostDTT), "Stopped Pre DTT", "Stopped Both Pre and Post DTT")
+    ),
+    daysStopped = if_else(
       is.na(ClockStopDaysPreDTT),
       if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT),
       if_else(is.na(ClockStopDaysPostDTT), ClockStopDaysPreDTT, ClockStopDaysPreDTT + ClockStopDaysPostDTT),
@@ -252,7 +253,6 @@ rxDoneAuditData |>
 
 ## Including Plots
 ```{r ttt_plot, echo=FALSE}
-
 rxDoneAuditDataplot <- commonRxDonePlot(rxDoneAuditData) +
   ggtitle("Time to Treatment")
 
