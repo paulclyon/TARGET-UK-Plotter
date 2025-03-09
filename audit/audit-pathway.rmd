@@ -27,7 +27,7 @@ overall_group <- function(data, col_name) {
     group_by(summary_level, !!sym(col_name))
 
   # Loose the summary_level column from the final return data frame as it isn't necessary
-  return(subset(d12, select = -c(summary_level)))
+  subset(d12, select = -c(summary_level))
 }
 
 # Remove Dummy patient numbers from the data
@@ -60,7 +60,9 @@ auditPeriodText <- paste(format.Date(audit_start_date, "%e %b %Y"),
   " month period)",
   sep = ""
 )
+```
 
+```{r ref_dtt_tableh}
 rxDoneAuditData |>
   mutate(Ref_DTT = if_else(Ref_DTT < 0, NA, Ref_DTT)) |>
   filter(!is.na(Ref_DTT)) |>
@@ -85,7 +87,13 @@ rxDoneAuditData |>
   ungroup() |>
   filter(Organs == "All Organs" | Organs %in% audit_organs) |>
   select("Organ Treated", mean, median, "w10%", "w21%") |>
-  kbl(col.names = c("Organ Treated", ("Mean time\n(days)"), ("Median\n(days)"), ("% within 10 days\n(Local std.)"), ("% within 21 days\n(Local std.)"))) |>
+  kbl(col.names = c(
+    "Organ Treated",
+    "Mean time\n(days)",
+    "Median\n(days)",
+    "% within 10 days\n(Local std.)",
+    "% within 21 days\n(Local std.)"
+  )) |>
   add_header_above(
     data.frame(
       paste("Time from Referral Received-to-DTT\n",
@@ -286,6 +294,11 @@ rxDoneAuditData %>%
     ClockStopDaysPostDTT = if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT)
   ) %>%
   select(ID, Ref_RxDone, ClockStopDaysPreDTT, ClockStopDaysPostDTT) %>%
-  kbl(col.names = c("ID", "Referral to Ablation time\n(days)", "Clock Stop Pre DTT\n(days)", "Clock Stop Post DTT\n(days)")) %>%
+  kbl(col.names = c(
+    "ID",
+    "Referral to Ablation time\n(days)",
+    "Clock Stop Pre DTT\n(days)",
+    "Clock Stop Post DTT\n(days)"
+  )) %>%
   kable_styling()
 ```
