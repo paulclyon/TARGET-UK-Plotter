@@ -52,6 +52,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
           RefToDTTNoStopped = ifelse(DTTStopped, NA, RefToDTTClockStopped),
         ) |>
         summarise(
+          RefToDTT = list(RefToDTTNoStopped),
           MeanRefToDTT = mean(RefToDTTNoStopped, na.rm = TRUE),
           RefToDTTStopped = sum(DTTStopped, na.rm = TRUE),
           RefToDTTNotStopped = sum(RefToDTTClockStopped >= 0, na.rm = TRUE),
@@ -86,6 +87,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
           DTTToRxNoStopped = ifelse(RxStopped, NA, DTTToRxClockStopped),
         ) |>
         summarise(
+          DTTToRx = list(DTTToRxNoStopped),
           MeanDTTToRx = mean(DTTToRxNoStopped, na.rm = TRUE),
           DTTToRxStopped = sum(RxStopped, na.rm = TRUE),
           DTTToRxNotStopped = sum(DTTToRxClockStopped >= 0, na.rm = TRUE),
@@ -112,6 +114,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
           RefToRxNoStopped = ifelse(RxStopped, NA, RefToRxClockStopped),
         ) |>
         summarise(
+          RefToRx = list(RefToRxNoStopped),
           MeanRefToRx = mean(RefToRxNoStopped, na.rm = TRUE),
           RefToRxStopped = sum(RxStopped, na.rm = TRUE),
           RefToRxNotStopped = sum(RefToRxClockStopped >= 0, na.rm = TRUE),
@@ -156,7 +159,7 @@ refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "Referral to DTT Time ",
-          "(By ",stringr::str_to_title(range_by),")",
+          "(By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -198,12 +201,42 @@ refToDTTCountPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "Referral to DTT Count ",
-          "(By ",stringr::str_to_title(range_by),")",
+          "(By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
       x = "",
       y = "Number of Patients"
+    ) +
+    theme(plot.title = element_text(size = 10)) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.spacing.y = unit(0.1, "cm"),
+      legend.position = "bottom"
+    )
+}
+
+refToDTTBoxPlot <- function(referralTimes, range_by = "Monthly") {
+  referralTimes |>
+    select(
+      PeriodStart, `RefToDTT`,
+    ) |>
+    unnest(cols = "RefToDTT") |>
+    ggplot() +
+    geom_hline(yintercept = 10, linetype = "dashed", color = "orange") +
+    geom_hline(yintercept = 21, linetype = "dashed", color = "red") +
+    geom_boxplot(aes(x = PeriodStart, y = RefToDTT, group = PeriodStart)) +
+    scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
+    labs(
+      title =
+        paste0(
+          "Referral to DTT Time ",
+          "(By ", stringr::str_to_title(range_by), ")",
+          "\n(Generated ",
+          format(Sys.time(), "%a %b %d %Y %X"), ")"
+        ),
+      x = "",
+      y = "Number of Days"
     ) +
     theme(plot.title = element_text(size = 10)) +
     theme(
@@ -240,7 +273,7 @@ dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "DTT to Rx Times ",
-          "(By ",stringr::str_to_title(range_by),")",
+          "(By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -288,12 +321,43 @@ dttToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "DTT to Rx Counts ",
-          "(By ",stringr::str_to_title(range_by),")",
+          "(By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
       x = "",
       y = "Number of Patients"
+    ) +
+    theme(plot.title = element_text(size = 10)) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.spacing.y = unit(0.1, "cm"),
+      legend.position = "bottom"
+    )
+}
+
+dttToRxBoxPlot <- function(referralTimes, range_by = "Monthly") {
+  referralTimes |>
+    select(
+      PeriodStart, `DTTToRx`,
+    ) |>
+    unnest(cols = "DTTToRx") |>
+    ggplot() +
+    geom_hline(yintercept = 31, linetype = "dashed", color = "orange") +
+    geom_hline(yintercept = 45, linetype = "dashed", color = "red") +
+    geom_hline(yintercept = 60, linetype = "dashed", color = "darkred") +
+    geom_boxplot(aes(x = PeriodStart, y = DTTToRx, group = PeriodStart)) +
+    scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
+    labs(
+      title =
+        paste0(
+          "DTT to Rx Times ",
+          "(By ", stringr::str_to_title(range_by), ")",
+          "\n(Generated ",
+          format(Sys.time(), "%a %b %d %Y %X"), ")"
+        ),
+      x = "",
+      y = "Number of Days"
     ) +
     theme(plot.title = element_text(size = 10)) +
     theme(
@@ -323,10 +387,9 @@ refToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "Referral to Rx Time ",
-          "(By ",stringr::str_to_title(range_by),")",
+          "(By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
-          
         ),
       x = "",
       y = "Number of Days"
@@ -359,12 +422,41 @@ refToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "Referral to Rx Count ",
-          "(By ",stringr::str_to_title(range_by),")",
+          "(By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
       x = "",
       y = "Number of Patients"
+    ) +
+    theme(plot.title = element_text(size = 10)) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.spacing.y = unit(0.1, "cm"),
+      legend.position = "bottom"
+    )
+}
+
+refToRxBoxPlot <- function(referralTimes, range_by = "Monthly") {
+  referralTimes |>
+    select(
+      PeriodStart, `RefToRx`,
+    ) |>
+    unnest(cols = "RefToRx") |>
+    ggplot() +
+    geom_hline(yintercept = 90, linetype = "dashed", color = "red") +
+    geom_boxplot(aes(x = PeriodStart, y = RefToRx, group = PeriodStart)) +
+    scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
+    labs(
+      title =
+        paste0(
+          "Referral to Rx Times ",
+          "(By ", stringr::str_to_title(range_by), ")",
+          "\n(Generated ",
+          format(Sys.time(), "%a %b %d %Y %X"), ")"
+        ),
+      x = "",
+      y = "Number of Days"
     ) +
     theme(plot.title = element_text(size = 10)) +
     theme(

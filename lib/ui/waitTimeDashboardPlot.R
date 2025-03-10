@@ -40,19 +40,20 @@ waitTimesDashboardPlotTab <- function() {
               "Yearly" = "year"
             ),
             selected = "month"
-          ),
+          )
+        ),
+        column(
+          width = 3,
           radioButtons(
             "waitTimesDashboardPlotTypeRadio",
             "Type of Plot",
             c(
               "Mean" = "mean",
-              "Counts" = "counts"
+              "Counts" = "counts",
+              "Boxplot" = "boxplot"
             ),
             selected = "mean"
-          )
-        ),
-        column(
-          width = 3,
+          ),
           actionButton(inputId = "waitTimesDashboardPlotRefresh", label = "Refresh Plot")
         )
       )
@@ -98,6 +99,8 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
     p <- ggplot()
     if (input$waitTimesDashboardPlotTypeRadio == "mean") {
       p <- refToDTTMeanPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
+    } else if (input$waitTimesDashboardPlotTypeRadio == "boxplot") {
+      p <- refToDTTBoxPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
     } else {
       p <- refToDTTCountPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
     }
@@ -113,6 +116,8 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
     p <- ggplot()
     if (input$waitTimesDashboardPlotTypeRadio == "mean") {
       p <- refToRxMeanPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
+    } else if (input$waitTimesDashboardPlotTypeRadio == "boxplot") {
+      p <- refToRxBoxPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
     } else {
       p <- refToRxCountPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
     }
@@ -128,6 +133,8 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
     p <- ggplot()
     if (input$waitTimesDashboardPlotTypeRadio == "mean") {
       p <- dttToRxMeanPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
+    } else if (input$waitTimesDashboardPlotTypeRadio == "boxplot") {
+      p <- dttToRxBoxPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
     } else {
       p <- dttToRxCountPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
     }
