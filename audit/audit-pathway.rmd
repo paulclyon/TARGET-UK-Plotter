@@ -2,6 +2,8 @@
 title: "Ablation Waiting Time Audit Report"
 header-includes:
 - \usepackage{pdflscape}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
 output:
   html_document:
     toc: true
@@ -121,6 +123,8 @@ getZTestPValue <- function(current, preceding, organ, column) {
   )
 }
 ```
+
+\blandscape 
 
 <!-- PCL: I had to do an ugly global variable hack to get audit_start_date and audit_end_date visible from this file, but it works-->
 
@@ -722,3 +726,5 @@ rxDoneAuditData %>%
   )) %>%
   kable_styling()
 ```
+
+\elandscape
