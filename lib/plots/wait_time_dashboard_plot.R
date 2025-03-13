@@ -114,6 +114,17 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
   }
 
   status_fns <- c(
+    RefToDTTByAblation = \(x, period) {
+      x |>
+        # RxDate is within the period
+        filter(RxDate >= as.Date(range_start(period)) & RxDate < as.Date(range_end(period))) |>
+        mutate(
+          DTTDateFixed = pmin(DTTDate, RxDate, na.rm = T),
+        ) |>
+        summariseRefToDTT() |>
+        mutate(group = "By Ablation Date") |>
+        add_period(period)
+    },
     RefToDTTPerformedOnly = \(x, period) {
       x |>
         filter(RefDate < as.Date(range_end(period)) &
@@ -170,6 +181,17 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         mutate(group = "All") |>
         add_period(period)
     },
+    DTTToRxByAblation = \(x, period) {
+      x |>
+        # RxDate is within the period
+        filter(RxDate >= as.Date(range_start(period)) & RxDate < as.Date(range_end(period))) |>
+        mutate(
+          RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
+        ) |>
+        summariseDTTToRx() |>
+        mutate(group = "By Ablation Date") |>
+        add_period(period)
+    },
     DTTToRxPerformedOnly = \(x, period) {
       x |>
         filter(
@@ -215,14 +237,21 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         mutate(group = "All") |>
         add_period(period)
     },
+    RefToRxByAblation = \(x, period) {
+      x |>
+        # RxDate is within the period
+        filter(RxDate >= as.Date(range_start(period)) & RxDate < as.Date(range_end(period))) |>
+        mutate(
+          RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
+        ) |>
+        summariseRefToRx() |>
+        mutate(group = "By Ablation Date") |>
+        add_period(period)
+    },
     RefToRxPerformedOnly = \(x, period) {
       x |>
-        filter(
-          # Only include patients who had a referral date before the end of the period
-          RefDate < as.Date(range_end(period)) &
-            # and had treatment before the end  of the period
-            RxDate < as.Date(range_start(period))
-        ) |>
+        # RxDate is within the period
+        filter(RxDate >= as.Date(range_start(period)) & RxDate < as.Date(range_end(period))) |>
         mutate(
           RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
         ) |>
