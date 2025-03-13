@@ -31,73 +31,221 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
     range_tibble$end[range_tibble$name == name]
   }
 
+  summariseRefToDTT <- function(x) {
+    x |>
+      mutate(
+        RefToDTT = DTTDateFixed - RefDate,
+        RefToDTTClockStopped = ifelse(is.na(ClockStopDaysPreDTT),
+          RefToDTT,
+          RefToDTT + ClockStopDaysPreDTT
+        ),
+        DTTStopped = RefToDTTClockStopped < 0,
+        RefToDTTNoStopped = ifelse(DTTStopped, NA, RefToDTTClockStopped),
+      ) |>
+      summarise(
+        NotStopped = list(RefToDTTNoStopped),
+        Mean = mean(RefToDTTNoStopped, na.rm = TRUE),
+        CountStopped = sum(DTTStopped, na.rm = TRUE),
+        CountNotStopped = sum(RefToDTTClockStopped >= 0, na.rm = TRUE),
+        "≤10 days" = sum(RefToDTTNoStopped <= 10, na.rm = TRUE),
+        "≤21 days" = sum(RefToDTTNoStopped > 10 & RefToDTTNoStopped <= 21, na.rm = TRUE),
+        ">21 days" = sum(RefToDTTNoStopped > 21, na.rm = TRUE)
+      ) |>
+      mutate(
+        measure = "RefToDTT",
+      )
+  }
+
+  summariseDTTToRx <- function(x) {
+    x |>
+      mutate(
+        DTTDateFixed = pmin(DTTDate, RxDate, na.rm = T),
+        DTTToRx = RxDateFixed - DTTDateFixed,
+        DTTToRxClockStopped = ifelse(is.na(ClockStopDaysPostDTT),
+          DTTToRx,
+          DTTToRx + ClockStopDaysPostDTT
+        ),
+        RxStopped = DTTToRxClockStopped < 0,
+        DTTToRxNoStopped = ifelse(RxStopped, NA, DTTToRxClockStopped),
+      ) |>
+      summarise(
+        NotStopped = list(DTTToRxNoStopped),
+        Mean = mean(DTTToRxNoStopped, na.rm = TRUE),
+        CountStopped = sum(RxStopped, na.rm = TRUE),
+        CountNotStopped = sum(DTTToRxClockStopped >= 0, na.rm = TRUE),
+        "≤31 days" = sum(DTTToRxNoStopped <= 31, na.rm = TRUE),
+        "≤45 days" = sum(DTTToRxNoStopped > 31 & DTTToRxNoStopped <= 45, na.rm = TRUE),
+        "≤60 days" = sum(DTTToRxNoStopped > 45 & DTTToRxNoStopped <= 60, na.rm = TRUE),
+        ">60 days" = sum(DTTToRxNoStopped > 60, na.rm = TRUE)
+      ) |>
+      mutate(
+        measure = "DTTToRx",
+      )
+  }
+
+  summariseRefToRx <- function(x) {
+    x |>
+      mutate(
+        RefToRx = RxDateFixed - RefDate,
+        ClockStopDays = replace_na(ClockStopDaysPreDTT, 0) + replace_na(ClockStopDaysPostDTT, 0),
+        RefToRxClockStopped = RefToRx + ClockStopDays,
+        RxStopped = RefToRxClockStopped < 0,
+        RefToRxNoStopped = ifelse(RxStopped, NA, RefToRxClockStopped),
+      ) |>
+      summarise(
+        NotStopped = list(RefToRxNoStopped),
+        Mean = mean(RefToRxNoStopped, na.rm = TRUE),
+        CountStopped = sum(RxStopped, na.rm = TRUE),
+        CountNotStopped = sum(RefToRxClockStopped >= 0, na.rm = TRUE),
+        "≤90 days" = sum(RefToRxNoStopped <= 90, na.rm = TRUE),
+        ">90 days" = sum(RefToRxNoStopped > 90, na.rm = TRUE)
+      ) |>
+      mutate(
+        measure = "RefToRx",
+      )
+  }
+
+  add_period <- function(x, period) {
+    mutate(x,
+      Period = period,
+      PeriodStart = range_start(period),
+      PeriodEnd = range_end(period)
+    )
+  }
+
   status_fns <- c(
-    RefToDTT = \(x, period) {
+    RefToDTTPerformedOnly = \(x, period) {
+      x |>
+        filter(RefDate < as.Date(range_end(period)) &
+          # & either DTTDate is within the period
+          (
+            (DTTDate >= as.Date(range_start(period)) & DTTDate < as.Date(range_end(period))) |
+              # or DTTDate is missing and RxDate is within the period
+              (is.na(DTTDate) &
+                (is.na(RxDate) |
+                  (RxDate >= as.Date(range_start(period)) & RxDate < as.Date(range_end(period))))
+              )
+          )) |>
+        mutate(
+          DTTDateFixed = pmin(DTTDate, RxDate, na.rm = T),
+        ) |>
+        summariseRefToDTT() |>
+        mutate(group = "Performed") |>
+        add_period(period)
+    },
+    RefToDTTWaitingOnly = \(x, period) {
+      x |>
+        filter(RefDate < as.Date(range_end(period)) &
+          # & either DTTDate is after the period
+          (
+            DTTDate >= as.Date(range_end(period)) |
+              # or DTTDate is missing and RxDate is after the period
+              (is.na(DTTDate) &
+                (is.na(RxDate) | RxDate > as.Date(range_end(period)))
+              )
+          )) |>
+        mutate(
+          DTTDateFixed = pmin(as.Date(range_end(period)), DTTDate, RxDate, na.rm = T),
+        ) |>
+        summariseRefToDTT() |>
+        mutate(group = "Waiting") |>
+        add_period(period)
+    },
+    RefToDTTAll = \(x, period) {
       x |>
         # Only include patients referred before the end date
         filter(RefDate < as.Date(range_end(period)) &
           # & either DTTDate after the start of the period
-          (DTTDate >= as.Date(range_start(period)) |
-            # or DTTDate is missing and RxDate is missing or after the start of the period
-            (is.na(DTTDate) &
-              (is.na(RxDate) | RxDate >= as.Date(range_start(period)))))) |>
+          (
+            DTTDate >= as.Date(range_start(period)) |
+              # or DTTDate is missing and RxDate is missing or after the start of the period
+              (is.na(DTTDate) &
+                (is.na(RxDate) | RxDate >= as.Date(range_start(period)))
+              )
+          )) |>
         mutate(
           DTTDateFixed = pmin(DTTDate, as.Date(range_end(period)), RxDate, na.rm = T),
-          RefToDTT = DTTDateFixed - RefDate,
-          RefToDTTClockStopped = ifelse(is.na(ClockStopDaysPreDTT),
-            RefToDTT,
-            RefToDTT + ClockStopDaysPreDTT
-          ),
-          DTTStopped = RefToDTTClockStopped < 0,
-          RefToDTTNoStopped = ifelse(DTTStopped, NA, RefToDTTClockStopped),
         ) |>
-        summarise(
-          RefToDTT = list(RefToDTTNoStopped),
-          MeanRefToDTT = mean(RefToDTTNoStopped, na.rm = TRUE),
-          RefToDTTStopped = sum(DTTStopped, na.rm = TRUE),
-          RefToDTTNotStopped = sum(RefToDTTClockStopped >= 0, na.rm = TRUE),
-          "RefToDTT ≤10 days" = sum(RefToDTTNoStopped <= 10, na.rm = TRUE),
-          "RefToDTT ≤21 days" = sum(RefToDTTNoStopped > 10 & RefToDTTNoStopped <= 21, na.rm = TRUE),
-          "RefToDTT >21 days" = sum(RefToDTTNoStopped > 21, na.rm = TRUE)
-        )
+        summariseRefToDTT() |>
+        mutate(group = "All") |>
+        add_period(period)
     },
-    DTTToRx = \(x, period) {
+    DTTToRxPerformedOnly = \(x, period) {
       x |>
         filter(
-          # Only include patients who had a DTT date within the period
-          (DTTDate < as.Date(range_end(period)) &
-            DTTDate >= as.Date(range_start(period))) |
-            # or patients who have no DTT date recorded but have a RxDate in the period
-            (is.na(DTTDate) & !is.na(RxDate) &
-              RxDate < as.Date(range_end(period)) &
+          # Only include patients who had a DTT date before the end of the period
+          DTTDate < as.Date(range_end(period)) &
+            # patients who were treated in the period
+            (RxDate >= as.Date(range_start(period)) & RxDate < as.Date(range_end(period)))
+        ) |>
+        mutate(
+          RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
+        ) |>
+        summariseDTTToRx() |>
+        mutate(group = "Performed") |>
+        add_period(period)
+    },
+    DTTToRxWaitingOnly = \(x, period) {
+      x |>
+        filter(
+          # Only include patients who had a DTT date before the end of the period
+          DTTDate < as.Date(range_end(period)) &
+            (is.na(RxDate) | RxDate > as.Date(range_end(period)))
+        ) |>
+        mutate(
+          RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
+        ) |>
+        summariseDTTToRx() |>
+        mutate(group = "Waiting") |>
+        add_period(period)
+    },
+    DTTToRxAll = \(x, period) {
+      x |>
+        filter(
+          # Only include patients who had a DTT date before the end of the period
+          DTTDate < as.Date(range_end(period)) &
+            # and who were treated after the start of the period or haven't been treated yet
+            (is.na(RxDate) |
               RxDate >= as.Date(range_start(period)))
         ) |>
-        # Then filter again to remove patients treated before the period
-        filter(is.na(RxDate) |
-          RxDate >= as.Date(range_start(period))) |>
         mutate(
-          DTTDateFixed = pmin(DTTDate, RxDate, na.rm = T),
           RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
-          DTTToRx = RxDateFixed - DTTDateFixed,
-          DTTToRxClockStopped = ifelse(is.na(ClockStopDaysPostDTT),
-            DTTToRx,
-            DTTToRx + ClockStopDaysPostDTT
-          ),
-          RxStopped = DTTToRxClockStopped < 0,
-          DTTToRxNoStopped = ifelse(RxStopped, NA, DTTToRxClockStopped),
         ) |>
-        summarise(
-          DTTToRx = list(DTTToRxNoStopped),
-          MeanDTTToRx = mean(DTTToRxNoStopped, na.rm = TRUE),
-          DTTToRxStopped = sum(RxStopped, na.rm = TRUE),
-          DTTToRxNotStopped = sum(DTTToRxClockStopped >= 0, na.rm = TRUE),
-          "DTTToRx ≤31 days" = sum(DTTToRxNoStopped <= 31, na.rm = TRUE),
-          "DTTToRx ≤45 days" = sum(DTTToRxNoStopped > 31 & DTTToRxNoStopped <= 45, na.rm = TRUE),
-          "DTTToRx ≤60 days" = sum(DTTToRxNoStopped > 45 & DTTToRxNoStopped <= 60, na.rm = TRUE),
-          "DTTToRx >60 days" = sum(DTTToRxNoStopped > 60, na.rm = TRUE)
-        )
+        summariseDTTToRx() |>
+        mutate(group = "All") |>
+        add_period(period)
     },
-    RefToRx = \(x, period) {
+    RefToRxPerformedOnly = \(x, period) {
+      x |>
+        filter(
+          # Only include patients who had a referral date before the end of the period
+          RefDate < as.Date(range_end(period)) &
+            # and had treatment before the end  of the period
+            RxDate < as.Date(range_start(period))
+        ) |>
+        mutate(
+          RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
+        ) |>
+        summariseRefToRx() |>
+        mutate(group = "Performed") |>
+        add_period(period)
+    },
+    RefToRxWaitingOnly = \(x, period) {
+      x |>
+        filter(
+          # Only include patients who had a referral date before the end of the period
+          RefDate < as.Date(range_end(period)) &
+            # and hasn't had treatment or is after the end of the period
+            (is.na(RxDate) | RxDate >= as.Date(range_end(period)))
+        ) |>
+        mutate(
+          RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
+        ) |>
+        summariseRefToRx() |>
+        mutate(group = "Waiting") |>
+        add_period(period)
+    },
+    RefToRxAll = \(x, period) {
       x |>
         filter(
           # Only include patients who had a referral date before the end of the period
@@ -107,20 +255,10 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         ) |>
         mutate(
           RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
-          RefToRx = RxDateFixed - RefDate,
-          ClockStopDays = replace_na(ClockStopDaysPreDTT, 0) + replace_na(ClockStopDaysPostDTT, 0),
-          RefToRxClockStopped = RefToRx + ClockStopDays,
-          RxStopped = RefToRxClockStopped < 0,
-          RefToRxNoStopped = ifelse(RxStopped, NA, RefToRxClockStopped),
         ) |>
-        summarise(
-          RefToRx = list(RefToRxNoStopped),
-          MeanRefToRx = mean(RefToRxNoStopped, na.rm = TRUE),
-          RefToRxStopped = sum(RxStopped, na.rm = TRUE),
-          RefToRxNotStopped = sum(RefToRxClockStopped >= 0, na.rm = TRUE),
-          "RefToRx ≤90 days" = sum(RefToRxNoStopped <= 90, na.rm = TRUE),
-          "RefToRx >90 days" = sum(RefToRxNoStopped > 90, na.rm = TRUE)
-        )
+        summariseRefToRx() |>
+        mutate(group = "All") |>
+        add_period(period)
     }
   )
 
@@ -131,21 +269,21 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         purrr::map(function(period) {
           unname(status_fns) |>
             purrr::map(\(fn) fn(allData, period)) |>
-            purrr::list_cbind() |>
-            cbind(Period = period, PeriodStart = range_start(period), PeriodEnd = range_end(period))
+            purrr::list_rbind()
         }) |>
         purrr::list_rbind()
     })()
 }
 
-refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly") {
-  maxY <- max(25, ceiling((max(referralTimes$MeanRefToDTT, na.rm = T) + 1) / 5) * 5)
+refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
+  refToDTT <- referralTimes |> filter(measure == "RefToDTT" & group == selectedGroup)
+  maxY <- max(25, ceiling((max(refToDTT$Mean, na.rm = T) + 1) / 5) * 5)
 
-  referralTimes |>
-    mutate(BreachStatus = if_else(MeanRefToDTT > 10, if_else(MeanRefToDTT > 21, ">21 days", ">10 days"), "<10 days")) |>
+  refToDTT |>
+    mutate(BreachStatus = if_else(Mean > 10, if_else(Mean > 21, ">21 days", ">10 days"), "<10 days")) |>
     ggplot() +
-    geom_line(aes(x = PeriodStart, y = MeanRefToDTT, color = "grey")) +
-    geom_point(aes(x = PeriodStart, y = MeanRefToDTT, color = BreachStatus)) +
+    geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
+    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus)) +
     geom_hline(yintercept = 10, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 21, linetype = "dashed", color = "red") +
     scale_color_manual(
@@ -159,7 +297,8 @@ refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "Referral to DTT Time ",
-          "(By ", stringr::str_to_title(range_by), ")",
+          selectedGroup,
+          " (By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -170,20 +309,14 @@ refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly") {
     theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.spacing.y = unit(0.1, "cm"))
 }
 
-refToDTTCountPlot <- function(referralTimes, range_by = "Monthly") {
+refToDTTCountPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
   referralTimes |>
+    filter(`measure` == "RefToDTT" & `group` == selectedGroup) |>
     select(
-      PeriodStart, `RefToDTT ≤10 days`,
-      `RefToDTT ≤21 days`, `RefToDTT >21 days`
+      PeriodStart, `≤10 days`, `≤21 days`, `>21 days`
     ) |>
     pivot_longer(cols = -PeriodStart, names_to = "Breach Status", values_to = "Count") |>
     mutate(
-      `Breach Status` = case_match(
-        `Breach Status`,
-        "RefToDTT ≤10 days" ~ "≤10 days",
-        "RefToDTT ≤21 days" ~ "≤21 days",
-        "RefToDTT >21 days" ~ ">21 days"
-      ),
       `Breach Status` = factor(
         `Breach Status`,
         levels = c(">21 days", "≤21 days", "≤10 days")
@@ -201,7 +334,8 @@ refToDTTCountPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "Referral to DTT Count ",
-          "(By ", stringr::str_to_title(range_by), ")",
+          selectedGroup,
+          " (By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -216,22 +350,24 @@ refToDTTCountPlot <- function(referralTimes, range_by = "Monthly") {
     )
 }
 
-refToDTTBoxPlot <- function(referralTimes, range_by = "Monthly") {
+refToDTTBoxPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
   referralTimes |>
+    filter(`measure` == "RefToDTT" & `group` == selectedGroup) |>
     select(
-      PeriodStart, `RefToDTT`,
+      PeriodStart, `NotStopped`,
     ) |>
-    unnest(cols = "RefToDTT") |>
+    unnest(cols = "NotStopped") |>
     ggplot() +
     geom_hline(yintercept = 10, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 21, linetype = "dashed", color = "red") +
-    geom_boxplot(aes(x = PeriodStart, y = RefToDTT, group = PeriodStart)) +
+    geom_boxplot(aes(x = PeriodStart, y = NotStopped, group = PeriodStart)) +
     scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
     labs(
       title =
         paste0(
           "Referral to DTT Time ",
-          "(By ", stringr::str_to_title(range_by), ")",
+          selectedGroup,
+          " (By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -246,19 +382,21 @@ refToDTTBoxPlot <- function(referralTimes, range_by = "Monthly") {
     )
 }
 
-dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
-  maxY <- max(65, ceiling((max(referralTimes$MeanDTTToRx, na.rm = T) + 1) / 5) * 5)
+dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
+  dttToRx <- referralTimes |> filter(measure == "RefToDTT" & group == selectedGroup)
 
-  referralTimes |>
+  maxY <- max(65, ceiling((max(dttToRx$Mean, na.rm = T) + 1) / 5) * 5)
+
+  dttToRx |>
     mutate(BreachStatus = case_when(
-      MeanDTTToRx > 60 ~ ">60 days",
-      MeanDTTToRx > 45 ~ "≤60 days",
-      MeanDTTToRx > 31 ~ "≤45 days",
+      Mean > 60 ~ ">60 days",
+      Mean > 45 ~ "≤60 days",
+      Mean > 31 ~ "≤45 days",
       TRUE ~ "≤31 days"
     )) |>
     ggplot() +
-    geom_line(aes(x = PeriodStart, y = MeanDTTToRx, color = "grey")) +
-    geom_point(aes(x = PeriodStart, y = MeanDTTToRx, color = BreachStatus)) +
+    geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
+    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus)) +
     geom_hline(yintercept = 31, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 45, linetype = "dashed", color = "red") +
     geom_hline(yintercept = 60, linetype = "dashed", color = "darkred") +
@@ -273,7 +411,8 @@ dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "DTT to Rx Times ",
-          "(By ", stringr::str_to_title(range_by), ")",
+          selectedGroup,
+          " (By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -284,21 +423,15 @@ dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
     theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.spacing.y = unit(0.1, "cm"))
 }
 
-dttToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
+dttToRxCountPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
   referralTimes |>
+    filter(`measure` == "DTTToRx" & `group` == selectedGroup) |>
     select(
-      PeriodStart, `DTTToRx ≤31 days`,
-      `DTTToRx ≤45 days`, `DTTToRx ≤60 days`, `DTTToRx >60 days`
+      PeriodStart, `≤31 days`,
+      `≤45 days`, `≤60 days`, `>60 days`
     ) |>
     pivot_longer(cols = -PeriodStart, names_to = "Breach Status", values_to = "Count") |>
     mutate(
-      `Breach Status` = case_match(
-        `Breach Status`,
-        "DTTToRx ≤31 days" ~ "≤31 days",
-        "DTTToRx ≤45 days" ~ "≤45 days",
-        "DTTToRx ≤60 days" ~ "≤60 days",
-        "DTTToRx >60 days" ~ ">60 days"
-      ),
       `Breach Status` = factor(
         `Breach Status`,
         levels = c(
@@ -321,7 +454,8 @@ dttToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "DTT to Rx Counts ",
-          "(By ", stringr::str_to_title(range_by), ")",
+          selectedGroup,
+          " (By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -336,23 +470,25 @@ dttToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
     )
 }
 
-dttToRxBoxPlot <- function(referralTimes, range_by = "Monthly") {
+dttToRxBoxPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
   referralTimes |>
+    filter(`measure` == "DTTToRx" & `group` == selectedGroup) |>
     select(
-      PeriodStart, `DTTToRx`,
+      PeriodStart, `NotStopped`,
     ) |>
-    unnest(cols = "DTTToRx") |>
+    unnest(cols = "NotStopped") |>
     ggplot() +
     geom_hline(yintercept = 31, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 45, linetype = "dashed", color = "red") +
     geom_hline(yintercept = 60, linetype = "dashed", color = "darkred") +
-    geom_boxplot(aes(x = PeriodStart, y = DTTToRx, group = PeriodStart)) +
+    geom_boxplot(aes(x = PeriodStart, y = NotStopped, group = PeriodStart)) +
     scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
     labs(
       title =
         paste0(
           "DTT to Rx Times ",
-          "(By ", stringr::str_to_title(range_by), ")",
+          selectedGroup,
+          " (By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -367,14 +503,15 @@ dttToRxBoxPlot <- function(referralTimes, range_by = "Monthly") {
     )
 }
 
-refToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
-  maxY <- max(90, ceiling((max(referralTimes$MeanRefToRx, na.rm = T) + 1) / 5) * 5)
+refToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
+  refToRx <- referralTimes |> filter(measure == "RefToRx" & group == selectedGroup)
+  maxY <- max(90, ceiling((max(refToRx$Mean, na.rm = T) + 1) / 5) * 5)
 
-  referralTimes |>
-    mutate(BreachStatus = if_else(MeanRefToRx > 90, ">90 days", "<90 days")) |>
+  refToRx |>
+    mutate(BreachStatus = if_else(Mean > 90, ">90 days", "<90 days")) |>
     ggplot() +
-    geom_line(aes(x = PeriodStart, y = MeanRefToRx, color = "grey")) +
-    geom_point(aes(x = PeriodStart, y = MeanRefToRx, color = BreachStatus)) +
+    geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
+    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus)) +
     geom_hline(yintercept = 90, linetype = "dashed", color = "red") +
     scale_color_manual(
       name = "Breach Status",
@@ -387,7 +524,8 @@ refToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "Referral to Rx Time ",
-          "(By ", stringr::str_to_title(range_by), ")",
+          selectedGroup,
+          " (By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -398,16 +536,12 @@ refToRxMeanPlot <- function(referralTimes, range_by = "Monthly") {
     theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.spacing.y = unit(0.1, "cm"))
 }
 
-refToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
+refToRxCountPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
   referralTimes |>
-    select(PeriodStart, `RefToRx ≤90 days`, `RefToRx >90 days`) |>
+    filter(`measure` == "RefToRx" & `group` == selectedGroup) |>
+    select(PeriodStart, `≤90 days`, `>90 days`) |>
     pivot_longer(cols = -PeriodStart, names_to = "Breach Status", values_to = "Count") |>
     mutate(
-      `Breach Status` = case_match(
-        `Breach Status`,
-        "RefToRx ≤90 days" ~ "≤90 days",
-        "RefToRx >90 days" ~ ">90 days"
-      ),
       `Breach Status` = factor(`Breach Status`, levels = c(">90 days", "≤90 days"))
     ) |>
     ggplot() +
@@ -422,7 +556,8 @@ refToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
       title =
         paste0(
           "Referral to Rx Count ",
-          "(By ", stringr::str_to_title(range_by), ")",
+          selectedGroup,
+          " (By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -437,21 +572,23 @@ refToRxCountPlot <- function(referralTimes, range_by = "Monthly") {
     )
 }
 
-refToRxBoxPlot <- function(referralTimes, range_by = "Monthly") {
+refToRxBoxPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
   referralTimes |>
+    filter(`measure` == "RefToDTT" & `group` == selectedGroup) |>
     select(
-      PeriodStart, `RefToRx`,
+      PeriodStart, `NotStopped`,
     ) |>
-    unnest(cols = "RefToRx") |>
+    unnest(cols = "NotStopped") |>
     ggplot() +
     geom_hline(yintercept = 90, linetype = "dashed", color = "red") +
-    geom_boxplot(aes(x = PeriodStart, y = RefToRx, group = PeriodStart)) +
+    geom_boxplot(aes(x = PeriodStart, y = NotStopped, group = PeriodStart)) +
     scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
     labs(
       title =
         paste0(
           "Referral to Rx Times ",
-          "(By ", stringr::str_to_title(range_by), ")",
+          selectedGroup,
+          " (By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -464,4 +601,18 @@ refToRxBoxPlot <- function(referralTimes, range_by = "Monthly") {
       legend.spacing.y = unit(0.1, "cm"),
       legend.position = "bottom"
     )
+}
+
+doWaitPlot <- function(measure, type, ...) {
+  switch(paste(measure, type, sep = ""),
+    "RefToDTTmean" = refToDTTMeanPlot(...),
+    "RefToDTTcounts" = refToDTTCountPlot(...),
+    "RefToDTTboxplot" = refToDTTBoxPlot(...),
+    "DTTToRxmean" = dttToRxMeanPlot(...),
+    "DTTToRxcounts" = dttToRxCountPlot(...),
+    "DTTToRxboxplot" = dttToRxBoxPlot(...),
+    "RefToRxmean" = refToRxMeanPlot(...),
+    "RefToRxcounts" = refToRxCountPlot(...),
+    "RefToRxboxplot" = refToRxBoxPlot(...)
+  )
 }
