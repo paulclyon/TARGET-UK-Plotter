@@ -45,6 +45,16 @@ waitTimesDashboardPlotTab <- function() {
         column(
           width = 3,
           radioButtons(
+            "waitTimesDashboardPlotGroupRadio",
+            "Type of Plot",
+            c(
+              "Performed" = "Performed",
+              "Waiting" = "Waiting",
+              "All" = "All"
+            ),
+            selected = "Performed"
+          ),
+          radioButtons(
             "waitTimesDashboardPlotTypeRadio",
             "Type of Plot",
             c(
@@ -96,14 +106,13 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
 
 
   output$plotWaitTimesDashboardRefToDTT <- renderPlotly({
-    p <- ggplot()
-    if (input$waitTimesDashboardPlotTypeRadio == "mean") {
-      p <- refToDTTMeanPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
-    } else if (input$waitTimesDashboardPlotTypeRadio == "boxplot") {
-      p <- refToDTTBoxPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
-    } else {
-      p <- refToDTTCountPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
-    }
+    p <- doWaitPlot(
+      "RefToDTT",
+      input$waitTimesDashboardPlotTypeRadio,
+      waitTimesTimes(),
+      input$waitTimesDashboardPlotDurationRadio,
+      input$waitTimesDashboardPlotGroupRadio
+    )
 
     height <- detectedHeight(input, "plotWaitTimesDashboardRefToDTT")
 
@@ -113,14 +122,13 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
   })
 
   output$plotWaitTimesDashboardRefToRx <- renderPlotly({
-    p <- ggplot()
-    if (input$waitTimesDashboardPlotTypeRadio == "mean") {
-      p <- refToRxMeanPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
-    } else if (input$waitTimesDashboardPlotTypeRadio == "boxplot") {
-      p <- refToRxBoxPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
-    } else {
-      p <- refToRxCountPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
-    }
+    p <- doWaitPlot(
+      "RefToRx",
+      input$waitTimesDashboardPlotTypeRadio,
+      waitTimesTimes(),
+      input$waitTimesDashboardPlotDurationRadio,
+      input$waitTimesDashboardPlotGroupRadio
+    )
 
     height <- detectedHeight(input, "plotWaitTimesDashboardRefToRx")
 
@@ -130,14 +138,13 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
   })
 
   output$plotWaitTimesDashboardDTTToRx <- renderPlotly({
-    p <- ggplot()
-    if (input$waitTimesDashboardPlotTypeRadio == "mean") {
-      p <- dttToRxMeanPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
-    } else if (input$waitTimesDashboardPlotTypeRadio == "boxplot") {
-      p <- dttToRxBoxPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
-    } else {
-      p <- dttToRxCountPlot(waitTimesTimes(), input$waitTimesDashboardPlotDurationRadio)
-    }
+    p <- doWaitPlot(
+      "DTTToRx",
+      input$waitTimesDashboardPlotTypeRadio,
+      waitTimesTimes(),
+      input$waitTimesDashboardPlotDurationRadio,
+      input$waitTimesDashboardPlotGroupRadio
+    )
 
     height <- detectedHeight(input, "plotWaitTimesDashboardDTTToRx")
 

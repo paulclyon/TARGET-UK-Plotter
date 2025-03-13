@@ -1,22 +1,27 @@
 ---
 title: "Ablation Waiting Time Audit Report"
-header-includes:
-- \usepackage{pdflscape}
-- \newcommand{\blandscape}{\begin{landscape}}
-- \newcommand{\elandscape}{\end{landscape}}
 output:
   html_document:
     toc: true
   pdf_document:
     toc: true
 date: "2024-01-29"
+params:
+  audit_start_date: !r Sys.Date() - 365
+  audit_end_date: !r Sys.Date()
+  audit_organs: ["Liver", "Lung", "Bone", "Brain", "Adrenal", "Other"]
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(out.width = "100%")
 options(knitr.table.format = "html")
 library(dplyr)
 library(kableExtra)
+
+audit_start_date <- params$audit_start_date
+audit_end_date <- params$audit_end_date
+audit_organs <- params$audit_organs
 
 # This is a way of generating an All Organs stats and individual organ stats in single table
 overall_group <- function(data, col_name) {
@@ -128,14 +133,7 @@ getZTestPValue <- function(current, preceding, organ, column) {
 
 <!-- PCL: I had to do an ugly global variable hack to get audit_start_date and audit_end_date visible from this file, but it works-->
 
-Audit Generated on:
-
-```{r}
-renderText({
-  format(Sys.time(), "%a %b %d %X %Y")
-})
-```
-
+Audit Generated on: `r format(Sys.time(), "%a %b %d %X %Y")`
 
 Audit Period from: `r audit_start_date` to: `r audit_end_date`<br><br>
 Organs included in audit: `r paste(audit_organs)`<br>
@@ -695,16 +693,16 @@ referralTimes <- processWaitTimesPerPeriod(
 ```
 
 ```{r refToDTTMeanPlot, echo=FALSE, warning=FALSE}
-refToDTTMeanPlot(referralTimes, "Month")
+refToDTTMeanPlot(referralTimes, "Month", selectedGroup = "Performed")
 ```
 
 
 ```{r dttToRxMeanPlot, echo=FALSE, warning=FALSE}
-dttToRxMeanPlot(referralTimes, "Month")
+dttToRxMeanPlot(referralTimes, "Month", selectedGroup = "Performed")
 ```
 
 ```{r refToRxMeanPlot, echo=FALSE, warning=FALSE}
-refToRxMeanPlot(referralTimes, "Month")
+refToRxMeanPlot(referralTimes, "Month", selectedGroup = "Performed")
 ```
 
 

@@ -29,7 +29,8 @@ auditTab <- function() {
       column(
         width = 3,
         actionButton(inputId = "buttonRunAuditReport", label = "Run Audit Report"),
-        actionButton(inputId = "buttonAuditToPDF", label = "Report to PDF")
+        downloadButton(outputId = "buttonAuditToPDF", label = "Report to PDF"),
+        downloadButton(outputId = "buttonAuditToDoc", label = "Report to Doc")
       )
     )),
     wellPanel(
@@ -78,11 +79,6 @@ auditServer <- function(input, output, session, api, plots) {
   observeEvent(input$buttonRunAuditReport, {
     plots$activePlot <- NA
 
-    # This is a bit of an ugly hack to allow markdown to see global vars but it doesn't appear to work FIXME
-    audit_start_date <<- input$auditDate1
-    audit_end_date <<- input$auditDate2
-    audit_organs <<- input$organAuditCheckbox
-
     # Elegant way to regenerate the HTML such that is does allow dynamic refresh
     output$summaryRefAudit <- renderUI({
       shinyCatch(
@@ -100,7 +96,15 @@ auditServer <- function(input, output, session, api, plots) {
           # Could also set knit_root_dir parameter but it is probably more trouble than it is worth
           # The default is the directory of the input file .Rmd which works fine, and if specified,
           # is relative to that dir
-          includeHTML(rmarkdown::render(rmdAuditFile, output_dir = Sys.getenv("REPORT_OUTPUT_DIR")))
+          includeHTML(rmarkdown::render(rmdAuditFile,
+            params = list(
+              audit_start_date = input$auditDate1,
+              audit_end_date = input$auditDate2,
+              audit_organs = input$organAuditCheckbox
+            ),
+            envir = new.env(parent = globalenv()),
+            output_dir = Sys.getenv("REPORT_OUTPUT_DIR")
+          ))
         },
         error = function(errorMessage) {
           logger(conditionMessage(errorMessage), T)
@@ -128,79 +132,93 @@ auditServer <- function(input, output, session, api, plots) {
     # })
   })
 
-  observeEvent(input$buttonAuditToPDF, {
-    if (isDocker == T) {
+  output$buttonAuditToDoc <- downloadHandler(
+    filename = "targetuk_waiting_time_audit_report.doc",
+    content = function(file) {
+      # Copy the report file to a temporary directory before processing it, in
+      # case we don't have write permissions to the current working dir (which
+      # can happen when deployed).
+      tempReportDir <- tempdir()
+
+      tempReport <- file.path(tempReportDir, "report.Rmd")
+      file.copy(rmdAuditFile, tempReport, overwrite = TRUE)
+
+      # Set up parameters to pass to Rmd document
+      params <- list(
+        audit_start_date = input$auditDate1,
+        audit_end_date = input$auditDate2,
+        audit_organs = input$organAuditCheckbox
+      )
+
       shinyCatch(
-        {
-          message("Sorry running in a Docker via Web interface therefore audit PDF export function not available...")
-        },
+        message(paste(
+          "Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"),
+          sep = ""
+        )),
         prefix = ""
       )
-    } else {
-      exportFile <- NA
+
+      rmarkdown::render(tempReport,
+        output_format = "html_document",
+        output_dir = tempReportDir,
+        params = params,
+        envir = new.env(parent = globalenv())
+      )
+
       shinyCatch(
-        {
-          message("If this is a secure computer (patient IDs included), choose a PDF file to export in a directory with write access...")
-        },
+        message("Converting to docx"),
         prefix = ""
       )
-      outputPDF <- "targetuk_waiting_time_audit_report.pdf"
-      if (dir.exists("reports")) outputPDF <- paste0("reports/", outputPDF)
-      result <- tryCatch(
-        {
-          exportFile <- svDialogs::dlg_save(title = "Save R script to", default = outputPDF)
-        },
-        error = function(err) {
-          logger(err, F)
-        }
+      pandoc::pandoc_convert(file = file.path(tempReportDir, "report.html"), from = "html", to = "docx", output = file)
+      shinyCatch(
+        message("Created \"targetuk_waiting_time_audit_report.doc\""),
+        prefix = ""
       )
-      if (length(exportFile$res > 0) && !is.na(exportFile$res) && exportFile$res != "") {
-        if (!endsWith(exportFile$res, ".pdf")) {
-          exportFile <- paste(exportFile$res, ".pdf", sep = "")
-        }
-
-        shinyCatch(
-          {
-            message(paste(
-              "Attempting to export PDF to file (make take some time if first PDF export)...", exportFile$res
-            ))
-          },
-          prefix = ""
-        )
-
-        if (file.access(exportFile$res, mode = 2) != -1) { # 0 success i.e. writable (mode 2) / -1 failure
-          # Could also set knit_root_dir parameter but it is probably more trouble than it is worth
-          # The default is the directory of the input file .Rmd which works fine, and if specified,
-          # is relative to that dir
-          rmarkdown::render(
-            rmdAuditFile,
-            "pdf_document",
-            output_dir = Sys.getenv("REPORT_OUTPUT_DIR"),
-            output_file = exportFile$res,
-            quiet = FALSE
-          )
-          shinyCatch(
-            {
-              message(paste("Exported PDF to file", exportFile$res))
-            },
-            prefix = ""
-          )
-        } else {
-          shinyCatch(
-            {
-              message(paste("Cannot write access file '", exportFile$res, "' for writing to...", sep = ""))
-            },
-            prefix = ""
-          )
-        }
-      } else {
-        shinyCatch(
-          {
-            message(paste("No file selected to export to, no PDF export performed"))
-          },
-          prefix = ""
-        )
-      }
     }
-  })
+  )
+
+  output$buttonAuditToPDF <- downloadHandler(
+    filename = "targetuk_waiting_time_audit_report.pdf",
+    content = function(file) {
+      # Copy the report file to a temporary directory before processing it, in
+      # case we don't have write permissions to the current working dir (which
+      # can happen when deployed).
+      tempReportDir <- tempdir()
+
+      tempReport <- file.path(tempReportDir, "report.Rmd")
+      file.copy(rmdAuditFile, tempReport, overwrite = TRUE)
+
+      # Set up parameters to pass to Rmd document
+      params <- list(
+        audit_start_date = input$auditDate1,
+        audit_end_date = input$auditDate2,
+        audit_organs = input$organAuditCheckbox
+      )
+
+      shinyCatch(
+        message(paste(
+          "Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"),
+          sep = ""
+        )),
+        prefix = ""
+      )
+
+      rmarkdown::render(tempReport,
+        output_format = "html_document",
+        output_dir = tempReportDir,
+        params = params,
+        envir = new.env(parent = globalenv())
+      )
+
+      shinyCatch(
+        message("Converting to pdf"),
+        prefix = ""
+      )
+      pandoc::pandoc_convert(file = file.path(tempReportDir, "report.html"), from = "html", to = "pdf", output = file)
+      shinyCatch(
+        message("Created \"targetuk_waiting_time_audit_report.pdf\""),
+        prefix = ""
+      )
+    }
+  )
 }
