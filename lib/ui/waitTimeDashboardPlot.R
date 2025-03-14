@@ -49,7 +49,7 @@ waitTimesDashboardPlotTab <- function() {
             "Type of Plot",
             c(
               "By Ablation Date" = "By Ablation Date",
-              "Performed" = "Performed",
+              "By DTT Date for Ref to DTT, By Ablation Date for others" = "Performed",
               "Waiting" = "Waiting",
               "All" = "All"
             ),

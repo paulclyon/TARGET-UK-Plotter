@@ -59,8 +59,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
   summariseDTTToRx <- function(x) {
     x |>
       mutate(
-        DTTDateFixed = pmin(DTTDate, RxDate, na.rm = T),
-        DTTToRx = RxDateFixed - DTTDateFixed,
+        DTTToRx = RxDateFixed - DTTDate,
         DTTToRxClockStopped = ifelse(is.na(ClockStopDaysPostDTT),
           DTTToRx,
           DTTToRx + ClockStopDaysPostDTT
@@ -125,7 +124,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         mutate(group = "By Ablation Date") |>
         add_period(period)
     },
-    RefToDTTPerformedOnly = \(x, period) {
+    RefToDTTByDTT = \(x, period) {
       x |>
         filter(RefDate < as.Date(range_end(period)) &
           # & either DTTDate is within the period
@@ -141,7 +140,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
           DTTDateFixed = pmin(DTTDate, RxDate, na.rm = T),
         ) |>
         summariseRefToDTT() |>
-        mutate(group = "Performed") |>
+        mutate(group = "By DTT Date") |>
         add_period(period)
     },
     RefToDTTWaitingOnly = \(x, period) {
@@ -186,25 +185,10 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         # RxDate is within the period
         filter(RxDate >= as.Date(range_start(period)) & RxDate < as.Date(range_end(period))) |>
         mutate(
-          RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
+          RxDateFixed = RxDate,
         ) |>
         summariseDTTToRx() |>
         mutate(group = "By Ablation Date") |>
-        add_period(period)
-    },
-    DTTToRxPerformedOnly = \(x, period) {
-      x |>
-        filter(
-          # Only include patients who had a DTT date before the end of the period
-          DTTDate < as.Date(range_end(period)) &
-            # patients who were treated in the period
-            (RxDate >= as.Date(range_start(period)) & RxDate < as.Date(range_end(period)))
-        ) |>
-        mutate(
-          RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
-        ) |>
-        summariseDTTToRx() |>
-        mutate(group = "Performed") |>
         add_period(period)
     },
     DTTToRxWaitingOnly = \(x, period) {
@@ -246,17 +230,6 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         ) |>
         summariseRefToRx() |>
         mutate(group = "By Ablation Date") |>
-        add_period(period)
-    },
-    RefToRxPerformedOnly = \(x, period) {
-      x |>
-        # RxDate is within the period
-        filter(RxDate >= as.Date(range_start(period)) & RxDate < as.Date(range_end(period))) |>
-        mutate(
-          RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
-        ) |>
-        summariseRefToRx() |>
-        mutate(group = "Performed") |>
         add_period(period)
     },
     RefToRxWaitingOnly = \(x, period) {
@@ -632,16 +605,24 @@ refToRxBoxPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = 
     )
 }
 
-doWaitPlot <- function(measure, type, ...) {
+doWaitPlot <- function(measure, type, referralTimes, range_by, selectedGroup) {
+  if (selectedGroup == "Performed") {
+    if (measure == "RefToDTT") {
+      selectedGroup <- "By DTT Date"
+    } else {
+      selectedGroup <- "By Ablation Date"
+    }
+  }
+
   switch(paste(measure, type, sep = ""),
-    "RefToDTTmean" = refToDTTMeanPlot(...),
-    "RefToDTTcounts" = refToDTTCountPlot(...),
-    "RefToDTTboxplot" = refToDTTBoxPlot(...),
-    "DTTToRxmean" = dttToRxMeanPlot(...),
-    "DTTToRxcounts" = dttToRxCountPlot(...),
-    "DTTToRxboxplot" = dttToRxBoxPlot(...),
-    "RefToRxmean" = refToRxMeanPlot(...),
-    "RefToRxcounts" = refToRxCountPlot(...),
-    "RefToRxboxplot" = refToRxBoxPlot(...)
+    "RefToDTTmean" = refToDTTMeanPlot(referralTimes, range_by, selectedGroup),
+    "RefToDTTcounts" = refToDTTCountPlot(referralTimes, range_by, selectedGroup),
+    "RefToDTTboxplot" = refToDTTBoxPlot(referralTimes, range_by, selectedGroup),
+    "DTTToRxmean" = dttToRxMeanPlot(referralTimes, range_by, selectedGroup),
+    "DTTToRxcounts" = dttToRxCountPlot(referralTimes, range_by, selectedGroup),
+    "DTTToRxboxplot" = dttToRxBoxPlot(referralTimes, range_by, selectedGroup),
+    "RefToRxmean" = refToRxMeanPlot(referralTimes, range_by, selectedGroup),
+    "RefToRxcounts" = refToRxCountPlot(referralTimes, range_by, selectedGroup),
+    "RefToRxboxplot" = refToRxBoxPlot(referralTimes, range_by, selectedGroup)
   )
 }
