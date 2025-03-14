@@ -693,16 +693,16 @@ referralTimes <- processWaitTimesPerPeriod(
 ```
 
 ```{r refToDTTMeanPlot, echo=FALSE, warning=FALSE}
-refToDTTMeanPlot(referralTimes, "Month", selectedGroup = "Performed")
+refToDTTMeanPlot(referralTimes, "Month", selectedGroup = "By Ablation Date")
 ```
 
 
 ```{r dttToRxMeanPlot, echo=FALSE, warning=FALSE}
-dttToRxMeanPlot(referralTimes, "Month", selectedGroup = "Performed")
+dttToRxMeanPlot(referralTimes, "Month", selectedGroup = "By Ablation Date")
 ```
 
 ```{r refToRxMeanPlot, echo=FALSE, warning=FALSE}
-refToRxMeanPlot(referralTimes, "Month", selectedGroup = "Performed")
+refToRxMeanPlot(referralTimes, "Month", selectedGroup = "By Ablation Date")
 ```
 
 

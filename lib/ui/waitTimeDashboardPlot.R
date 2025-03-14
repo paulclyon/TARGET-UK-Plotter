@@ -48,11 +48,12 @@ waitTimesDashboardPlotTab <- function() {
             "waitTimesDashboardPlotGroupRadio",
             "Type of Plot",
             c(
-              "Performed" = "Performed",
+              "By Ablation Date" = "By Ablation Date",
+              "By DTT Date for Ref to DTT, By Ablation Date for others" = "Performed",
               "Waiting" = "Waiting",
               "All" = "All"
             ),
-            selected = "Performed"
+            selected = "By Ablation Date"
           ),
           radioButtons(
             "waitTimesDashboardPlotTypeRadio",
