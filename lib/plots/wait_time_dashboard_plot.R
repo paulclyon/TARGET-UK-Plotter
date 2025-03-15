@@ -385,7 +385,7 @@ refToDTTBoxPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
 }
 
 dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
-  dttToRx <- referralTimes |> filter(measure == "RefToDTT" & group == selectedGroup)
+  dttToRx <- referralTimes |> filter(measure == "DTTToRx" & group == selectedGroup)
 
   maxY <- max(65, ceiling((max(dttToRx$Mean, na.rm = T) + 1) / 5) * 5)
 
