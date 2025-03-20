@@ -118,7 +118,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         # RxDate is within the period
         filter(RxDate >= as.Date(range_start(period)) & RxDate < as.Date(range_end(period))) |>
         mutate(
-          DTTDateFixed = pmin(DTTDate, RxDate, na.rm = T),
+          DTTDateFixed = DTTDate,
         ) |>
         summariseRefToDTT() |>
         mutate(group = "By Ablation Date") |>
@@ -137,7 +137,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
               )
           )) |>
         mutate(
-          DTTDateFixed = pmin(DTTDate, RxDate, na.rm = T),
+          DTTDateFixed = DTTDate,
         ) |>
         summariseRefToDTT() |>
         mutate(group = "By DTT Date") |>
@@ -155,7 +155,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
               )
           )) |>
         mutate(
-          DTTDateFixed = pmin(as.Date(range_end(period)), DTTDate, RxDate, na.rm = T),
+          DTTDateFixed = pmin(as.Date(range_end(period)), DTTDate, na.rm = T),
         ) |>
         summariseRefToDTT() |>
         mutate(group = "Waiting") |>
