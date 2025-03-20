@@ -605,6 +605,7 @@ processData <- function()
           rxwait_pt_list                     <<- append(rxwait_pt_list,                     paste(ptID, "-", iRef, sep = ""))
           rxwait_ref_date_list               <<- append(rxwait_ref_date_list,               ref_date)
           rxwait_provisional_rxdate_list     <<- append(rxwait_provisional_rxdate_list,     ref_provisional_rx_date)
+          rxwait_dtt_date_list               <<- append(rxwait_dtt_date_list, ref_dtt_date)
           rxwait_dtt_days_list               <<- append(rxwait_dtt_days_list,               ref_dtt_days)       # Days from Ref to DTT
           rxwait_days_list                   <<- append(rxwait_days_list,                   ref_rx_days)        # Days from Ref to Today
           rxwait_clockstop_days_predtt_list  <<- append(rxwait_clockstop_days_predtt_list,  clockstoppedDaysPreDTT)
