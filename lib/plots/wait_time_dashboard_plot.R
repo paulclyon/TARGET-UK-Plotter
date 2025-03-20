@@ -41,6 +41,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         ),
         DTTStopped = RefToDTTClockStopped < 0,
         RefToDTTNoStopped = ifelse(DTTStopped, NA, RefToDTTClockStopped),
+        MissingDTT = is.na(DTTDate) & !is.na(RxDate),
       ) |>
       summarise(
         NotStopped = list(RefToDTTNoStopped),
@@ -49,7 +50,8 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         CountNotStopped = sum(RefToDTTClockStopped >= 0, na.rm = TRUE),
         "≤10 days" = sum(RefToDTTNoStopped <= 10, na.rm = TRUE),
         "≤21 days" = sum(RefToDTTNoStopped > 10 & RefToDTTNoStopped <= 21, na.rm = TRUE),
-        ">21 days" = sum(RefToDTTNoStopped > 21, na.rm = TRUE)
+        ">21 days" = sum(RefToDTTNoStopped > 21, na.rm = TRUE),
+        "Treated but missing DTT" = sum(MissingDTT, na.rm = TRUE)
       ) |>
       mutate(
         measure = "RefToDTT",
@@ -66,6 +68,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         ),
         RxStopped = DTTToRxClockStopped < 0,
         DTTToRxNoStopped = ifelse(RxStopped, NA, DTTToRxClockStopped),
+        MissingDTT = is.na(DTTDate) & !is.na(RxDate)
       ) |>
       summarise(
         NotStopped = list(DTTToRxNoStopped),
@@ -75,7 +78,8 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         "≤31 days" = sum(DTTToRxNoStopped <= 31, na.rm = TRUE),
         "≤45 days" = sum(DTTToRxNoStopped > 31 & DTTToRxNoStopped <= 45, na.rm = TRUE),
         "≤60 days" = sum(DTTToRxNoStopped > 45 & DTTToRxNoStopped <= 60, na.rm = TRUE),
-        ">60 days" = sum(DTTToRxNoStopped > 60, na.rm = TRUE)
+        ">60 days" = sum(DTTToRxNoStopped > 60, na.rm = TRUE),
+        "Treated but missing DTT" = sum(MissingDTT, na.rm = TRUE)
       ) |>
       mutate(
         measure = "DTTToRx",
@@ -279,20 +283,27 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
 
 refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
   refToDTT <- referralTimes |> filter(measure == "RefToDTT" & group == selectedGroup)
-  maxY <- max(25, ceiling((max(refToDTT$Mean, na.rm = T) + 1) / 5) * 5)
+  maxY <- max(
+    25,
+    ceiling((max(refToDTT$Mean, na.rm = T) + 1) / 5) * 5,
+    ceiling((max(refToDTT$`Treated but missing DTT`, na.rm = T) + 1) / 5) * 5
+  )
 
   refToDTT |>
-    mutate(BreachStatus = if_else(Mean > 10, if_else(Mean > 21, ">21 days", ">10 days"), "<10 days")) |>
+    mutate(BreachStatus = if_else(Mean > 10, if_else(Mean > 21, ">21 days", "≤21 days"), "≤10 days")) |>
     ggplot() +
     geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
     geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus)) +
+    geom_col(aes(x = PeriodStart, y = `Treated but missing DTT`),
+      alpha = 0.5, position = "dodge2"
+    ) +
     geom_hline(yintercept = 10, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 21, linetype = "dashed", color = "red") +
     scale_color_manual(
       name = "Breach Status",
       values = c("≤10 days" = "grey", "≤21 days" = "orange", ">21 days" = "red")
     ) +
-    guides(color = "none") +
+    guides(color = "none", fill = "none") +
     scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
     scale_y_continuous(breaks = seq(0, maxY, by = 5), limits = c(0, maxY)) +
     labs(
@@ -387,7 +398,11 @@ refToDTTBoxPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
 dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = "All") {
   dttToRx <- referralTimes |> filter(measure == "DTTToRx" & group == selectedGroup)
 
-  maxY <- max(65, ceiling((max(dttToRx$Mean, na.rm = T) + 1) / 5) * 5)
+  maxY <- max(
+    65,
+    ceiling((max(dttToRx$Mean, na.rm = T) + 1) / 5) * 5,
+    ceiling((max(dttToRx$`Treated but missing DTT`, na.rm = T) + 1) / 5) * 5
+  )
 
   dttToRx |>
     mutate(BreachStatus = case_when(
@@ -399,6 +414,9 @@ dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
     ggplot() +
     geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
     geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus)) +
+    geom_col(aes(x = PeriodStart, y = `Treated but missing DTT`),
+      alpha = 0.5, position = "dodge2"
+    ) +
     geom_hline(yintercept = 31, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 45, linetype = "dashed", color = "red") +
     geom_hline(yintercept = 60, linetype = "dashed", color = "darkred") +
@@ -406,7 +424,7 @@ dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
       name = "Breach Status",
       values = c("≤31 days" = "grey", "≤45 days" = "orange", "≤60 days" = "red", ">60 days" = "darkred")
     ) +
-    guides(color = "none") +
+    guides(color = "none", fill = "none") +
     scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
     scale_y_continuous(breaks = seq(0, maxY, by = 5), limits = c(0, maxY)) +
     labs(
