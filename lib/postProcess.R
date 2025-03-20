@@ -49,6 +49,7 @@ postProcessData <- function()
     rxWaitData <<- data.frame(
       ID = rxwait_pt_list,
       RefDate = asDateWithOrigin(rxwait_ref_date_list),
+      DTTDate = asDateWithOrigin(rxwait_dtt_date_list),
       ProvisionalRxDate = asDateWithOrigin(rxwait_provisional_rxdate_list),
       Ref_DTT = as.numeric(rxwait_dtt_days_list),
       DaysWaiting = as.numeric(rxwait_days_list),
