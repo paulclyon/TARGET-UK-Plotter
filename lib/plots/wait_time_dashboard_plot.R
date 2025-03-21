@@ -42,6 +42,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         DTTStopped = RefToDTTClockStopped < 0,
         RefToDTTNoStopped = ifelse(DTTStopped, NA, RefToDTTClockStopped),
         MissingDTT = is.na(DTTDate) & !is.na(RxDate),
+        ValidDTT   = !is.na(DTTDate) & !is.na(RxDate)
       ) |>
       summarise(
         NotStopped = list(RefToDTTNoStopped),
@@ -51,7 +52,9 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         "≤10 days" = sum(RefToDTTNoStopped <= 10, na.rm = TRUE),
         "≤21 days" = sum(RefToDTTNoStopped > 10 & RefToDTTNoStopped <= 21, na.rm = TRUE),
         ">21 days" = sum(RefToDTTNoStopped > 21, na.rm = TRUE),
-        "Treated but missing DTT" = sum(MissingDTT, na.rm = TRUE)
+        "Treated but missing DTT" = sum(MissingDTT, na.rm = TRUE),
+        "Treated with DTT" = sum(ValidDTT, na.rm = TRUE),
+        "Treated Total" = sum(MissingDTT, na.rm = TRUE) + sum(ValidDTT, na.rm = TRUE)
       ) |>
       mutate(
         measure = "RefToDTT",
@@ -68,7 +71,8 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         ),
         RxStopped = DTTToRxClockStopped < 0,
         DTTToRxNoStopped = ifelse(RxStopped, NA, DTTToRxClockStopped),
-        MissingDTT = is.na(DTTDate) & !is.na(RxDate)
+        MissingDTT = is.na(DTTDate) & !is.na(RxDate),
+        ValidDTT   = !is.na(DTTDate) & !is.na(RxDate)
       ) |>
       summarise(
         NotStopped = list(DTTToRxNoStopped),
@@ -79,7 +83,9 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
         "≤45 days" = sum(DTTToRxNoStopped > 31 & DTTToRxNoStopped <= 45, na.rm = TRUE),
         "≤60 days" = sum(DTTToRxNoStopped > 45 & DTTToRxNoStopped <= 60, na.rm = TRUE),
         ">60 days" = sum(DTTToRxNoStopped > 60, na.rm = TRUE),
-        "Treated but missing DTT" = sum(MissingDTT, na.rm = TRUE)
+        "Treated but missing DTT" = sum(MissingDTT, na.rm = TRUE),
+        "Treated with DTT" = sum(ValidDTT, na.rm = TRUE),
+        "Treated Total" = sum(MissingDTT, na.rm = TRUE) + sum(ValidDTT, na.rm = TRUE)
       ) |>
       mutate(
         measure = "DTTToRx",
@@ -294,9 +300,7 @@ refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup 
     ggplot() +
     geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
     geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus)) +
-    geom_col(aes(x = PeriodStart, y = `Treated but missing DTT`),
-      alpha = 0.5, position = "dodge2"
-    ) +
+    geom_col(aes(x = PeriodStart, y = `Treated Total`, fill = `Treated with DTT`), alpha = 0.7, position = "dodge2") +
     geom_hline(yintercept = 10, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 21, linetype = "dashed", color = "red") +
     scale_color_manual(
@@ -414,9 +418,7 @@ dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
     ggplot() +
     geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
     geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus)) +
-    geom_col(aes(x = PeriodStart, y = `Treated but missing DTT`),
-      alpha = 0.5, position = "dodge2"
-    ) +
+    geom_col(aes(x = PeriodStart, y = `Treated Total`, fill = `Treated with DTT`), alpha = 0.7, position = "dodge2") +
     geom_hline(yintercept = 31, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 45, linetype = "dashed", color = "red") +
     geom_hline(yintercept = 60, linetype = "dashed", color = "darkred") +

@@ -32,7 +32,7 @@ required_pkgs <- c(
   "lubridate",
   "withr",
   "svDialogs",
-  "tinytex"
+  "pandoc"
 )
 
 # Install tinyytex if not installed already

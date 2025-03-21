@@ -1,5 +1,9 @@
 ---
-title: "Ablation Waiting Time Audit Report"
+title: "TARGET-UK: Ablation Waiting Time Audit Report"
+header-includes:
+- \usepackage{pdflscape}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
 output:
   html_document:
     toc: true
@@ -724,5 +728,11 @@ rxDoneAuditData %>%
   )) %>%
   kable_styling()
 ```
+
+## Credits
+![TARGET-UK: National Thermal Ablation Registry - Getting Evidence Together](../www/TARGETPlotterLogo.png)
+<br>
+Audit Report Creator: Dr. Andrew Thornton, FRCR<br>
+TARGET-UK Lead: Dr. Paul Lyon, FRCR
 
 \elandscape

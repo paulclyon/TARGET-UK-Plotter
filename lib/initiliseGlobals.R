@@ -1,4 +1,4 @@
-#' initialiseGlobals sets all of the default values
+# initialiseGlobals() sets all of the default values
 initialiseGlobals <- function()
 {
   # This is the order of the clock stop columns
