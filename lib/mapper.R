@@ -6,6 +6,7 @@
 
 # Return a list of lattiude and longitude for a post code
 # If only the district level postcode is provided, then the first post code in the district is used
+# If the postcode is duff, return NA
 getGeoForPostcode <- function(postcode)
 {
   postcodeFull <- NA
@@ -22,14 +23,16 @@ getGeoForPostcode <- function(postcode)
   }
 
   # Now we have a full post code
-  if (postcode_validation(postcodeFull))
+  if ((!is.null(postcodeFull) && (postcodeFull != "")) && postcode_validation(postcodeFull))
   {
     postcodeGeo <- PostcodesioR::postcode_lookup(postcodeFull)
+    
     returnVal <- c(postcodeGeo$latitude,postcodeGeo$longitude)
   }
   else
   {
-    returnVal <- c(0,0)
+    # returnVal <- c(0,0)
+    returnVal <- NA
   }
   return(returnVal)
 }
@@ -69,12 +72,15 @@ makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate, progressBa
         else
         {
           geo <- getGeoForPostcode(thisPostcode)
-          ID <- c(ID, rxDoneData.filtered$ID)
-          latitude  <- c(latitude, geo[1])
-          longitude <- c(longitude, geo[2])
-          postcode <- c(postcode, thisPostcode)
-          rxdate <- c(rxdate, format(rxDoneData.filtered$RxDate, format = "%d %B, %Y"))
-          organ <- c(organ, rxDoneData.filtered$Organs)
+          if (!is.na(geo[1]))
+          {
+            ID <- c(ID, rxDoneData.filtered$ID)
+            latitude  <- c(latitude, geo[1])
+            longitude <- c(longitude, geo[2])
+            postcode <- c(postcode, thisPostcode)
+            rxdate <- c(rxdate, format(rxDoneData.filtered$RxDate, format = "%d %B, %Y"))
+            organ <- c(organ, rxDoneData.filtered$Organs)
+          }
         }
       }
     }
