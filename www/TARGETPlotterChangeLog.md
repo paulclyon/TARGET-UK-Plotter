@@ -34,6 +34,7 @@ V0.7  Gazelle:   Plot informationals, Audit Save to PDF option
                  <br>
 V0.8  Hedgehog:  Added SPC treatment time waiting plots (AT)
                  Improved audit report for treatment waiting times (AT)
+                 Fixed glitch with incorrect postcodes on postcode mapper
                  <br>
 </pre>
 

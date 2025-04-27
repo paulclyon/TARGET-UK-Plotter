@@ -108,8 +108,11 @@ aeTableServer <- function(input, output, session, isDocker) {
     }
   })
 
-  filterData <- function() {
-    aeData.filtered <- filter(aeData, Grade %in% input$aeGradesCheckbox)
+  filterData <- function()
+  {
+    # This gets rid of any column with name NA - i.e. the mysterous final column, which otherwise crashes the filter
+    aeData.filtered <- aeData[ , -which(is.na(names(aeData))) ]
+    aeData.filtered <- filter(aeData.filtered, Grade %in% input$aeGradesCheckbox)
     startDate <- asDateWithOrigin(input$aeTabStartDate)
     endDate <- asDateWithOrigin(input$aeTabEndDate)
     if (nrow(aeData.filtered) > 0) {
