@@ -131,7 +131,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
           DTTDateFixed = DTTDate,
         ) |>
         summariseRefToDTT() |>
-        mutate(group = "By Ablation Date") |>
+        mutate(group = "Ablation Date") |>
         add_period(period)
     },
     RefToDTTByDTT = \(x, period) {
@@ -150,7 +150,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
           DTTDateFixed = DTTDate,
         ) |>
         summariseRefToDTT() |>
-        mutate(group = "By DTT Date") |>
+        mutate(group = "DTT Date") |>
         add_period(period)
     },
     RefToDTTWaitingOnly = \(x, period) {
@@ -198,7 +198,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
           RxDateFixed = RxDate,
         ) |>
         summariseDTTToRx() |>
-        mutate(group = "By Ablation Date") |>
+        mutate(group = "Ablation Date") |>
         add_period(period)
     },
     DTTToRxWaitingOnly = \(x, period) {
@@ -239,7 +239,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
           RxDateFixed = pmin(RxDate, as.Date(range_end(period)), na.rm = T),
         ) |>
         summariseRefToRx() |>
-        mutate(group = "By Ablation Date") |>
+        mutate(group = "Ablation Date") |>
         add_period(period)
     },
     RefToRxWaitingOnly = \(x, period) {
@@ -628,9 +628,9 @@ refToRxBoxPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = 
 doWaitPlot <- function(measure, type, referralTimes, range_by, selectedGroup) {
   if (selectedGroup == "Performed") {
     if (measure == "RefToDTT") {
-      selectedGroup <- "By DTT Date"
+      selectedGroup <- "DTT Date"
     } else {
-      selectedGroup <- "By Ablation Date"
+      selectedGroup <- "Ablation Date"
     }
   }
 

@@ -1,6 +1,29 @@
 waitTimesDashboardPlotTab <- function() {
   list(
     fluidRow(
+      column(
+        width = 5,
+        radioButtons(
+          "waitTimesDashboardPlotTypeRadio",
+          "Plot Style",
+          list("Mean" = "mean","Counts" = "counts","Box Plot" = "boxplot"),
+          inline = TRUE,
+          selected = "mean"
+        )
+      ),
+      column(
+        width = 7,
+        div(
+          style =
+            "background-color: lightgrey;
+               border: 5px solid blue;
+               padding: 5px;
+               margin: 5px;",
+          textOutput("informationalWaitTimePlot")
+        )
+      )
+    ),
+    fluidRow(
       tabPanel(
         "waitTimesDashboard",
         column(
@@ -32,13 +55,11 @@ waitTimesDashboardPlotTab <- function() {
           radioButtons(
             "waitTimesDashboardPlotDurationRadio",
             "Duration of Plot",
-            c(
-              "Weekly" = "week",
-              "2 Weekly" = "2 weeks",
-              "Monthly" = "month",
-              "Quarterly" = "quarter",
-              "Yearly" = "year"
-            ),
+            list("Weekly" = "week",
+                 "2 Weekly" = "2 weeks",
+                 "Monthly" = "month",
+                 "Quarterly" = "quarter",
+                 "Yearly" = "year"),
             selected = "month"
           )
         ),
@@ -46,26 +67,13 @@ waitTimesDashboardPlotTab <- function() {
           width = 3,
           radioButtons(
             "waitTimesDashboardPlotGroupRadio",
-            "Type of Plot",
-            c(
-              "By Ablation Date" = "By Ablation Date",
-              "By DTT Date for Ref to DTT, By Ablation Date for others" = "Performed",
-              "Waiting" = "Waiting",
-              "All" = "All"
-            ),
-            selected = "By Ablation Date"
+            "Plot Group...",
+            list("By Ablation Date" = "Ablation Date",
+                 "By DTT Date" = "Performed",
+                 "Waiting" = "Waiting",
+                 "All" = "All"),
+            selected = "Ablation Date"
           ),
-          radioButtons(
-            "waitTimesDashboardPlotTypeRadio",
-            "Type of Plot",
-            c(
-              "Mean" = "mean",
-              "Counts" = "counts",
-              "Boxplot" = "boxplot"
-            ),
-            selected = "mean"
-          ),
-          actionButton(inputId = "waitTimesDashboardPlotRefresh", label = "Refresh Plot")
         )
       )
     ),
@@ -96,7 +104,17 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
       selected = api$organFactors
     )
   })
-
+  
+  informationalText <- reactive({
+    headerText <- "Informational:\n"
+    waitTimeText <- switch(input$waitTimesDashboardPlotGroupRadio,
+           "Ablation Date" = paste(headerText, "Plot by Ablation date (Ref-to-DTT plot only)", sep = ""),
+           "Performed" = paste(headerText, "Plot by DTT date where specified, Ablation date for others (Ref-to-DTT plot only)", sep = ""),
+           "Waiting" = paste(headerText, "Plot just those waiting in each of the three plots.", sep = ""),
+           "All" = paste(headerText, "Plot all patients, both treated and waiting.", sep = "")
+    )
+  })
+  
   waitTimesTimes <- reactive(processWaitTimesPerPeriod(
     rxDoneData %>% filter(Organs %in% input$waitTimesDashboardPlotOrganCheckbox),
     rxWaitData %>% filter(Organs %in% input$waitTimesDashboardPlotOrganCheckbox),
@@ -147,15 +165,14 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
       input$waitTimesDashboardPlotGroupRadio
     )
 
+    output$informationalWaitTimePlot <- renderText({
+      informationalText()
+    })
+    
     height <- detectedHeight(input, "plotWaitTimesDashboardDTTToRx")
 
     p <- ggplotly(p, height = height)
     plots$activePlot <- p
     p
-  })
-
-
-  observeEvent(input$waitTimesDashboardPlotRefresh, {
-    plots$activePlot <- ggplot()
   })
 }
