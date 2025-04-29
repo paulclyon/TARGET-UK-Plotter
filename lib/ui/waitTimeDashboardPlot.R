@@ -69,7 +69,7 @@ waitTimesDashboardPlotTab <- function() {
             "waitTimesDashboardPlotGroupRadio",
             "Plot Group...",
             list("By Ablation Date" = "Ablation Date",
-                 "By DTT Date" = "Performed",
+                 "By DTT (or Ablation) Date" = "Performed",
                  "Waiting" = "Waiting",
                  "All" = "All"),
             selected = "Ablation Date"
@@ -108,10 +108,10 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
   informationalText <- reactive({
     headerText <- "Informational:\n"
     waitTimeText <- switch(input$waitTimesDashboardPlotGroupRadio,
-           "Ablation Date" = paste(headerText, "Plot by Ablation date (Ref-to-DTT plot only)", sep = ""),
-           "Performed" = paste(headerText, "Plot by DTT date where specified, Ablation date for others (Ref-to-DTT plot only)", sep = ""),
-           "Waiting" = paste(headerText, "Plot just those waiting in each of the three plots.", sep = ""),
-           "All" = paste(headerText, "Plot all patients, both treated and waiting.", sep = "")
+           "Ablation Date" = paste(headerText, "Plot only patients treated, dated by Ablation date", sep = ""),
+           "Performed" = paste(headerText, "Plot by DTT date only if specified (Ref-to-DTT plot). Plotted by Ablation date for Rx plots.", sep = ""),
+           "Waiting" = paste(headerText, "Plot just those waiting in each time period, across each of the three plots.", sep = ""),
+           "All" = paste(headerText, "Plot all patients, both treated and waiting, in each period.", sep = "")
     )
   })
   

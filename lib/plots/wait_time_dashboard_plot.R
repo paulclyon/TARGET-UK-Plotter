@@ -1,3 +1,46 @@
+# Implemented by Dr. Andrew Thornton.
+# How it works:
+#
+# By Ablation Date:
+# Group patients by their ablation date, i.e. the date that is the x-axis of the graph is the Ablation date. Compare:
+#
+# By DTT date:
+# Group patients by their DTT date (or if that is missing and they have an RxDate use that), i.e. the date that is the x-axis of the graph is the DTT date. (This would apply to the Ref-To-DTT graph only). See:
+#  
+# Waiting :
+# Count the patients who are waiting for a DTT or Rx in each period of time. This is slightly different for each section:
+#
+# In RefToDTT:
+# For each period of time, get the patients whose RefDate was before the end of the period but haven't had a DTT before the end. 
+# 
+# In DTTToRx:
+# For each period of time, get the patients who have had a DTT made before the end of the period but haven't had Rx before the end
+#
+# In RefToRx:
+# For each period of time, get the patients whose RefDate was before the end of the period but haven't had a Rx before the end of the period.
+#
+# All:
+# Count both the number of patients who are waiting for DTT/Rx and who have had their DTT/Rx  in each period.
+#
+# So similar to waiting, for RefToDTT and RefToRx filter all of the patients whose RefDate was before the end of the period, and filter only those whose DTTDate/RxDate was after the start of the period, or it is unset. In DTTToRx, filter all of the patients whose DTTDate was before the end of the period and whose RxDate is after the start of the period or is unset. See for example:
+# 
+# In all of the above cases there are adjustments made when making the summaries for ClockStops, (see the appropriate summarise... functions)
+# Why have these?
+# Well By Ablation Date only gives you an idea of those patients you've actually completed treatment on and it can falsely represent where/when the problems are. For example, when using by ablation date, the period used for the x-axis on the RefToDTT graph does not represent either RefDate or DTTDate, and depending on how long ago the period between DTTDate and RxDate the DTT may have occurred quite a while ago. There's no indication of what the current wait times are, or how many people are waiting. Consider the patient who has been waiting for 12 months for an ablation and who is still waiting, on a by ablation date basis this person will not appear and in fact it's better for your graphs and data that they never get treated! When they do finally get treated there will be a spike only at the point that they are treated making it look like the problem was in the month they got treated, not before then.
+# So, why would we use By Ablation Date by default for these values? Well, it's often only after Ablation has occurred that data (in particular ClockStops) is completely filled in, so the other values can be more error prone and over-estimate how bad the situation actually is. 
+# If these are likely to be error prone why have them? Well, for a start it should encourage better more timely data input to make them more accurate - and without them you have no idea how long people who are waiting have been waiting.
+#
+# Q. If the Waiting group selected, wouldn’t the Ref-To-Rx plot go blank?
+# A. No as it's showing the current waiting time for those who are awaiting treatment in each period.
+#    The All group is similar to that of the current waiting times but also includes those who are treated within the period, i.e. A would be counted in March, with their waiting time being fixed to RxDate instead of the end of March.
+#    The idea is to give a picture of the current state of the waiting list, instead of just those who are treated. The problem with it is that in order for it to be correct you need to keep on top of the ClockStops and put them in proactively, as people who should be clock stopped but are not marked stopped will continue to accumulate current waiting time and distort the data. (There's also a slight issue in that the ClockStops are front loaded rather than only taking effect when they actually occur but that's a minor thing.)
+#    If you just rely on the By Ablation Date graphs you're only assessing how long people who are treated are waiting and are not showing what your current actual waiting times are. It defers the presentation of a problem to the date of the ablation, not when it's actually occuring. 
+#    Say for example, one you goes off sick for a while, during the period of sickness the by ablation date graphs will in general look fine, with perhaps a slow worsening - because anyone who is treated is likely to have waited a similar length of time to before the sickness. However, in reality there will be more and more people waiting, and their current waiting times will be increasing. When the sickness is over and that person comes back or a locum is appointed, By Ablation Date graphs will suddenly look worse because of the catch-up. If someone is relying on the By Ablation Date graphs to justify a locum or their own appointment this both underestimates the problem when it's happening AND overestimates it when the solution is in place - making the newly appointed consultant look like they're worsening the situation instead of improving things. 
+#    In a similar fashion By Ablation Date is particularly bad for DTT related delays.
+#    Imagine an extreme case of someone who has been missed, and thus has been waiting 2 years for treatment. In the By Ablation Date graphs they will not appear at all, until they're actually treated making it look like the problem was the day they were finally treated instead of them appearing all the way through.
+#
+# Clock Stops are a bit tricky here, rather than splicing it up, clock stops are assumed as pre-loaded at the start to ensure waiting is monotonic, in other words always increasing until treatment
+
 processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_by_string) {
   range_by <- "month"
   if (grepl("(\\d+ )?((day)|(week)|(month)|(quarter)|(year))s?", range_by_string)) {
@@ -31,6 +74,7 @@ processWaitTimesPerPeriod <- function(doneData, waitingData, start, end, range_b
     range_tibble$end[range_tibble$name == name]
   }
 
+  # Andy reassures me that the patients without DTT date are excluded from the Ref-to-DTT data as they are NA'd (missing data)
   summariseRefToDTT <- function(x) {
     x |>
       mutate(
@@ -295,11 +339,12 @@ refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup 
     ceiling((max(refToDTT$`Treated but missing DTT`, na.rm = T) + 1) / 5) * 5
   )
 
+  # Only the negative clock stops are excluded (bad data), those with postiive clock stops are included in the mean etc
   refToDTT |>
-    mutate(BreachStatus = if_else(Mean > 10, if_else(Mean > 21, ">21 days", "≤21 days"), "≤10 days")) |>
+    mutate(BreachStatus = if_else(Mean > 10, if_else(Mean > 21, ">21 days", "≤21 days"), "≤10 days"), N = CountNotStopped) |>
     ggplot() +
     geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
-    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus)) +
+    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus, N = N)) +
     geom_col(aes(x = PeriodStart, y = `Treated Total`, fill = `Treated with DTT`), alpha = 0.7, position = "dodge2") +
     geom_hline(yintercept = 10, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 21, linetype = "dashed", color = "red") +
@@ -313,9 +358,8 @@ refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup 
     labs(
       title =
         paste0(
-          "Referral to DTT Time ",
-          selectedGroup,
-          " (By ", stringr::str_to_title(range_by), ")",
+          "Ref-DTT Mean",
+          " (", selectedGroup, ", By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -350,9 +394,8 @@ refToDTTCountPlot <- function(referralTimes, range_by = "Monthly", selectedGroup
     labs(
       title =
         paste0(
-          "Referral to DTT Count ",
-          selectedGroup,
-          " (By ", stringr::str_to_title(range_by), ")",
+          "Ref-DTT Count",
+          " (", selectedGroup, ", By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -382,9 +425,8 @@ refToDTTBoxPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
     labs(
       title =
         paste0(
-          "Referral to DTT Time ",
-          selectedGroup,
-          " (By ", stringr::str_to_title(range_by), ")",
+          "Ref-DTT Times",
+          " (", selectedGroup, ", By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -414,10 +456,10 @@ dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
       Mean > 45 ~ "≤60 days",
       Mean > 31 ~ "≤45 days",
       TRUE ~ "≤31 days"
-    )) |>
+    ), N = CountNotStopped) |>
     ggplot() +
     geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
-    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus)) +
+    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus, N = N)) +
     geom_col(aes(x = PeriodStart, y = `Treated Total`, fill = `Treated with DTT`), alpha = 0.7, position = "dodge2") +
     geom_hline(yintercept = 31, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 45, linetype = "dashed", color = "red") +
@@ -432,9 +474,8 @@ dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
     labs(
       title =
         paste0(
-          "DTT to Rx Times ",
-          selectedGroup,
-          " (By ", stringr::str_to_title(range_by), ")",
+          "DTT-Rx Mean",
+          " (", selectedGroup, ", By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -475,9 +516,8 @@ dttToRxCountPlot <- function(referralTimes, range_by = "Monthly", selectedGroup 
     labs(
       title =
         paste0(
-          "DTT to Rx Counts ",
-          selectedGroup,
-          " (By ", stringr::str_to_title(range_by), ")",
+          "DTT-Rx Count",
+          " (", selectedGroup, ", By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -508,9 +548,8 @@ dttToRxBoxPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = 
     labs(
       title =
         paste0(
-          "DTT to Rx Times ",
-          selectedGroup,
-          " (By ", stringr::str_to_title(range_by), ")",
+          "DTT-Rx Times",
+          " (", selectedGroup, ", By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -530,10 +569,11 @@ refToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
   maxY <- max(90, ceiling((max(refToRx$Mean, na.rm = T) + 1) / 5) * 5)
 
   refToRx |>
-    mutate(BreachStatus = if_else(Mean > 90, ">90 days", "<90 days")) |>
+    mutate(BreachStatus = if_else(Mean > 90, ">90 days", "<90 days"),
+           N = CountNotStopped) |>
     ggplot() +
     geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
-    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus)) +
+    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus, N = N)) +
     geom_hline(yintercept = 90, linetype = "dashed", color = "red") +
     scale_color_manual(
       name = "Breach Status",
@@ -545,9 +585,8 @@ refToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
     labs(
       title =
         paste0(
-          "Referral to Rx Time ",
-          selectedGroup,
-          " (By ", stringr::str_to_title(range_by), ")",
+          "Ref-Rx Mean",
+          " (", selectedGroup, ", By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -577,9 +616,8 @@ refToRxCountPlot <- function(referralTimes, range_by = "Monthly", selectedGroup 
     labs(
       title =
         paste0(
-          "Referral to Rx Count ",
-          selectedGroup,
-          " (By ", stringr::str_to_title(range_by), ")",
+          "Ref-Rx Count",
+          " (", selectedGroup, ", By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
@@ -608,9 +646,8 @@ refToRxBoxPlot <- function(referralTimes, range_by = "Monthly", selectedGroup = 
     labs(
       title =
         paste0(
-          "Referral to Rx Times ",
-          selectedGroup,
-          " (By ", stringr::str_to_title(range_by), ")",
+          "Ref-Rx Times",
+          " (", selectedGroup, ", By ", stringr::str_to_title(range_by), ")",
           "\n(Generated ",
           format(Sys.time(), "%a %b %d %Y %X"), ")"
         ),
