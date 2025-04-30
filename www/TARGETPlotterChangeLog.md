@@ -1,7 +1,7 @@
 ---
 title: "Change Log"
 author: "Paul Lyon"
-date: "2024-12-22"
+date: "2025-04-30"
 output: html_document
 ---
 
@@ -32,7 +32,7 @@ V0.7  Gazelle:   Plot informationals, Audit Save to PDF option
                  Table scroll bars, free text to treatment table, adverse events table fix
                  Added monthly waiting list plot
                  <br>
-V0.8  Hedgehog:  Added SPC treatment time waiting plots (AT)
+V0.8  Hedgehog:  Added 'SPC' waiting time dashboard / plots (AT)
                  Improved audit report for treatment waiting times (AT)
                  Fixed glitch with incorrect postcodes on postcode mapper
                  <br>

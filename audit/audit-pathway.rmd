@@ -697,17 +697,20 @@ referralTimes <- processWaitTimesPerPeriod(
 ```
 
 ```{r refToDTTMeanPlot, echo=FALSE, warning=FALSE}
-refToDTTMeanPlot(referralTimes, "Month", selectedGroup = "By Ablation Date")
+refToDTTMeanPlot(referralTimes, "Month", selectedGroup = "Ablation Date")
+refToDTTCountPlot(referralTimes, "Month", selectedGroup = "Ablation Date")
 ```
 
-
 ```{r dttToRxMeanPlot, echo=FALSE, warning=FALSE}
-dttToRxMeanPlot(referralTimes, "Month", selectedGroup = "By Ablation Date")
+dttToRxMeanPlot(referralTimes, "Month", selectedGroup = "Ablation Date")
+dttToRxCountPlot(referralTimes, "Month", selectedGroup = "Ablation Date")
 ```
 
 ```{r refToRxMeanPlot, echo=FALSE, warning=FALSE}
-refToRxMeanPlot(referralTimes, "Month", selectedGroup = "By Ablation Date")
+refToRxMeanPlot(referralTimes, "Month", selectedGroup = "Ablation Date")
+refToRxCountPlot(referralTimes, "Month", selectedGroup = "Ablation Date")
 ```
+
 
 
 ## Long waits
@@ -732,7 +735,7 @@ rxDoneAuditData %>%
 ## Credits
 ![TARGET-UK: National Thermal Ablation Registry - Getting Evidence Together](../www/TARGETPlotterLogo.png)
 <br>
-Audit Report Creator: Dr. Andrew Thornton, FRCR<br>
+Audit Report Developer: Dr. Andrew Thornton, FRCR<br>
 TARGET-UK Lead: Dr. Paul Lyon, FRCR
 
 \elandscape

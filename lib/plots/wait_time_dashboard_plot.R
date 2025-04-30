@@ -344,7 +344,7 @@ refToDTTMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup 
     mutate(BreachStatus = if_else(Mean > 10, if_else(Mean > 21, ">21 days", "≤21 days"), "≤10 days"), N = CountNotStopped) |>
     ggplot() +
     geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
-    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus, N = N)) +
+    geom_point(aes(x = PeriodStart, y = Mean, N = N, color = BreachStatus)) +
     geom_col(aes(x = PeriodStart, y = `Treated Total`, fill = `Treated with DTT`), alpha = 0.7, position = "dodge2") +
     geom_hline(yintercept = 10, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 21, linetype = "dashed", color = "red") +
@@ -459,7 +459,7 @@ dttToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
     ), N = CountNotStopped) |>
     ggplot() +
     geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
-    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus, N = N)) +
+    geom_point(aes(x = PeriodStart, y = Mean, N = N, color = BreachStatus)) +
     geom_col(aes(x = PeriodStart, y = `Treated Total`, fill = `Treated with DTT`), alpha = 0.7, position = "dodge2") +
     geom_hline(yintercept = 31, linetype = "dashed", color = "orange") +
     geom_hline(yintercept = 45, linetype = "dashed", color = "red") +
@@ -573,7 +573,7 @@ refToRxMeanPlot <- function(referralTimes, range_by = "Monthly", selectedGroup =
            N = CountNotStopped) |>
     ggplot() +
     geom_line(aes(x = PeriodStart, y = Mean, color = "grey")) +
-    geom_point(aes(x = PeriodStart, y = Mean, color = BreachStatus, N = N)) +
+    geom_point(aes(x = PeriodStart, y = Mean, N = N, color = BreachStatus)) +
     geom_hline(yintercept = 90, linetype = "dashed", color = "red") +
     scale_color_manual(
       name = "Breach Status",
