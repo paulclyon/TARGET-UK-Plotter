@@ -150,6 +150,12 @@ processData <- function()
       }
     }
     
+    # Get the last known alive date if it is filled in
+    # This might be for example after the last CT and after the last clinic date, and could be another imaging date e.g. chest x-ray which proves they are still alive
+    date_last_alive_fu <- NA
+    date_last_alive_fu <- getDataEntry("fu_last_alive_date", i)
+    if (!is.na(date_last_alive_fu)) date_last_alive_fu <- convertToDate(date_last_alive_fu)
+    
     # Get recurrence status
     recurrenceJSON <- getDataEntry("fu_image_matrix", i)
     local_recurrence <- 0
@@ -219,7 +225,7 @@ processData <- function()
       local_recurrence_status <- 1
     }
     
-    # Work out when last known alive either via imaging or clinical follow-up
+    # Work out when last known alive as the latest date via imaging, clinical follow-up or last known alive field if filled out
     if (!is.na(date_of_last_clinical_fu))
     {
       last_alive_date <- date_of_last_clinical_fu
@@ -231,6 +237,14 @@ processData <- function()
         last_alive_date <- date_of_last_imaging_fu
       }
     }
+    if (!is.na(date_last_alive_fu))
+    {
+      if (is.na(last_alive_date) || date_last_alive_fu > last_alive_date)
+      {
+        last_alive_date <- date_last_alive_fu
+      }
+    }
+    
     if (deceased == 1 && !is.na(deceased_date))
     {
       if(!is.na(last_alive_date) && deceased_date < last_alive_date)
@@ -616,7 +630,7 @@ processData <- function()
       else 
       {
         # Patient is not for treatment, if they have a treatment date specified this is a data integrity issue to log - they are still ignored from treatment data...
-        logger(paste('converting to date',getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i)))
+        logger(paste('Converting to date',getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i)))
         ref_rx_date <- convertToDate(getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i))
         if (!is.na(ref_rx_date))
         {

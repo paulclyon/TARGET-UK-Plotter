@@ -2,8 +2,10 @@
 processMonthlyRxWaitingList <- function(startDate, endDate, organs) {
   showNotification("Generating treatment waiting list...")
 
-  firstRefDate <- min(c(rxWaitData$RefDate, rxDoneData$RefDate), na.rm = T)
-  lastRefDate <- max(c(rxWaitData$RefDate, rxDoneData$RefDate), na.rm = T)
+  rxWaitData.filtered <- rxWaitData %>% filter(Organs %in% organs)
+  rxDoneData.filtered <- rxDoneData %>% filter(Organs %in% organs)
+  firstRefDate <- min(c(rxWaitData.filtered$RefDate, rxDoneData.filtered$RefDate), na.rm = T)
+  lastRefDate <- max(c(rxWaitData.filtered$RefDate, rxDoneData.filtered$RefDate), na.rm = T)
 
   if (isConvertibleToDate(endDate)) lastRefDate <- min(lastRefDate, convertToDate(endDate))
 

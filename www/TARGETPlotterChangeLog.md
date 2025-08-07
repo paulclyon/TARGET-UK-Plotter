@@ -36,6 +36,9 @@ V0.8  Hedgehog:  Added 'SPC' waiting time dashboard / plots (AT)
                  Improved audit report for treatment waiting times (AT)
                  Fixed glitch with incorrect postcodes on postcode mapper
                  <br>
+V0.9  Iguana:    Implemented new last known alive field in addition to last imaging etc
+		 Fixed monthly waiting list organ filter
+                 <br>
 </pre>
 
 Code Implementation by (PCL) unless otherwise specified<br>
