@@ -62,7 +62,7 @@ aeTableServer <- function(input, output, session, isDocker) {
     }
   })
 
-  observeEvent(input$buttonSaveSurvivalData, {
+  observeEvent(input$buttonSaveAEData, {
     if (isDocker == T) {
       shinyCatch(
         {
@@ -93,14 +93,14 @@ aeTableServer <- function(input, output, session, isDocker) {
         }
         shinyCatch(
           {
-            message(paste("Attempting to export data to file", exportFile))
+            message(paste("Attempting to export adverse event data to file", exportFile))
           },
           prefix = ""
         )
         write.csv(aeData, exportFile, row.names = TRUE)
         shinyCatch(
           {
-            message(paste("Exported data to file", exportFile))
+            message(paste("Exported adverse event data to file", exportFile))
           },
           prefix = ""
         )

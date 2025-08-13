@@ -74,7 +74,7 @@ pathwayTableServer <- function(input, output, session, isDocker) {
       exportFile <- NA
       shinyCatch(
         {
-          message("If this is a secure computer (patient IDs included), choose a file to export to...")
+          message("If this is a secure computer (patient IDs included), choose a file to export pathway data to...")
         },
         prefix = ""
       )
@@ -92,14 +92,14 @@ pathwayTableServer <- function(input, output, session, isDocker) {
         }
         shinyCatch(
           {
-            message(paste("Attempting to export data to file", exportFile))
+            message(paste("Attempting to export pathway data to file", exportFile))
           },
           prefix = ""
         )
         write.csv(finalRxTableDataInput(), exportFile, row.names = TRUE)
         shinyCatch(
           {
-            message(paste("Exported data to file", exportFile))
+            message(paste("Exported pathway data to file", exportFile))
           },
           prefix = ""
         )

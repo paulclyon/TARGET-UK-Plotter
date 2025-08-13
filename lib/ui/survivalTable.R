@@ -72,14 +72,14 @@ survivalTableServer <- function(input, output, session, isDocker) {
         }
         shinyCatch(
           {
-            message(paste("Attempting to export data to file", exportFile))
+            message(paste("Attempting to export survival data to file", exportFile))
           },
           prefix = ""
         )
         write.csv(survivalData, exportFile, row.names = TRUE)
         shinyCatch(
           {
-            message(paste("Exported data to file", exportFile))
+            message(paste("Exported survival data to file", exportFile))
           },
           prefix = ""
         )
