@@ -59,8 +59,10 @@ initialiseGlobals <- function()
   local_recurrence_status_list   <<- c()
   local_recurrence_date_list     <<- c()
   local_recurrence_days_list     <<- c()
-  lrf_survival_days_list         <<- c() # Local recurrence-free survival days
-  lrf_survival_status_list       <<- c() # Local recurrence-free survival status
+  lrf_os_survival_days_list      <<- c() # Local recurrence-free overall survival days
+  lrf_os_survival_status_list    <<- c() # Local recurrence-free overall survival status
+  lrf_cs_survival_days_list      <<- c() # Local recurrence-free cancer specific survival days
+  lrf_cs_survival_status_list    <<- c() # Local recurrence-free cancer specific survival status
   last_imaging_follow_up_list    <<- c()
   operator1                      <<- NA
   operator2                      <<- NA

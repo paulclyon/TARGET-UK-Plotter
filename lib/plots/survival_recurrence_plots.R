@@ -48,12 +48,16 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
     survivalFit        <- ggsurvfit::survfit2(Surv(TimeSurvival, StatusCancerSpecificSurvival)~Organ, data = filteredSurvivalData)
     xlabStr            <- "Cancer Specific Survival (Years)"
   }
-  else if (survivalType == 2)  # This is LRF survival
+  else if (survivalType == 2)  # This is LRF overall survival
   {
-    survivalFit        <- ggsurvfit::survfit2(Surv(TimeLRFS, StatusLRFS)~Organ, data = filteredSurvivalData)
-    xlabStr            <- "Overall Local Recurrence-Free Survival (Years)"
+    survivalFit        <- ggsurvfit::survfit2(Surv(TimeLRFOS, StatusLRFOS)~Organ, data = filteredSurvivalData)
+    xlabStr            <- "Overall Local Recurrence-Free Overall Survival (Years)"
   }
-  
+  else if (survivalType == 3)  # This is LRF cancer specific survival
+  {
+    survivalFit        <- ggsurvfit::survfit2(Surv(TimeLRFCSS, StatusLRFCSS)~Organ, data = filteredSurvivalData)
+    xlabStr            <- "Overall Local Recurrence-Free Cancer Specific Survival (Years)"
+  }
   # Original method but don't know how to change risk table to just e.g. 5 follow-up years
   #survivalPlot         <- ggsurvplot(survivalFit,
   #                                   ylab = "Probability",

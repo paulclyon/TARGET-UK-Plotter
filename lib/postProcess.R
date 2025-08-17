@@ -102,9 +102,10 @@ postProcessData <- function()
       Organ = survival_organ_list,
       TimeLRF = local_recurrence_days_list/365.25,     # Time to local recurrence
       StatusLRF = local_recurrence_status_list,
-      TimeLRFS = lrf_survival_days_list/365.25,        # Local recurrence-free survival i.e. time to LR or Death, if NA they have not recurred or died
-      StatusLRFS = lrf_survival_status_list,
-      #LocalRecurrence = local_recurrence_list,        # We don't need that as we can use the dates
+      TimeLRFOS = lrf_os_survival_days_list/365.25,        # Local recurrence-free survival i.e. time to LR or Death, if NA they have not recurred or died
+      StatusLRFOS = lrf_os_survival_status_list,
+      TimeLRFCSS = lrf_cs_survival_days_list/365.25,        # Local recurrence-free survival i.e. time to LR or Death, if NA they have not recurred or died
+      StatusLRFCSS = lrf_cs_survival_status_list,
       LastImagingDate = last_imaging_follow_up_list,
       FirstLocalRecurrenceDate = local_recurrence_date_list,
       LastKnownAlive = survival_last_alive_list,

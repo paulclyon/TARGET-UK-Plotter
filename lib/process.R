@@ -718,12 +718,24 @@ processData <- function()
       # Set the local recurrence-free survival days and status
       # I.e. work out how long they have lived without any knowledge of recurrence
       # i.e. last known alive date if not recurred, or recurrence date if recurred
+      #
+      # For LRFS curves the event is usually defined as local recurrence (tumour coming back at the original site).
+      # Death without recurrence is usually treated as a censoring event, not as a recurrence i.e. if a patient dies 
+      # without documented LR -> their data line is censored at their death date.
+      # If a patient has LR (whether or not they later die) -> that's counted as an event and the curve steps down.
+      # So on the LRFS KM drops in curve = LR, censoring = deaths without recurrnce or end of follow-up.
+      # BUT sometimes studies define LRFS differently i.e. including death from any cause as an event (i.e. LRF-OS)
+      # Here we work about both and the user can choose what KM they want
 
+      # If they have locally recurred...
       if (!is.na(date_of_first_local_recurrence))
       {
-        lrf_survival_days <- local_recurrence_days
-        lrf_survival_status <- 2   # Recurred, treated like death
+        lrf_os_survival_days <- local_recurrence_days
+        lrf_os_survival_status <- 2   # Recurred, treated like death
+        lrf_cs_survival_days <- local_recurrence_days
+        lrf_cs_survival_status <- 2   # Recurred, treated like death
       }
+      # If they haven't recurred but are deceased...
       else if (!is.na(deceased_date))
       {
         # Presume they can't die before they recur, but...
@@ -731,13 +743,26 @@ processData <- function()
         {
           addDataIntegrityError(ptID, date=date_of_first_local_recurrence, error = paste("Patient appears to have died before local recurrence date.", sep = ""))
         }
-        lrf_survival_days <- survival_days
-        lrf_survival_status <- 2   # Dead, treated like recurrence
+        
+        lrf_os_survival_days <- survival_days
+        lrf_os_survival_status <- 2   # Dead, treated like recurrence
+        lrf_cs_survival_days <- survival_days
+        if(deceased_related == 0)         # Here the LFS (cancer specific) survival status depends on if they had cancer
+        {
+          lrf_cs_survival_status <- 1   # Dead but not of cancer cause, censor this
+        }
+        else
+        {
+          lrf_cs_survival_status <- 2   # Dead of cancer cause, treated same as local recurrence (it counts)
+        }
       }
+      # They haven't recurred nor are they deceased, they are just lost to follow-up
       else
       {
-        lrf_survival_days <- survival_days
-        lrf_survival_status <- 1   # Censored at point of last follow-up
+        lrf_os_survival_days <- survival_days
+        lrf_os_survival_status <- 1   # Censored at point of last follow-up
+        lrf_cs_survival_days <- survival_days
+        lrf_cs_survival_status <- 1   # Censored at point of last follow-up
       }
       
       logger(paste("     Ref=", iRef, "/", pt_ref_count, 
@@ -773,8 +798,10 @@ processData <- function()
       survival_lost_to_fu_date  <<- append(survival_lost_to_fu_date, lost_to_fu_date)
       survival_overall_status_list <<- append(survival_overall_status_list, survival_overall_status)
       survival_cancer_specific_status_list <<- append(survival_cancer_specific_status_list, survival_cancer_specific_status)      
-      lrf_survival_days_list    <<- append(lrf_survival_days_list, lrf_survival_days)        # Local recurrence-free survival i.e. time to LR or death
-      lrf_survival_status_list  <<- append(lrf_survival_status_list, lrf_survival_status)
+      lrf_os_survival_days_list    <<- append(lrf_os_survival_days_list, lrf_os_survival_days)        # Local recurrence-free overall survival i.e. time to LR or death of any cause
+      lrf_os_survival_status_list  <<- append(lrf_os_survival_status_list, lrf_os_survival_status)
+      lrf_cs_survival_days_list    <<- append(lrf_cs_survival_days_list, lrf_cs_survival_days)        # Local recurrence-free cancer specific survival i.e. time to LR or cancer specific death
+      lrf_cs_survival_status_list  <<- append(lrf_cs_survival_status_list, lrf_cs_survival_status)
       
       # And the recurrence data
       local_recurrence_list        <<- append(local_recurrence_list, local_recurrence)

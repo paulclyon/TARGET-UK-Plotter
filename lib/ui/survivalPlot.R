@@ -47,7 +47,7 @@ survivalPlotTab <- function() {
         radioButtons(
           "survivalLRFSRadio",
           "Survival Plot Type",
-          c("Overall Survival" = 0, "Cancer Specific Survival" = 1, "Local Recurrence-Free Survival" = 2)
+          c("Overall Survival (OS)" = 0, "Cancer Specific Survival (CSS)" = 1, "Local Recurrence-Free OS" = 2, "Local Recurrence-Free CSS" = 3)
         ),
         actionButton(inputId = "refreshSurvivalPlot", label = "Refresh Plot")
       )
