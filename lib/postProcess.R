@@ -108,7 +108,8 @@ postProcessData <- function()
       LastImagingDate = last_imaging_follow_up_list,
       FirstLocalRecurrenceDate = local_recurrence_date_list,
       LastKnownAlive = survival_last_alive_list,
-      StatusSurvival = survival_status_list,    # Overall survival
+      StatusOverallSurvival = survival_overall_status_list,    # Overall survival
+      StatusCancerSpecificSurvival = survival_cancer_specific_status_list, # Cancer related survival
       TimeSurvival = survival_days_list/365.25,
       Deceased = survival_deceased_list,
       DeceasedDate = asDateWithOrigin(survival_deceased_date),

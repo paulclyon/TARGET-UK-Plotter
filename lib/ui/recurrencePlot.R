@@ -15,6 +15,13 @@ recurrencePlotTab <- function() {
           "End Date:",
           format = "dd/mm/yyyy",
           value = Sys.Date()
+        ),
+        numericInput(
+          "maxYearsFollowup",
+          "Max Years Follow-up:",
+          value = 5, 
+          min = 1, 
+          max = 20
         )
       ),
       column(
@@ -65,6 +72,7 @@ recurrencePlotServer <- function(input, output, session, api, plots)
     makeRecurrencePlot(
       input$recurrenceStartDate,
       input$recurrenceEndDate,
+      input$maxYearsFollowup,
       input$recurrenceSelectedOrgans)
   })
 

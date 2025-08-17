@@ -484,6 +484,10 @@ processData <- function()
                 modalityForRx <- switch(modalityForRx, "M"="Microwave", "C"="Cryotherapy", "R"="Radiofrequency", "Other/Unknown")
                 break
               }
+              else
+              {
+                modalityForRx <- "Other/Unknown"
+              }
             }
           }
           
@@ -643,18 +647,25 @@ processData <- function()
       # We only care about recording survival & recurrence if we have treated the patient
       if (!is.na(date_of_first_rx))
       {
+        # If we don't have a date for when they are last alive, we can at least assume they were alive on the the day we first treated them
+        if (is.na(last_alive_date))
+        {
+          last_alive_date <- date_of_first_rx
+        }
+        
         # Set the survival status
         # Censored observations are subjects who either die of causes other than the disease of interest or are lost to follow-up
         # https://thriv.github.io/biodatasci2018/r-survival.html
         if (deceased == 1)
         {
+          survival_overall_status <- 2
           if (deceased_related == 0)
           {
-            survival_status <- 1   # Censored as died of something else
+            survival_cancer_specific_status <- 1   # Censored as died of something else
           }
           else
           {
-            survival_status <- 2   # Dead due to cancer at the time of death - these are the only ones which count on Kaplin-Meyer
+            survival_cancer_specific_status <- 2   # Dead due to cancer at the time of death - these are the only ones which count on Kaplin-Meyer
           }
           if (!is.na(deceased_date))
           {
@@ -670,7 +681,8 @@ processData <- function()
         else
         {
           # The patient is still alive ...
-          survival_status <- 1   # Censored after the point of last clinical or imaging follow-up, there is no other option for status it is dead or censored
+          survival_cancer_specific_status <- 1
+          survival_overall_status <- 1   # Censored after the point of last clinical or imaging follow-up, there is no other option for status it is dead or censored
           if (!is.na(last_alive_date))
           {
             survival_days <- as.numeric(difftime(last_alive_date, date_of_first_rx, units = "days"), units = "days")
@@ -759,7 +771,8 @@ processData <- function()
       survival_deceased_related <<- append(survival_deceased_related, deceased_related)
       survival_lost_to_fu       <<- append(survival_lost_to_fu, lost_to_fu)
       survival_lost_to_fu_date  <<- append(survival_lost_to_fu_date, lost_to_fu_date)
-      survival_status_list      <<- append(survival_status_list, survival_status)
+      survival_overall_status_list <<- append(survival_overall_status_list, survival_overall_status)
+      survival_cancer_specific_status_list <<- append(survival_cancer_specific_status_list, survival_cancer_specific_status)      
       lrf_survival_days_list    <<- append(lrf_survival_days_list, lrf_survival_days)        # Local recurrence-free survival i.e. time to LR or death
       lrf_survival_status_list  <<- append(lrf_survival_status_list, lrf_survival_status)
       

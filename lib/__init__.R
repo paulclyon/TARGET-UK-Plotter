@@ -19,6 +19,7 @@ required_pkgs <- c(
   "rmarkdown",
   "here",
   "survival",
+  "ggsurvfit",
   "survminer",
   "knitr",
   "kableExtra",

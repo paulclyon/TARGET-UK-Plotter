@@ -15,6 +15,13 @@ survivalPlotTab <- function() {
           "End Date:",
           format = "dd/mm/yyyy",
           value = Sys.Date()
+        ),
+        numericInput(
+          "maxYearsFollowup",
+          "Max Years Follow-up:",
+          value = 5, 
+          min = 1, 
+          max = 20
         )
       ),
       column(
@@ -40,7 +47,7 @@ survivalPlotTab <- function() {
         radioButtons(
           "survivalLRFSRadio",
           "Survival Plot Type",
-          c("Local Recurrence-Free" = 1, "Survival Only" = 0)
+          c("Overall Survival" = 0, "Cancer Specific Survival" = 1, "Local Recurrence-Free Survival" = 2)
         ),
         actionButton(inputId = "refreshSurvivalPlot", label = "Refresh Plot")
       )
@@ -79,6 +86,7 @@ survivalPlotServer <- function(input, output, session, api, plots)
     makeSurvivalPlot(
       input$survivalStartDate,
       input$survivalEndDate,
+      input$maxYearsFollowup,
       input$survivalSelectedOrgans,
       input$survivalSelectedGenders,
       input$survivalLRFSRadio

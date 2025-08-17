@@ -9,12 +9,12 @@ Sys.setenv(CASTOR_DEFAULT_STUDY = NA)
 Sys.setenv(CASTOR_URL = "https://uk.castoredc.com")
 Sys.setenv(DEBUG_MODE = TRUE)
 Sys.setenv(DATE_FORMAT = "%d-%m-%Y")
-Sys.setenv(AUDIT_PATHWAY_RMD = "audit/audit-pathway.rmd")
+Sys.setenv(AUDIT_PATHWAY_RMD = paste("audit",.Platform$file.sep,"audit-pathway.rmd",sep=""))
 Sys.setenv(AUDIT_PATHWAY_MD = "audit-pathway.md")
-Sys.setenv(REPORT_OUTPUT_DIR = "reports")
-Sys.setenv(USERKEY_TXT = "../userkey.txt")
-Sys.setenv(SECRET_TXT = "../secret.txt")
-Sys.setenv(DEFAULT_STUDY_TXT = "../defaultstudy.txt")
+Sys.setenv(REPORT_OUTPUT_DIR = "reports",sep="")
+Sys.setenv(USERKEY_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"userkey.txt",sep=""))
+Sys.setenv(SECRET_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"secret.txt",sep=""))
+Sys.setenv(DEFAULT_STUDY_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"defaultstudy.txt",sep=""))
 theTotalTariff <- 0
 
 if (file.exists(Sys.getenv("SECRET_TXT"))) {
