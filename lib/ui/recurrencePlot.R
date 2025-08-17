@@ -25,21 +25,13 @@ recurrencePlotTab <- function() {
         )
       ),
       column(
-        width = 3,
+        width = 4,
+        selectInput("recurrenceSelectedOrgans", "Organ to Chart", choices = organFactors),
         checkboxGroupInput(
-          "recurrenceSelectedOrgans",
-          "Organs to Plot",
-          choices = organFactors,
-          selected = organFactors
+          "recurrenceSelectedGenders", "Genders to Chart",
+          choices = genderFactors,
+          selected = genderFactors
         )
-      ),
-      column(
-        width = 3,
-        checkboxGroupInput(
-          "sexRadio", "Gender",
-          choices = c("Male","Female","Unknown"),
-          selected = c("Male","Female","Unknown")
-        ),
       ),
       column(
         width = 3,
@@ -62,9 +54,16 @@ recurrencePlotServer <- function(input, output, session, api, plots)
   })
   
   observe({
-    updateCheckboxGroupInput(session, "recurrenceSelectedOrgans", "Organs to Chart",
-                             choices = api$organFactors,
-                             selected = api$organFactors
+    updateSelectInput(session, "recurrenceSelectedOrgans", "Organ to Chart",
+                      choices = api$organFactors,
+                      selected = api$organFactors[1]
+    )
+  })
+  
+  observe({
+    updateCheckboxGroupInput(session, "recurrenceSelectedGenders", "Genders to Chart",
+                             choices = api$genderFactors,
+                             selected = api$genderFactors
     )
   })
 
@@ -73,7 +72,9 @@ recurrencePlotServer <- function(input, output, session, api, plots)
       input$recurrenceStartDate,
       input$recurrenceEndDate,
       input$maxYearsFollowup,
-      input$recurrenceSelectedOrgans)
+      input$recurrenceSelectedOrgans,
+      input$recurrenceSelectedGenders
+    )
   })
 
   height <- reactive(detectedHeight(input, "plotRecurrenceCurve"))

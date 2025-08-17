@@ -40,28 +40,27 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
   if (survivalType == 0)  # This is plain old overall survival
   {
     survivalFit        <- ggsurvfit::survfit2(Surv(TimeSurvival, StatusOverallSurvival)~Organ, data = filteredSurvivalData) 
-    xlabStr            <- "Overall Survival (Years)"
-    
+    titleStr           <- "Overall Survival"
   }
   else if (survivalType == 1) # This is cancer specific survival
   {
     survivalFit        <- ggsurvfit::survfit2(Surv(TimeSurvival, StatusCancerSpecificSurvival)~Organ, data = filteredSurvivalData)
-    xlabStr            <- "Cancer Specific Survival (Years)"
+    titleStr           <- "Cancer Specific Survival"
   }
   else if (survivalType == 2)  # This is LRF overall survival
   {
     survivalFit        <- ggsurvfit::survfit2(Surv(TimeLRFOS, StatusLRFOS)~Organ, data = filteredSurvivalData)
-    xlabStr            <- "Overall Local Recurrence-Free Overall Survival (Years)"
+    titleStr           <- "Overall Local Recurrence-Free Overall Survival"
   }
   else if (survivalType == 3)  # This is LRF cancer specific survival
   {
     survivalFit        <- ggsurvfit::survfit2(Surv(TimeLRFCSS, StatusLRFCSS)~Organ, data = filteredSurvivalData)
-    xlabStr            <- "Overall Local Recurrence-Free Cancer Specific Survival (Years)"
+    titleStr           <- "Overall Local Recurrence-Free Cancer Specific Survival"
   }
   # Original method but don't know how to change risk table to just e.g. 5 follow-up years
   #survivalPlot         <- ggsurvplot(survivalFit,
   #                                   ylab = "Probability",
-  #                                   xlab = xlabStr,   risk.table = TRUE,
+  #                                   xlab = titleStr,   risk.table = TRUE,
   #                                   ggtheme = theme(plot.title = element_text(hjust = 0.5)))
   #survivalPlot$plot    <- survivalPlot$plot + coord_cartesian(xlim = c(0, maxYearsFollowup))
   #survivalPlot
@@ -72,11 +71,12 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
                   add_confidence_interval() + add_censor_mark() +
                   add_risktable(times=c(0:maxYearsFollowup), size=5) +
                   #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
-                  scale_ggsurvfit() + coord_cartesian(xlim = c(0, maxYearsFollowup))
+                  scale_ggsurvfit() + coord_cartesian(xlim = c(0, maxYearsFollowup)) +
+                  labs(title = titleStr, y = "Probability", x = "Time (Years)")
   survivalPlot
 }
 
-makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans)
+makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedGenders)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -88,7 +88,9 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
   
   filteredSurvivalData <<- survivalData |>
     filter(between(FirstRxDate, start, end)) |>
-    filter(Organ %in% selectedOrgans)
+    filter(Organ %in% selectedOrgans) |>
+    filter(Gender %in% selectedGenders)
+  
   if (nrow(filteredSurvivalData) == 0) {
     return(ggplot())
   }
@@ -113,6 +115,8 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
                     add_confidence_interval() + add_censor_mark() +
                     add_risktable(times=c(0:maxYearsFollowup), size=5) +
                     #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
-                    scale_ggsurvfit() + coord_cartesian(xlim = c(0, maxYearsFollowup))
+                    scale_ggsurvfit() + coord_cartesian(xlim = c(0, maxYearsFollowup)) +
+                    labs(title = "Local Recurrence Free Analysis", y = "Probability", x = "Time (Years)")
+  
   recurrencePlot
 }

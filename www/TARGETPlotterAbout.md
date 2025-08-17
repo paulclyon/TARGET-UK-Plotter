@@ -18,4 +18,3 @@ This Graphical User Inferface uses the EDC Application Programmers Interface (AP
 V0.9 Iguana Release (c) July 2025
 Conception, Design, Implementation: Dr. Paul C. Lyon (<paul.lyon@ouh.nhs.uk>)
 Waiting time Audit & Dashboard Dr. Andrew Thornton
-Test Team: Dr. Paul Lyon, Dr. Andrew Thornton, Dr. Mark Anderson, Dr. Yan Li, Dr. Shaun Scott

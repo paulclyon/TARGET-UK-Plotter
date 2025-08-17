@@ -25,16 +25,8 @@ survivalPlotTab <- function() {
         )
       ),
       column(
-        width = 3,
-        checkboxGroupInput(
-          "survivalSelectedOrgans",
-          "Organs to Chart",
-          choices = organFactors,
-          selected = organFactors
-        )
-      ),
-      column(
-        width = 3,
+        width = 4,
+        selectInput("survivalSelectedOrgans","Organ to Chart", choices = organFactors, selected = organFactors[1]),
         checkboxGroupInput(
           "survivalSelectedGenders",
           "Genders to Chart",
@@ -43,7 +35,7 @@ survivalPlotTab <- function() {
         )
       ),
       column(
-        width = 3,
+        width = 4,
         radioButtons(
           "survivalLRFSRadio",
           "Survival Plot Type",
@@ -64,14 +56,13 @@ survivalPlotTab <- function() {
 survivalPlotServer <- function(input, output, session, api, plots)
 {
   observeEvent(input$refreshSurvivalPlot, {
-    logger("here refresh!")
     plots$activePlot <- ggplot()
   })
   
   observe({
-    updateCheckboxGroupInput(session, "survivalSelectedOrgans", "Organs to Chart",
-                             choices = api$organFactors,
-                             selected = api$organFactors
+    updateSelectInput(session, "survivalSelectedOrgans", "Organ to Chart",
+                      choices = api$organFactors,
+                      selected = api$organFactors[1]
     )
   })
   

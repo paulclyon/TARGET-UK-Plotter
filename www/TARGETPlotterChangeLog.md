@@ -9,9 +9,9 @@ output: html_document
 
 ## TARGET-UK: Change Log
 <pre>
-V0.10  Aardvark: First Beta Release of TARGET Plotter (based on OxTAR Plotter)
+V0.1  Aardvark: First Beta Release of TARGET Plotter (based on OxTAR Plotter)
                  <br>
-V0.20  Badger:   Treatment Volume Plot
+V0.2  Badger:   Treatment Volume Plot
                  Updated to castoRedc library v2.0 using OpenAPI to fix write
                  Updated to castor API URL endpoint data fetching with paging
                  <br>
@@ -37,9 +37,9 @@ V0.8  Hedgehog:  Added 'SPC' waiting time dashboard / plots (AT)
                  Fixed glitch with incorrect postcodes on postcode mapper
                  <br>
 V0.9  Iguana:    Implemented new last known alive field in addition to last imaging etc
+                 Updated survival KM curve and added LRF-OS and LRF-CSS
                  Fixed monthly waiting list organ filter
                  Fixed platform independent secret directory for credentials
-                 Updated survival KM curve and added LRF-OS and LRF-CSS
                  <br>
 </pre>
 
