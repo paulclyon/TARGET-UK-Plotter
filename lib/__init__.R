@@ -32,12 +32,12 @@ required_base_pkgs <- c(
   "leaflet", # to render the mapview
   "lubridate",
   "withr",
-  "svDialogs",
-  "pandoc"
+  "svDialogs"
 )
 
 # FIXME Install LaTeX packages to make PDF from HTML
 required_latex_pkgs <- c(
+  "pandoc",
   "rmarkdown",
   "knitr",
   "tinytex",
