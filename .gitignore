@@ -18,3 +18,4 @@ audit/audit-pathway.html
 /reports
 .Rapp.history
 .Rapp.history
+*.history
