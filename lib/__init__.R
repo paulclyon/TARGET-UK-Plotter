@@ -1,5 +1,5 @@
 # __init__.R contains common functions that other function files may require.
-required_pkgs <- c(
+required_base_pkgs <- c(
   "remotes",
   "httr",
   "rapiclient",
@@ -36,27 +36,25 @@ required_pkgs <- c(
   "pandoc"
 )
 
-# Install tinyytex if not installed already
-if (tinytex::check_installed("framed") == FALSE) {
-  if (length(suppressWarnings(tryCatch(
-    tinytex:::kpsewhich("framed.sty", stdout = TRUE), error = function(e) ""))) == 0) {
-    tinytex::install_tinytex()
-  }
-}
-
 # FIXME Install LaTeX packages to make PDF from HTML
-#install.packages("rmarkdown")
-#install.packages("knitr")
-#install.packages("tinytex")
-#tinytex::install_tinytex()
-#install.packages("here")
-#install.packages("tidyverse")
-#install.packages("broom")
-#install.packages("fs")
-#install.packages("usethis")
+required_latex_pkgs <- c(
+  "rmarkdown",
+  "knitr",
+  "tinytex",
+  "here",
+  "tidyverse",
+  "broom",
+  "fs",
+  "usethis"
+)
 
+# Set default CRAN mirror so user doesn't have to select
+local({r <- getOption("repos")
+r["CRAN"] <- "https://cran.r-project.org"
+options(repos=r)})
 
-for (pkg in required_pkgs) {
+# Install the packages
+for (pkg in c(required_base_pkgs,required_latex_pkgs)) {
   if (!require(pkg, character.only = TRUE)) {
     install.packages(pkg, dependencies = TRUE)
     library(pkg, character.only = TRUE)
@@ -66,11 +64,18 @@ for (pkg in required_pkgs) {
 # Install github packages
 # Please note that the castorRedc library updated form 1.1.0 to 2.1.0 from 2024...
 githubPkgs <- c("castoredc/castoRedc", "deepanshu88/summaryBox")
-
 for (pkg in githubPkgs) {
   if (!require(sub(".*/", "", pkg), character.only = TRUE)) {
     remotes::install_github(pkg, quiet = FALSE, host = "api.github.com")
     library(sub(".*/", "", pkg), character.only = TRUE)
+  }
+}
+
+# Install tinyytex if not installed already, which installs differently
+if (tinytex::check_installed("framed") == FALSE) {
+  if (length(suppressWarnings(tryCatch(
+    tinytex:::kpsewhich("framed.sty", stdout = TRUE), error = function(e) ""))) == 0) {
+    tinytex::install_tinytex()
   }
 }
 

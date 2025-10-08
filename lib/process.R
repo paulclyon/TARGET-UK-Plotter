@@ -21,6 +21,18 @@ processData <- function()
   {
     ptID <- studyData$Study$Participant_ID[i]
     
+    # If the patient ID is all zeros e.g. 0, 00, 000 etc then we assume its a dummy patient, and we skip it...
+    ptIDInteger = strtoi(ptID)
+    if (!is.na(ptIDInteger) && ptIDInteger == 0)
+    {
+      logger(paste("\n", i, "/", patientCount, " Pt=", ptID, " is being skipped from analysis as dummy patient...", sep = ""))
+      next
+    }
+    else
+    {
+      logger(paste(i, "/", patientCount, " Pt=", ptID, " performing referral analysis...", sep = ""))
+    }
+    
     #FIXME I don't know how to tell if archived any more since v1.1.0 to 2.1.0 of castoRedc
     #Assuming if archived, it won't come back in studyData
     #ptArchived <- patientData[["archived"]][i]
@@ -29,9 +41,6 @@ processData <- function()
     #  next
     #}
     # Also see patientArchived() function which needs fixing up for latest castoRedc
-    
-    #logger(paste("\n", i, "/", patientCount, " Pt=", ptID, " performing referral analysis...", sep = ""))
-    logger(paste(i, "/", patientCount, " Pt=", ptID, " performing referral analysis...", sep = ""))
     
     postcode <- getDataEntry("pt_postcode", i)
     sex <- as.integer(getDataEntry("sex", i))
@@ -730,24 +739,24 @@ processData <- function()
       # If they have locally recurred...
       if (!is.na(date_of_first_local_recurrence))
       {
-        lrf_os_survival_days <- local_recurrence_days
+        lrf_os_survival_days   <- local_recurrence_days
         lrf_os_survival_status <- 2   # Recurred, treated like death
-        lrf_cs_survival_days <- local_recurrence_days
+        lrf_cs_survival_days   <- local_recurrence_days
         lrf_cs_survival_status <- 2   # Recurred, treated like death
       }
-      # If they haven't recurred but are deceased...
-      else if (!is.na(deceased_date))
+      # If they haven't locally recurred but are now deceased...
+      else if (deceased == 1)
       {
-        # Presume they can't die before they recur, but...
+        # Presume they can't die before they recur, but if they have kick out a warning...
         if (!is.na(local_recurrence_days) && survival_days < local_recurrence_days)
         {
           addDataIntegrityError(ptID, date=date_of_first_local_recurrence, error = paste("Patient appears to have died before local recurrence date.", sep = ""))
         }
         
         lrf_os_survival_days <- survival_days
-        lrf_os_survival_status <- 2   # Dead, treated like recurrence
+        lrf_os_survival_status <- 2     # Dead, treated like recurrence
         lrf_cs_survival_days <- survival_days
-        if(deceased_related == 0)         # Here the LFS (cancer specific) survival status depends on if they had cancer
+        if (deceased_related == 0)      # Here the LFS (cancer specific) survival status depends on if they had cancer
         {
           lrf_cs_survival_status <- 1   # Dead but not of cancer cause, censor this
         }
@@ -781,8 +790,9 @@ processData <- function()
     # Now we have been through all the referrals update the survival data...
     if (!is.na(date_of_first_rx))
     {
-      if (!is.na(birth_year)) {
-        age_at_first_rx <- as.integer(format(asDateWithOrigin(date_of_first_rx), "%Y")) - birth_year
+      if (!is.na(birth_year))
+        {
+          age_at_first_rx <- as.integer(format(asDateWithOrigin(date_of_first_rx), "%Y")) - birth_year
       }
       survival_pt_list          <<- append(survival_pt_list, ptID)
       survival_sex_list         <<- append(survival_sex_list, sex)
@@ -811,7 +821,7 @@ processData <- function()
       last_imaging_follow_up_list  <<- append(last_imaging_follow_up_list, date_of_last_imaging_fu)
     }
   } # This ends the for loop for each patient...
-  
+
   # Do the post-processing
   postProcessData()
 }
