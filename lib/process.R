@@ -193,8 +193,9 @@ processData <- function()
           
           # If this row shows recurrence...
           # Note if it is 'YA' means Yes and Ablatable Recurrence
+          #      if it is 'YNA' means Yes and Non-ablatable Recurrence
           thisLR <- recurrence.df$local.recurrence[j]
-          if (thisLR == "Y" || thisLR == "YA")
+          if (thisLR == "Y" || thisLR == "YA" || thisLR == "YNA")
           {
             thisRecurrenceDate <- thisImagingDate
             # If we have not yet recurred...
@@ -670,11 +671,12 @@ processData <- function()
           survival_overall_status <- 2
           if (deceased_related == 0)
           {
-            survival_cancer_specific_status <- 1   # Censored as died of something else
+            survival_cancer_specific_status <- 0   # Censored as died of something else
           }
           else
           {
-            survival_cancer_specific_status <- 2   # Dead due to cancer at the time of death - these are the only ones which count on Kaplin-Meyer
+            survival_cancer_specific_status <- 1   # Dead due to cancer at the time of death - these are the only ones which count on Kaplin-Meyer
+            # Note the use of 0/1 rather than 1/2 - if we use 1/2 and there are no cancer deaths then the package thinks they are ALL CR-deaths!
           }
           if (!is.na(deceased_date))
           {
@@ -690,7 +692,7 @@ processData <- function()
         else
         {
           # The patient is still alive ...
-          survival_cancer_specific_status <- 1
+          survival_cancer_specific_status <- 0
           survival_overall_status <- 1   # Censored after the point of last clinical or imaging follow-up, there is no other option for status it is dead or censored
           if (!is.na(last_alive_date))
           {
