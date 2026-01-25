@@ -31,7 +31,8 @@ initialiseGlobals <- function()
   rxwait_organ_list              <<- c()
   rxwait_pt_list                 <<- c()
   rxwait_ref_date_list           <<- c()
-  rxwait_provisional_rxdate_list <<- c()
+  rxwait_tci_date_list           <<- c()
+  rxwait_tci_status_list         <<- c()
   rxwait_dtt_days_list           <<- c()
   rxwait_dtt_date_list           <<- c()
   rxwait_days_list               <<- c()
@@ -87,6 +88,7 @@ initialiseGlobals <- function()
   refclockstop.df                <<- NA
   recurrence.df                  <<- NA
   clinicalfu.df                  <<- NA
+  refTciCalendar                 <<- NA
   rxdonePlot                     <<- ggplot()
   rxwaitPlot                     <<- ggplot()
   monthlyWaitingPlot             <<- ggplot()

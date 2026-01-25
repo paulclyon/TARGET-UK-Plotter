@@ -1,0 +1,106 @@
+---
+title: "TARGET-UK: Ablation Waiting List Report"
+header-includes:
+- \usepackage{pdflscape}
+output:
+  html_document:
+    toc: false
+  pdf_document:
+    toc: false
+classoption: landscape
+params:
+  report_start_date: !r Sys.Date() - 365
+  report_end_date: !r Sys.Date()
+  report_organs: ["Liver", "Lung", "Kidney", "Adrenal", "Other"]
+h1.title { display: none; }
+
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(out.width = "100%")
+options(knitr.table.format = "html")
+
+library(dplyr)
+library(kableExtra)
+
+report_start_date <- params$report_start_date
+report_end_date <- params$report_end_date
+report_organs <- params$report_organs
+reportStart <- as.Date(report_start_date)
+reportEnd <- as.Date(report_end_date)
+
+# Remove Dummy patient numbers from the data
+rxWaitReportData <- rxWaitData |>
+  filter((ID != "000-1" & ID != "00000-1" & ID != "000000-1"))
+
+# Filter to just the organs of interest
+rxWaitReportData <- rxWaitReportData |>
+    filter(Organs == "All Organs" | Organs %in% report_organs)
+
+# Filter to just the referral date period of interest
+rxWaitReportData <- rxWaitReportData |>
+  filter(RefDate >= reportStart & RefDate <= reportEnd)
+
+# Add the pre- and post-DTT clockstops to save a column
+rxWaitReportData$ClockStopDays <- rowSums(cbind(rxWaitReportData$ClockStopDaysPreDTT,rxWaitReportData$ClockStopDaysPostDTT), na.rm=T)
+rxWaitReportData <- subset(rxWaitReportData, select = -c(ClockStopDaysPreDTT,ClockStopDaysPostDTT,ClockStopWhy))
+
+rxClockStopData <- subset(rxWaitData, select = c(ID, ClockStopDaysPreDTT, ClockStopDaysPostDTT, ClockStopWhy ))
+rxClockStopData <- dplyr::filter(rxClockStopData, !is.na(ClockStopDaysPreDTT) | !is.na(ClockStopDaysPostDTT))
+
+# Remove the Ref_DTT column to save space
+rxWaitReportData <- subset(rxWaitReportData, select = -c(Ref_DTT))
+
+# Sort by TCI date
+rxWaitReportData <- rxWaitReportData %>% arrange(desc(TciDate))
+
+# Make the TCI calendar
+tciCalendar <- makeTciCalendar(report_start_date,T)
+
+generatedTime <- format(Sys.time(), "%a %b %d %X %Y")
+```
+
+<!-- PCL: I had to do an ugly global variable hack to get report_start_date and report_end_date visible from this file, but it works-->
+Referrals from: `r report_start_date` to: `r report_end_date`<br>
+Organs included: `r paste(report_organs)`<br>
+
+```{r echo = FALSE,  results = 'asis'}
+if (nrow(rxWaitReportData) > 0)
+{
+options(knitr.kable.NA = '')
+  kbl(rxWaitReportData, caption=paste('Current Ablation Waiting List (Created ',generatedTime,')',sep="")) %>%
+    kable_styling() %>%
+    column_spec(8, width = "10em")
+} else {
+  print("No referrals waiting for date range provided.")
+}
+
+if (nrow(rxClockStopData) > 0)
+{
+  kbl(rxClockStopData, caption=paste('Waiting List Clock Stops (Created ',generatedTime,')',sep="")) %>%
+    kable_styling()
+}
+
+```
+
+```{r waitingListPlot, echo = FALSE, warning = FALSE}
+makeWaitingListPlot(report_start_date, report_end_date, report_organs)
+```
+
+## Capacity Booking Heatmaps
+
+```{r tciCalendarThisYear, echo = FALSE, warning = FALSE}
+makeCalendarHeatmap(report_start_date, TRUE)
+```
+
+```{r tciCalendarNextYear, echo = FALSE, warning = FALSE}
+makeCalendarHeatmap(as.Date(report_start_date) + 365, TRUE)
+```
+
+## Credits
+![TARGET-UK: The Thermal Ablation Registry - Getting Evidence Together](../www/TARGETPlotterLogo.png)
+<br>
+Report Developer: Dr. Paul Lyon, FRCR<br>
+TARGET-UK Lead: Dr. Paul Lyon, FRCR

@@ -9,7 +9,10 @@ Sys.setenv(CASTOR_DEFAULT_STUDY = NA)
 Sys.setenv(CASTOR_URL = "https://uk.castoredc.com")
 Sys.setenv(DEBUG_MODE = TRUE)
 Sys.setenv(DATE_FORMAT = "%d-%m-%Y")
-Sys.setenv(AUDIT_PATHWAY_RMD = paste("audit",.Platform$file.sep,"audit-pathway.rmd",sep=""))
+Sys.setenv(AUDIT_REPORT_TEMPLATE_DIR = "templates",sep="")
+Sys.setenv(REPORT_WAITING_LIST_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"report-waiting-list.rmd",sep=""))
+Sys.setenv(REPORT_WAITING_LIST_MD = "report-waiting-list.md")
+Sys.setenv(AUDIT_PATHWAY_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"audit-pathway.rmd",sep=""))
 Sys.setenv(AUDIT_PATHWAY_MD = "audit-pathway.md")
 Sys.setenv(REPORT_OUTPUT_DIR = "reports",sep="")
 Sys.setenv(USERKEY_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"userkey.txt",sep=""))
@@ -81,6 +84,13 @@ ui <- dashboardPage(
         menuSubItem("Referral Maps", tabName = "referralMaps")
       ), id = "chartsMenuItem")),
       hidden(tagAppendAttributes(menuItem(
+        "Calendars",
+        id = "calendarsID",
+        tabName = "calendars",
+        icon = icon("calendar"),
+        menuSubItem("Referral TCI Calendar", tabName = "referralTciCalendar")
+      ), id = "calendarsMenuItem")),
+      hidden(tagAppendAttributes(menuItem(
         "Data Tables",
         id = "tablesID",
         tabName = "tables",
@@ -99,12 +109,13 @@ ui <- dashboardPage(
         menuSubItem("Data Integrity Table", tabName = "dataIntegrityTab")
       ), id = "validationMenuItem")),
       hidden(tagAppendAttributes(menuItem(
-        "Audit Reports",
+        "Reports & Audit",
         id = "auditID",
         tabName = "audit",
         icon = icon("clipboard-list"),
-        expandedName = "AUDIT",
-        menuSubItem("Referral Audit Report", tabName = "auditPathway")
+        expandedName = "REPORTS & AUDIT",
+        menuSubItem("Waiting List Report", tabName = "reportWaitingList"),
+        menuSubItem("Treatment Time Audit", tabName = "auditRxPathway")
       ), id = "auditMenuItem")),
       hidden(tagAppendAttributes(menuItem(
         "Summary Data",
@@ -147,12 +158,14 @@ ui <- dashboardPage(
       tabItem("referralStatus", referralStatusPlotTab()),
       tabItem("waitTimesDashboard", waitTimesDashboardPlotTab()),
       tabItem("referralMaps", referralMapTab()),
+      tabItem("referralTciCalendar", referralTciCalendarTab()),
       tabItem("rxPathwayTab", pathwayTab()),
       tabItem("aeTab", aeTab()),
       tabItem("survivalTab", survivalTab()),
       tabItem("dataIntegrityTab", dataIntegrityTab()),
       tabItem("loggerTab", loggerTab()),
-      tabItem("auditPathway", auditTab()),
+      tabItem("reportWaitingList", reportWaitingListTab()),
+      tabItem("auditRxPathway", auditRxPathwayTab()),
       tabItem("rxPathwaySummary", pathwaySummaryTab()),
       tabItem("recurrenceSummary", "Recurrence Summary Data work in progress!"),
       tabItem("survivalSummary", survivalSummaryTab()),
@@ -270,9 +283,12 @@ server <- function(input, output, session) {
   referralStatusPlotServer(input, output, session, api, plots)
   waitTimesDashboardPlotServer(input, output, session, api, plots)
   referralsMapServer(input, output, session, plots)
+  calendarServer(input, output, session, api, plots)
   pathwaySummaryServer(input, output, session)
   survivalSummaryServer(input, output, session)
+  reportServer(input, output, session, api, plots)
   auditServer(input, output, session, api, plots)
+  
   output$tableWait <- DT::renderDataTable({
     DT::datatable(rxWaitData)
   })

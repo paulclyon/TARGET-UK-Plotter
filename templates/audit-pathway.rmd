@@ -13,7 +13,7 @@ date: "2024-01-29"
 params:
   audit_start_date: !r Sys.Date() - 365
   audit_end_date: !r Sys.Date()
-  audit_organs: ["Liver", "Lung", "Bone", "Brain", "Adrenal", "Other"]
+  audit_organs: ["Liver", "Lung", "Kidney", "Adrenal", "Other"]
 ---
 
 ```{r setup, include=FALSE}
@@ -733,7 +733,7 @@ rxDoneAuditData %>%
 ```
 
 ## Credits
-![TARGET-UK: National Thermal Ablation Registry - Getting Evidence Together](../www/TARGETPlotterLogo.png)
+![TARGET-UK: The Thermal Ablation Registry - Getting Evidence Together](../www/TARGETPlotterLogo.png)
 <br>
 Audit Report Developer: Dr. Andrew Thornton, FRCR<br>
 TARGET-UK Lead: Dr. Paul Lyon, FRCR

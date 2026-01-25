@@ -12,6 +12,7 @@ required_base_pkgs <- c(
   "markdown",
   "DT",
   "ggplot2",
+  "toastui",
   "purrr",
   "plotly",
   "ggrepel",
@@ -22,6 +23,7 @@ required_base_pkgs <- c(
   "ggsurvfit",
   "survminer",
   "knitr",
+  "calendR",
   "kableExtra",
   "RColorBrewer",
   "sf", # for mapping

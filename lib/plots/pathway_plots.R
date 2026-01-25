@@ -1,6 +1,6 @@
 # Populate monthlyRxWaitData which is basically a list of patients on the waiting list each month
 processMonthlyRxWaitingList <- function(startDate, endDate, organs) {
-  showNotification("Generating treatment waiting list...")
+  showNotification("Generating treatment waiting list...", duration=5)
 
   rxWaitData.filtered <- rxWaitData %>% filter(Organs %in% organs)
   rxDoneData.filtered <- rxDoneData %>% filter(Organs %in% organs)

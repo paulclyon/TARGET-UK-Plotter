@@ -223,7 +223,14 @@ reloadStudyEvent <- function(input, output, session, api) {
 
   # Show the data sidebar items
   # TODO: these should be reactive based on the status of the data
-  sapply(c("chartsMenuItem", "tablesMenuItem", "validationMenuItem", "auditMenuItem", "summaryMenuItem", "pathwaySummaryMenuItem"), shinyjs::show)
+  sapply(c("chartsMenuItem",
+           "calendarsMenuItem",
+           "tablesMenuItem",
+           "validationMenuItem",
+           "auditMenuItem",
+           "summaryMenuItem",
+           "pathwaySummaryMenuItem"),
+         shinyjs::show)
 
   # Make the plots which don't get refreshed elsewhere...
   makeTreatmentVolumePlot(rxDoneData, input$volumePlotDurationRadio)

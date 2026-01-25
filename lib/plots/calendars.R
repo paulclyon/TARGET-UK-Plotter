@@ -1,0 +1,110 @@
+getTciData <- function(startDate, includeTreated)
+{
+  # Get first date of the month
+  firstDateOfMonth <- format(ymd(startDate),"%Y-%m-01")
+  
+  # Make a data table which we can use to populate the calendar
+  tciData <- subset(rxWaitData, select = c(ID, TciDate, TciStatus, Organs))
+  tciData <- dplyr::filter(tciData, !is.na(TciDate)) # Remove the nulls
+  tciData <- dplyr::filter(tciData, TciDate >= firstDateOfMonth) # Remove anything before the 1st day of month
+  data.table::setnames(tciData, c("title","start","status","body"))
+  tciData <- tciData %>% mutate(calendarId = paste(body," (",status,")",sep=""))
+  tciData <- tciData %>% mutate(body = paste(body," (",status,")",sep=""))
+  tciData <- tciData %>% mutate(end = start) # Make a new column called End which is a copy of Start
+  tciData <- tciData %>% mutate(category = "allday") # Make a new column called category which is allday as oppose to time option
+  
+  # If we are to include the treated patients too...
+  if (includeTreated)
+  {
+    rxData <- subset(rxDoneData, select = c(ID, RxDate, Organs))
+    rxData <- dplyr::filter(rxData, RxDate >= firstDateOfMonth) # Remove anything before the 1st day of month
+    data.table::setnames(rxData, c("title","start","body"))
+    rxData <- rxData %>% mutate(body = paste(body,"*",sep=""))
+    rxData <- rxData %>% mutate(status = "Treated") # Make a new column called status
+    rxData <- rxData %>% mutate(calendarId = paste(body," (Treated)",sep=""))
+    rxData <- rxData %>% mutate(end = start) # Make a new column called End which is a copy of Start
+    rxData <- rxData %>% mutate(body = paste(body," (Treated)",sep=""))
+    rxData <- rxData %>% mutate(category = "allday") # Make a new column called category which is allday as oppose to time option
+    tciData <- merge(tciData,rxData, all=T) # Merge both tables together (the column order slightly differs so we need merge)
+  }
+  tciData
+}
+
+makeTciCalendar <- function(startDate, includeTreated)
+{
+  tciData <- getTciData(startDate, includeTreated)
+  
+  # These are used to colour the calendar entries, note using organ name for the ID rather than another lookup
+  calendarProperties <- data.frame(col1 = c("Liver",   "Lung",    "Kidney",  "Bone",   "Other/Unspecified", "Liver*",   "Lung*",    "Kidney*",  "Bone*",   "Other/Unspecified*"),
+                                   col2 = c("Liver",   "Lung",    "Kidney",  "Bone",   "Other/Unspecified", "Liver*",   "Lung*",    "Kidney*",  "Bone*",   "Other/Unspecified*"),
+                                   col3 = c("#000000", "#000000", "#000000", "#000000", "#000000",          "white",    "white",    "white",    "white",   "white"           ),
+                                   col4 = c("#F5A9A9", "#00A0FF", "#F539A9", "#FFDB58", "purple",           "grey",     "grey",     "grey",     "grey",    "grey"              ),
+                                   col5 = c("#000000", "#000000", "#000000", "#000000", "#000000",          "#000000",  "#000000",  "#000000",  "#000000", "#000000"           ))
+  data.table::setnames(calendarProperties, c("id","name","color","backgroundColor","borderColor"))
+  
+  # Make a unique status for each organ type, so we can colour it in a traffic light system, otherwise its black if not known status
+  statusLevels <- levels(as.factor(tciData$status))
+  calendarPropertiesStatus <- data.frame()
+  for (status in statusLevels)
+  {
+    newCalendarProperties <- calendarProperties %>% mutate(id = paste(id," (",status,")",sep=""))
+  
+    if (status == "Cancelled")
+    {
+      newCalendarProperties <- newCalendarProperties %>% mutate(borderColor = "red")
+    }
+    else if (status == "Confirmed")
+    {
+      newCalendarProperties <- newCalendarProperties %>% mutate(borderColor = "green")
+    }
+    else if (status == "Provisional")
+    {
+      newCalendarProperties <- newCalendarProperties %>% mutate(borderColor = "orange")
+    }
+    else if (status == "Treated")
+    {
+      newCalendarProperties <- newCalendarProperties %>% mutate(borderColor = "darkblue")
+    }
+    calendarPropertiesStatus <- rbind(calendarPropertiesStatus, newCalendarProperties)
+  }
+
+  refTciCalendar <<- calendar(tciData, view = "month", defaultDate = asDateWithOrigin(startDate)) %>% 
+    cal_month_options(
+      startDayOfWeek = 1,
+      narrowWeekend = TRUE
+    ) %>% 
+    cal_props(calendarPropertiesStatus)
+  
+  refTciCalendar
+}
+
+# Make a heatmap calendar of the year of both Treated and TCI so we can see capacity
+# Note that TCI status is ignored 
+makeCalendarHeatmap <- function(startDate, includeTreated)
+{
+  tciData <- getTciData(startDate, includeTreated)
+  calendarYear <- year(startDate)
+    
+  # Vector of NA of the same length of the number of days of the year
+  events <- rep(0, 365)
+  
+  # Set the corresponding events
+  for (i in 1 : nrow(tciData))
+  {
+    thisTciYearDay <- yday(tciData$start[i])
+    # Remember not to include the TCIs if the status is cancelled
+    if (tciData$status[i] != "Cancelled")
+    {
+      events[thisTciYearDay] <- events[thisTciYearDay] + 1
+    }
+  }
+                    
+  # Creating the calendar with a legend
+  calendR(year = calendarYear,
+          special.days = events,
+          low.col = "white",
+          special.col = "#FF0000",
+          gradient = TRUE,
+          orientation = "landscape",
+          legend.pos = "bottom") # Legend to the right
+}

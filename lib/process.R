@@ -192,10 +192,30 @@ processData <- function()
           }
           
           # If this row shows recurrence...
-          # Note if it is 'YA' means Yes and Ablatable Recurrence
-          #      if it is 'YNA' means Yes and Non-ablatable Recurrence
+          # 
+          # Original simple coding before improvements for:
+          #   'YA' = Yes (recurrent) and Ablatable Recurrence
+          #   'YNA' = Yes (recurrent) and Non-ablatable Recurrence
+          #
+          # This is the new coding:
+          #
+          #   No RD/LR (NR)
+          #   1st RD/LR - untreated (1LR-U)
+          #   1st RD/LR - re-ablated (1LR-RA)
+          #   1st RD/LR - surgically resected (1LR-SR)
+          #   1st RD/LR - treated by radioRx (1LR-RT)
+          #   1st RD/LR - treated by chemoRx (1LR-CT)
+          #   1st RD/LR - treated by other (1LR-O)
+          #   >1st RD/LR - untreated (2LR-U)
+          #   >1st RD/LR - re-ablated (2LR-RA)
+          #   >1st RD/LR - surgically resected (2LR-SR)
+          #   >1st RD/LR - treated by radioRx (2LR-RT)
+          #   >1st RD/LR - treated by chemoRx (2LR-CT)
+          #   >1st RD/LR - treated by other (2LR-O)
+          
           thisLR <- recurrence.df$local.recurrence[j]
-          if (thisLR == "Y" || thisLR == "YA" || thisLR == "YNA")
+          # if (thisLR == "Y" || thisLR == "YA" || thisLR == "YNA")
+          if (thisLR != "NR") # Double negative but it is a good catch all for recurrence
           {
             thisRecurrenceDate <- thisImagingDate
             # If we have not yet recurred...
@@ -360,8 +380,14 @@ processData <- function()
           ref_dtt_days <- NA
         }
         
-        # Get provisional rx date, NA if not set
-        ref_provisional_rx_date <- convertToDate(getDataEntry(paste("ref_date_provisional_rx_", as.integer(iRef), sep = ""), i))
+        # Get To Come In (TCI) rx date and status, NA if not set
+        ref_tci_date <- convertToDate(getDataEntry(paste("ref_tci_date_", as.integer(iRef), sep = ""), i))
+        thisTciStatus <- getDataEntry(paste("ref_tci_status_", as.integer(iRef), sep = ""), i)
+        if (!is.na(thisTciStatus))
+        {
+          # These must match the modality radiobutton options is app.R
+          ref_tci_status <- switch(thisTciStatus, "1"="Provisional", "2"="Confirmed", "3"="Deferred", "4"="Cancelled", "Status Unknown")
+        }
 
         # Sort Clock Stop
         # Parse the JSON and get it into a nice data frame
@@ -632,8 +658,9 @@ processData <- function()
           rxwait_organ_list                  <<- append(rxwait_organ_list,                  organForRx)
           rxwait_pt_list                     <<- append(rxwait_pt_list,                     paste(ptID, "-", iRef, sep = ""))
           rxwait_ref_date_list               <<- append(rxwait_ref_date_list,               ref_date)
-          rxwait_provisional_rxdate_list     <<- append(rxwait_provisional_rxdate_list,     ref_provisional_rx_date)
-          rxwait_dtt_date_list               <<- append(rxwait_dtt_date_list, ref_dtt_date)
+          rxwait_tci_date_list               <<- append(rxwait_tci_date_list,               ref_tci_date)
+          rxwait_tci_status_list             <<- append(rxwait_tci_status_list,             ref_tci_status)
+          rxwait_dtt_date_list               <<- append(rxwait_dtt_date_list,               ref_dtt_date)
           rxwait_dtt_days_list               <<- append(rxwait_dtt_days_list,               ref_dtt_days)       # Days from Ref to DTT
           rxwait_days_list                   <<- append(rxwait_days_list,                   ref_rx_days)        # Days from Ref to Today
           rxwait_clockstop_days_predtt_list  <<- append(rxwait_clockstop_days_predtt_list,  clockstoppedDaysPreDTT)
