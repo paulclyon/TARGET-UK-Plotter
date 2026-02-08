@@ -32,7 +32,8 @@ getTciData <- function(startDate, includeTreated)
 
 makeTciCalendar <- function(startDate, includeTreated)
 {
-  tciData <- getTciData(startDate, includeTreated)
+  # Because its a calendar you often get the last week of the previous month included, so make sure we go back to start of that month
+  tciData <- getTciData(asDateWithOrigin(startDate)-months(1), includeTreated)
   
   # These are used to colour the calendar entries, note using organ name for the ID rather than another lookup
   calendarProperties <- data.frame(col1 = c("Liver",   "Lung",    "Kidney",  "Bone",   "Other/Unspecified", "Liver*",   "Lung*",    "Kidney*",  "Bone*",   "Other/Unspecified*"),
@@ -68,7 +69,17 @@ makeTciCalendar <- function(startDate, includeTreated)
     calendarPropertiesStatus <- rbind(calendarPropertiesStatus, newCalendarProperties)
   }
 
-  refTciCalendar <<- calendar(tciData, view = "month", defaultDate = asDateWithOrigin(startDate)) %>% 
+  refTciCalendar <<- toastui::calendar(tciData,
+                                       view = "month", 
+                                       useDetailPopup = TRUE, 
+                                       useCreationPopup = FALSE, 
+                                       isReadOnly = TRUE, 
+                                       navigation = FALSE, 
+                                       width = "100%",
+                                       height = 800,
+                                       # The visibleEventCount is set to the max events on any day
+                                       visibleEventCount = max((tciData$start %>% duplicate_count())$frequency),
+                                       defaultDate = asDateWithOrigin(startDate)) %>% 
     cal_month_options(
       startDayOfWeek = 1,
       narrowWeekend = TRUE
@@ -82,7 +93,9 @@ makeTciCalendar <- function(startDate, includeTreated)
 # Note that TCI status is ignored 
 makeCalendarHeatmap <- function(startDate, includeTreated)
 {
-  tciData <- getTciData(startDate, includeTreated)
+  firstDateOfYear <- format(ymd(startDate),"%Y-01-01")
+  
+  tciData <- getTciData(firstDateOfYear, includeTreated)
   calendarYear <- year(startDate)
     
   # Vector of NA of the same length of the number of days of the year

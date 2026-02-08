@@ -1,5 +1,5 @@
 ---
-title: "TARGET-UK: Ablation Waiting List Report"
+title: "TARGET-UK: Waiting List Report"
 header-includes:
 - \usepackage{pdflscape}
 output:
@@ -9,8 +9,9 @@ output:
     toc: false
 classoption: landscape
 params:
-  report_start_date: !r Sys.Date() - 365
-  report_end_date: !r Sys.Date()
+  tci_start_date: !r Sys.Date()
+  first_ref_date: !r Sys.Date() - 365
+  last_ref_date:  !r Sys.Date() + 365
   report_organs: ["Liver", "Lung", "Kidney", "Adrenal", "Other"]
 h1.title { display: none; }
 
@@ -24,13 +25,25 @@ options(knitr.table.format = "html")
 
 library(dplyr)
 library(kableExtra)
+library(webshot2)
+library(htmlwidgets)
+library(htmltools)
 
-report_start_date <- params$report_start_date
-report_end_date <- params$report_end_date
-report_organs <- params$report_organs
-reportStart <- as.Date(report_start_date)
-reportEnd <- as.Date(report_end_date)
+tci_start_date    <- params$tci_start_date
+report_start_date <- params$first_ref_date
+report_end_date   <- params$last_ref_date
+report_organs     <- params$report_organs
+tciStart          <- as.Date(tci_start_date)
+reportStart       <- as.Date(report_start_date)
+reportEnd         <- as.Date(report_end_date)
 
+output_dir <- file.path("..",Sys.getenv("REPORT_OUTPUT_DIR"))
+output_dir <- tempdir()
+out_html <- file.path(output_dir,"tci_calendar.html")
+out_pdf  <- file.path(output_dir,"tci_calendar.pdf")
+#out_html <- "tci_calendar.html"
+#out_pdf  <- "tci_calendar.pdf"
+            
 # Remove Dummy patient numbers from the data
 rxWaitReportData <- rxWaitData |>
   filter((ID != "000-1" & ID != "00000-1" & ID != "000000-1"))
@@ -53,44 +66,138 @@ rxClockStopData <- dplyr::filter(rxClockStopData, !is.na(ClockStopDaysPreDTT) | 
 # Remove the Ref_DTT column to save space
 rxWaitReportData <- subset(rxWaitReportData, select = -c(Ref_DTT))
 
+# Rename column DaysWaiting to DaysSinceReferral so its clearer
+rxWaitReportData <- rxWaitReportData %>% rename(DaysSinceReferral = DaysWaiting)
+
 # Sort by TCI date
-rxWaitReportData <- rxWaitReportData %>% arrange(desc(TciDate))
+# rxWaitReportData <- rxWaitReportData %>% arrange(desc(TciDate))
+
+# Sort by Patient ID
+rxWaitReportData <- rxWaitReportData %>% arrange(order(ID))
 
 # Make the TCI calendar
-tciCalendar <- makeTciCalendar(report_start_date,T)
+tciCalendar <- makeTciCalendar(tciStart,T)
 
 generatedTime <- format(Sys.time(), "%a %b %d %X %Y")
 ```
 
 <!-- PCL: I had to do an ugly global variable hack to get report_start_date and report_end_date visible from this file, but it works-->
-Referrals from: `r report_start_date` to: `r report_end_date`<br>
+
+## Referral Details (`r paste(format(report_start_date,"%b %Y"),'-',format(report_end_date,"%b %Y"))`)
+
 Organs included: `r paste(report_organs)`<br>
 
 ```{r echo = FALSE,  results = 'asis'}
 if (nrow(rxWaitReportData) > 0)
 {
 options(knitr.kable.NA = '')
-  kbl(rxWaitReportData, caption=paste('Current Ablation Waiting List (Created ',generatedTime,')',sep="")) %>%
+  kbl(rxWaitReportData, caption=paste('Current Waiting List (Created ',generatedTime,')',sep="")) %>%
     kable_styling() %>%
     column_spec(8, width = "10em")
 } else {
   print("No referrals waiting for date range provided.")
 }
+```
+Notes on TCI Table:
+<ul>
+  <li>Those patients without a DTT date have not yet been seen in clinic, those with a DTT date were seen in clinic in that date.</li>
+  <li>Provisional is a nominal date for patients who have been seen in ablation clinic and have agreed for ablation clinic, and it is the next acailable list at that time; these dates are subject to change based on clinical urgency and other factors.</li>
+  <li>Confirmed date means patients for who have been formally discussed as planning business meeting (patient may not be aware of date at time of report.)</li>
+  <li>Any patient with a TCI date which has already passed who is in the table is likely to have been treated, but the treatment date has not yet been updated in the EDC
+</ul>
 
+## Clock Stops
+
+```{r echo = FALSE,  results = 'asis'}
 if (nrow(rxClockStopData) > 0)
 {
   kbl(rxClockStopData, caption=paste('Waiting List Clock Stops (Created ',generatedTime,')',sep="")) %>%
     kable_styling()
 }
-
 ```
+
+## TCI Booking Calendar (`r format(tciStart,"%b %Y")`)
+
+```{r tciCalendar, echo = FALSE, warning = FALSE}
+if (isChromeInstalled())
+{
+  theTciCal <- makeTciCalendar(tciStart, TRUE)
+  
+  page <- htmltools::tagList(
+    htmltools::tags$head(
+      htmltools::tags$style(htmltools::HTML("
+        /* force wrapper height so calendar has room to draw */
+        #calendar-wrapper { height: 1000px !important; width:100% !important; }
+        html,body { height: 100%; margin:0; padding:0; }
+      "))
+    ),
+    htmltools::tags$div(id = "calendar-wrapper", theTciCal)
+  )
+  
+  # ---- Prepare safe output paths (use tempdir or choose a persistent folder) ----
+  output_dir <- tempdir()
+  out_html <- file.path(output_dir, "tci_calendar.html")
+  out_png  <- file.path(output_dir, "tci_calendar.png")
+  # optional PDF if you still want it:
+  out_pdf  <- file.path(output_dir, "tci_calendar.pdf")
+  
+  # ChatGTP says - this was the bug: you must save 'page', not the raw widget - but when I use page I get an error
+  tciWidget <- htmlwidgets::saveWidget(theTciCal, file = out_html, selfcontained = TRUE, title = "TCI Calendar")
+  
+  # Hide this HTML as we instead of the HTML (which we can't convert to PDF) we insert the PNG file which can be converted to PDF
+  # Interactive HTML in knitted HTML output (iframe)
+  # print() ensures knitr emits the HTML (or use results='asis' on the chunk)
+  # print(htmltools::tags$iframe(
+  #  src = out_html,
+  #  style = "width:100%; height:800px; border:0;"
+  #))
+  
+  # ---- create a PNG snapshot via webshot2 ----
+  # Ensure Chrome path set in setup chunk if chromote cannot find it automatically.
+  # Use absolute file:// URL so headless chrome can load the file during knit
+  infile <- normalizePath(out_html, mustWork = TRUE)
+  url_file <- paste0("file://", infile)
+  
+  # Create PNG (recommended for embedding into final PDF)
+  invisible(
+    suppressMessages(
+    webshot2::webshot(
+    url      = url_file,
+    file     = out_png,
+    selector = "#calendar-wrapper",
+    vwidth   = 600,     # ← wider virtual viewport (more horizontal pixels)
+    vheight  = 800,    # ← keep same *visual* height (adjust if needed)
+    zoom     = 2,       # ← increase device pixel ratio (2 = 2× DPR)
+    delay    = 4,       # give the calendar JS time to initialize; increase if necessary
+    cliprect = "viewport"
+  )))
+
+  # Embed the PNG in the knitted document (works for html_document and pdf_document) ----
+  knitr::include_graphics(normalizePath(out_png))
+  
+  # optional: also create a PDF snapshot (if you need a standalone PDF file)
+  #           and download link for the generated PDF (if you also create it)
+  # webshot2::webshot(url = url_file, file = out_pdf, selector = "#calendar-wrapper",
+  #                   vwidth = 1600, vheight = 2400, delay = 5, cliprect = "viewport")
+  # cat(sprintf('<p><a href="%s" target="_blank">Download calendar PDF</a></p>', out_pdf))
+} else
+{
+  # We cant save to PDF without Chrome
+  print('<br>Google chrome is not installed, so PDF version of booking calendar is omitted.<br>')
+}
+```
+
+## Monthy Wait List (`r paste(format(report_start_date,"%b %Y"),'-',format(report_end_date,"%b %Y"))`)
+
+Organs included: `r paste(report_organs)`<br>
 
 ```{r waitingListPlot, echo = FALSE, warning = FALSE}
 makeWaitingListPlot(report_start_date, report_end_date, report_organs)
 ```
 
-## Capacity Booking Heatmaps
+## Treatment Capacity Heatmaps (`r paste(format(report_start_date,"%Y"),'-',format(report_start_date+365,"%Y"))`)
 
+Includes both treated and TCI dates for all organs<br>
 ```{r tciCalendarThisYear, echo = FALSE, warning = FALSE}
 makeCalendarHeatmap(report_start_date, TRUE)
 ```

@@ -6,14 +6,20 @@ reportWaitingListTab <- function() {
       column(
         width = 3,
         dateInput(
+          "reportDate0",
+          "TCI Start:",
+          format = "dd/mm/yyyy",
+          value = Sys.Date()
+        ),
+        dateInput(
           "reportDate1",
-          "Referral Start Date:",
+          "Earliest Referral Cut-off:",
           format = "dd/mm/yyyy",
           value = Sys.Date() - 365
         ),
         dateInput(
           "reportDate2",
-          "Referral End Date:",
+          "Latest Referral Cut-off:",
           format = "dd/mm/yyyy",
           value = Sys.Date() + 365
         )
@@ -101,9 +107,10 @@ reportServer <- function(input, output, session, api, plots)
 
           includeHTML(rmarkdown::render(rmdReportFile,
             params = list(
-              report_start_date = input$reportDate1,
-              report_end_date = input$reportDate2,
-              report_organs = input$organReportCheckbox
+              tci_start_date = input$reportDate0,
+              first_ref_date = input$reportDate1,
+              last_ref_date  =  input$reportDate2,
+              report_organs  = input$organReportCheckbox
             ),
             envir = new.env(parent = globalenv()),
             output_dir = Sys.getenv("REPORT_OUTPUT_DIR")
@@ -131,9 +138,10 @@ reportServer <- function(input, output, session, api, plots)
 
       # Set up parameters to pass to Rmd document
       params <- list(
-        report_start_date = input$reportDate1,
-        report_end_date = input$reportDate2,
-        report_organs = input$organReportCheckbox
+        tci_start_date = input$reportDate0,
+        first_ref_date = input$reportDate1,
+        last_ref_date  = input$reportDate2,
+        report_organs  = input$organReportCheckbox
       )
 
       shinyCatch(
@@ -176,9 +184,10 @@ reportServer <- function(input, output, session, api, plots)
 
       # Set up parameters to pass to Rmd document
       params <- list(
-        report_start_date = input$reportDate1,
-        report_end_date = input$reportDate2,
-        report_organs = input$organReportCheckbox
+        tci_start_date = input$reportDate0,
+        first_ref_date = input$reportDate1,
+        last_ref_date  = input$reportDate2,
+        report_organs  = input$organReportCheckbox
       )
 
       shinyCatch(
@@ -188,7 +197,7 @@ reportServer <- function(input, output, session, api, plots)
         )),
         prefix = ""
       )
-
+      
       rmarkdown::render(tempReport,
         output_format = "html_document",
         output_dir = tempReportDir,

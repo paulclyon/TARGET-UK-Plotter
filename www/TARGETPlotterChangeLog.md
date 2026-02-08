@@ -41,7 +41,7 @@ V0.9  Iguana:    Implemented new last known alive field in addition to last imag
                  Fixed monthly waiting list organ filter
                  Fixed platform independent secret directory for credentials
                  <br>
-V1.0  Jackal     Implemented Waiting List Calendars and reports
+V1.0  Jackal     Implemented Waiting List Calendar and Report
                  <br>
 
 </pre>

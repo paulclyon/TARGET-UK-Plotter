@@ -23,6 +23,9 @@ required_base_pkgs <- c(
   "ggsurvfit",
   "survminer",
   "knitr",
+  "webshot2",
+  "htmlwidgets",
+  "htmltools",
   "calendR",
   "kableExtra",
   "RColorBrewer",
@@ -34,6 +37,7 @@ required_base_pkgs <- c(
   "leaflet", # to render the mapview
   "lubridate",
   "withr",
+  "scrutiny",
   "svDialogs"
 )
 
@@ -105,6 +109,41 @@ if (castorLibMajorVersion < 2) {
   remove.packages("castoRedc")
   remotes::install_github("castoredc/castoRedc", host = "api.github.com", upgrade = "always")
   library("castoRedc", character.only = TRUE)
+}
+
+# ChatGTP method to check if Google Chrome is installed on any OS
+# This is useful as we cannot use webshot2 to convert calendar HTML to PDF without Google Chrome (Easily!)
+isChromeInstalled <- function(executable = FALSE) {
+  os <- Sys.info()[["sysname"]]
+  chrome_paths <- switch(
+    os,
+    "Darwin" = c(
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary"
+    ),
+    "Windows" = c(
+      Sys.getenv("ProgramFiles"),
+      Sys.getenv("ProgramFiles(x86)"),
+      Sys.getenv("LocalAppData")
+    ) |> 
+      file.path("Google", "Chrome", "Application", "chrome.exe"),
+    "Linux" = c(
+      "/usr/bin/google-chrome",
+      "/usr/bin/google-chrome-stable",
+      "/usr/bin/chromium",
+      "/snap/bin/chromium"
+    ),
+    character(0)
+  )
+  chrome_paths <- chrome_paths[file.exists(chrome_paths)]
+  if (length(chrome_paths) == 0) {
+    return(FALSE)
+  }
+  if (executable && os != "Windows") {
+    chrome_paths <- chrome_paths[file.access(chrome_paths, 1) == 0]
+    return(length(chrome_paths) > 0)
+  }
+  TRUE
 }
 
 #' Source all files in the current directory or provided directory
