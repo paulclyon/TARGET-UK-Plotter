@@ -13,13 +13,13 @@ reportWaitingListTab <- function() {
         ),
         dateInput(
           "reportDate1",
-          "Earliest Referral Cut-off:",
+          "From Earliest Referral:",
           format = "dd/mm/yyyy",
           value = Sys.Date() - 365
         ),
         dateInput(
           "reportDate2",
-          "Latest Referral Cut-off:",
+          "Until Latest Referral:",
           format = "dd/mm/yyyy",
           value = Sys.Date() + 365
         )

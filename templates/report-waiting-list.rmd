@@ -76,7 +76,7 @@ rxWaitReportData <- rxWaitReportData %>% rename(DaysSinceReferral = DaysWaiting)
 rxWaitReportData <- rxWaitReportData %>% arrange(order(ID))
 
 # Make the TCI calendar
-tciCalendar <- makeTciCalendar(tciStart,T)
+tciCalendar <- makeTciCalendar(tciStart,TRUE,FALSE)
 
 generatedTime <- format(Sys.time(), "%a %b %d %X %Y")
 ```

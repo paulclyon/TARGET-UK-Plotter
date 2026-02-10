@@ -30,7 +30,7 @@ getTciData <- function(startDate, includeTreated)
   tciData
 }
 
-makeTciCalendar <- function(startDate, includeTreated)
+makeTciCalendar <- function(startDate, includeTreated, withNavigation = FALSE)
 {
   # Because its a calendar you often get the last week of the previous month included, so make sure we go back to start of that month
   tciData <- getTciData(asDateWithOrigin(startDate)-months(1), includeTreated)
@@ -44,7 +44,8 @@ makeTciCalendar <- function(startDate, includeTreated)
   data.table::setnames(calendarProperties, c("id","name","color","backgroundColor","borderColor"))
   
   # Make a unique status for each organ type, so we can colour it in a traffic light system, otherwise its black if not known status
-  statusLevels <- levels(as.factor(tciData$status))
+  statusLevels <- unique(as.character(tciData$status))
+  if (length(statusLevels) == 0) statusLevels <- c("Unknown")
   calendarPropertiesStatus <- data.frame()
   for (status in statusLevels)
   {
@@ -69,23 +70,50 @@ makeTciCalendar <- function(startDate, includeTreated)
     calendarPropertiesStatus <- rbind(calendarPropertiesStatus, newCalendarProperties)
   }
 
-  refTciCalendar <<- toastui::calendar(tciData,
-                                       view = "month", 
-                                       useDetailPopup = TRUE, 
-                                       useCreationPopup = FALSE, 
-                                       isReadOnly = TRUE, 
-                                       navigation = FALSE, 
-                                       width = "100%",
-                                       height = 800,
-                                       # The visibleEventCount is set to the max events on any day
-                                       visibleEventCount = max((tciData$start %>% duplicate_count())$frequency),
-                                       defaultDate = asDateWithOrigin(startDate)) %>% 
-    cal_month_options(
-      startDayOfWeek = 1,
-      narrowWeekend = TRUE
-    ) %>% 
+  # The visibleEventCount is set to the max events on any day, fallback to 3 if can't compute it
+  visible_count <- tryCatch({
+    max((tciData$start %>% duplicate_count())$frequency)
+  }, error = function(e) {
+    warning("visibleEventCount calc failed; using fallback = 3: ", conditionMessage(e))
+    3L
+  })
+  if (is.infinite(visible_count) || is.na(visible_count) || visible_count <= 0) visible_count <- 3L
+  
+  # Create the widget (no global assignment) ---
+  w <- toastui::calendar( tciData,
+                          view = "month",
+                          useDetailPopup = TRUE,
+                          useCreationPopup = FALSE,
+                          isReadOnly = TRUE,
+                          navigation = withNavigation,
+                          width = "100%",
+                          height = "100%",
+                          visibleEventCount = visible_count,
+                          defaultDate = asDateWithOrigin(Sys.Date())  # Start the calendar on today
+  ) %>%
+    cal_month_options(startDayOfWeek = 1, narrowWeekend = TRUE) %>%
     cal_props(calendarPropertiesStatus)
   
+  # Attach onRender to force the inner widget to match the wrapper height (helps knits & webshot)
+  w <- htmlwidgets::onRender(w, htmlwidgets::JS("
+    function(el,x){
+      try {
+        var wrapper = document.getElementById('calendar-wrapper') || el.closest('.shiny-html-output') || el.parentElement || el;
+        if (!wrapper) wrapper = el;
+        var h = Math.max(wrapper.clientHeight||0, wrapper.scrollHeight||0, 600);
+        el.style.height = h + 'px'; el.style.minHeight = h + 'px';
+        var inner = el.querySelector('.tui-full-calendar, .tui-calendar, .htmlwidget') || el;
+        try { inner.style.height = h + 'px'; inner.style.minHeight = h + 'px'; } catch(e){}
+        if (window.HTMLWidgets && typeof HTMLWidgets.getInstance === 'function') {
+           try { var inst = HTMLWidgets.getInstance(el); if (inst && inst.widget && typeof inst.widget.resize === 'function') inst.widget.resize(); } catch(e){}
+        }
+        try { window.dispatchEvent(new Event('resize')); } catch(e){}
+      } catch(e){ console.warn('fit error', e); }
+    }
+  "))
+    
+  # optional: keep a global reference if other code expects refTciCalendar
+  try({ refTciCalendar <<- w }, silent = TRUE)
   refTciCalendar
 }
 

@@ -88,7 +88,7 @@ ui <- dashboardPage(
         id = "calendarsID",
         tabName = "calendars",
         icon = icon("calendar"),
-        menuSubItem("Referral TCI Calendar", tabName = "referralTciCalendar")
+        menuSubItem("Activity Calendar", tabName = "referralTciCalendar")
       ), id = "calendarsMenuItem")),
       hidden(tagAppendAttributes(menuItem(
         "Data Tables",
@@ -143,6 +143,21 @@ ui <- dashboardPage(
   ),
   dashboardBody(
     useShinyjs(),
+    
+    tags$head(
+      tags$style(HTML("
+        /* make the widget try to fill the Shiny output container */
+        #theCalendar, #theCalendar .htmlwidget, #theCalendar .tui-full-calendar, #theCalendar .tui-calendar {
+          height: 100% !important;
+          min-height: 100% !important;
+        }
+        /* ensure internal month view grows */
+        #theCalendar .tui-calendar-month-view, #theCalendar .tui-calendar-week {
+          height: 100% !important;
+        }
+      "))
+    ),
+  
     tabItems(
       tabItem(
         tabName = "api",
