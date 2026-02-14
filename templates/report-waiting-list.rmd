@@ -1,20 +1,21 @@
 ---
 title: "TARGET-UK: Waiting List Report"
-header-includes:
-- \usepackage{pdflscape}
 output:
   html_document:
     toc: false
   pdf_document:
     toc: false
+    latex_engine: xelatex
+header-includes: |
+  \usepackage{pdflscape}
+  \usepackage{xcolor}
+  \setlength{\fboxsep}{6pt}   % padding inside color boxes
 classoption: landscape
 params:
   tci_start_date: !r Sys.Date()
   first_ref_date: !r Sys.Date() - 365
   last_ref_date:  !r Sys.Date() + 365
   report_organs: ["Liver", "Lung", "Kidney", "Adrenal", "Other"]
-h1.title { display: none; }
-
 ---
 
 ```{r setup, include=FALSE}
@@ -83,9 +84,113 @@ generatedTime <- format(Sys.time(), "%a %b %d %X %Y")
 
 <!-- PCL: I had to do an ugly global variable hack to get report_start_date and report_end_date visible from this file, but it works-->
 
-## Referral Details (`r paste(format(report_start_date,"%b %Y"),'-',format(report_end_date,"%b %Y"))`)
-
 Organs included: `r paste(report_organs)`<br>
+
+## TCI Booking Calendars
+
+```{r tciCalendar, echo = FALSE, warning = FALSE, results='asis'}
+if (isChromeInstalled()) {
+  library(lubridate)
+  library(htmltools)
+  library(htmlwidgets)
+  library(webshot2)
+  library(knitr)
+
+  # Dates
+  tciThisMonth <- as.Date(tci_start_date)
+  tciNextMonth <- tciThisMonth %m+% months(1)
+
+  # Create two widgets
+  cal_this_month <- makeTciCalendar(tciThisMonth, report_organs, TRUE, FALSE)
+  cal_next_month <- makeTciCalendar(tciNextMonth, report_organs, TRUE, FALSE)
+
+  # Output dir and file paths (unique)
+  output_dir <- tempdir()
+  html_this  <- file.path(output_dir, paste0("tci_", format(tciThisMonth, "%Y_%m_%d"), ".html"))
+  png_this   <- file.path(output_dir, paste0("tci_", format(tciThisMonth, "%Y_%m_%d"), ".png"))
+  html_next  <- file.path(output_dir, paste0("tci_", format(tciNextMonth, "%Y_%m_%d"), ".html"))
+  png_next   <- file.path(output_dir, paste0("tci_", format(tciNextMonth, "%Y_%m_%d"), ".png"))
+
+  # Wrap each widget in its own wrapper and save a standalone HTML page
+  page_this <- tagList(
+    tags$head(tags$style(HTML("html,body{margin:0;padding:0;} #calendar-wrapper-this{height:1000px !important;} #calendar-wrapper-this .htmlwidget{height:100% !important;}"))),
+    tags$div(id = "calendar-wrapper-this", cal_this_month)
+  )
+  page_next <- tagList(
+    tags$head(tags$style(HTML("html,body{margin:0;padding:0;} #calendar-wrapper-next{height:1000px !important;} #calendar-wrapper-next .htmlwidget{height:100% !important;}"))),
+    tags$div(id = "calendar-wrapper-next", cal_next_month)
+  )
+
+  # Save pages (note: save the pages we just built)
+  htmltools::save_html(page_this, file = html_this)
+  htmltools::save_html(page_next, file = html_next)
+
+  # Build file:// URLs for the specific pages we just saved
+  url_this <- paste0("file://", normalizePath(html_this))
+  url_next <- paste0("file://", normalizePath(html_next))
+
+  # Screenshot each wrapper by the correct selector (match the wrapper IDs above)
+  # increase delay if the calendar JS needs extra time
+  suppressWarnings(suppressMessages(
+    webshot2::webshot(url      = url_this,
+                      file     = png_this,
+                      selector = "#calendar-wrapper-this",
+                      vwidth   = 800,
+                      vheight  = 1000,
+                      zoom     = 5,
+                      delay    = 2,
+                      cliprect = "viewport")))
+  suppressWarnings(suppressMessages(
+    webshot2::webshot(url      = url_next,
+                      file     = png_next,
+                      selector = "#calendar-wrapper-next",
+                      vwidth   = 800,
+                      vheight  = 1000,
+                      zoom     = 5,
+                      delay    = 2,
+                      cliprect = "viewport")))
+  
+  # Insert the calendar key
+  if (knitr::is_latex_output()) {
+    getTciCalendarKey()
+  } else {
+    cat(as.character(getTciCalendarKey()))
+  }
+  
+  # show key and embed PNGs (works for PDF and HTML)
+  if (knitr::is_latex_output()) {
+    cat(sprintf("## TCI Calendar: %s</p>", format(tciThisMonth, "%b %Y")))
+    print(knitr::include_graphics(png_this))
+    cat(sprintf("## TCI Calendar: %s</p>", format(tciNextMonth, "%b %Y")))
+    print(knitr::include_graphics(png_next))
+  } else {
+    cat(sprintf("<h3>TCI Calendar for %s</p>", format(tciThisMonth, "%b %Y"),"</h3>"))
+    cat(sprintf(
+      '<img src="file://%s" style="width:100%%; height:auto; border:1px solid #ddd; margin-bottom:20px;" />',
+      normalizePath(png_this)
+    ))
+    cat(sprintf("<h3>TCI Calendar for %s</p>", format(tciNextMonth, "%b %Y"),"</h3>"))
+    cat(sprintf(
+      '<img src="file://%s" style="width:100%%; height:auto; border:1px solid #ddd; margin-bottom:20px;" />',
+      normalizePath(png_next)
+    ))
+  }
+
+  # debug: list created files
+  #cat("<p>Saved files (tempdir):</p><ul>")
+  #cat(sprintf("<li>%s</li>", normalizePath(html_this)))
+  #cat(sprintf("<li>%s</li>", normalizePath(png_this)))
+  #cat(sprintf("<li>%s</li>", normalizePath(html_next)))
+  #cat(sprintf("<li>%s</li>", normalizePath(png_next)))
+  #cat("</ul>")
+
+} else {
+  print('<br>Google chrome is not installed, so PDF version of booking calendar is omitted.  Install Chrome / Chromium for TCI Calendar here.<br>')
+}
+```
+
+
+## Referral Details (`r paste(format(report_start_date,"%b %Y"),'-',format(report_end_date,"%b %Y"))`)
 
 ```{r echo = FALSE,  results = 'asis'}
 if (nrow(rxWaitReportData) > 0)
@@ -116,77 +221,6 @@ if (nrow(rxClockStopData) > 0)
 }
 ```
 
-## TCI Booking Calendar (`r format(tciStart,"%b %Y")`)
-
-```{r tciCalendar, echo = FALSE, warning = FALSE}
-if (isChromeInstalled())
-{
-  theTciCal <- makeTciCalendar(tciStart, TRUE)
-  
-  page <- htmltools::tagList(
-    htmltools::tags$head(
-      htmltools::tags$style(htmltools::HTML("
-        /* force wrapper height so calendar has room to draw */
-        #calendar-wrapper { height: 1000px !important; width:100% !important; }
-        html,body { height: 100%; margin:0; padding:0; }
-      "))
-    ),
-    htmltools::tags$div(id = "calendar-wrapper", theTciCal)
-  )
-  
-  # ---- Prepare safe output paths (use tempdir or choose a persistent folder) ----
-  output_dir <- tempdir()
-  out_html <- file.path(output_dir, "tci_calendar.html")
-  out_png  <- file.path(output_dir, "tci_calendar.png")
-  # optional PDF if you still want it:
-  out_pdf  <- file.path(output_dir, "tci_calendar.pdf")
-  
-  # ChatGTP says - this was the bug: you must save 'page', not the raw widget - but when I use page I get an error
-  tciWidget <- htmlwidgets::saveWidget(theTciCal, file = out_html, selfcontained = TRUE, title = "TCI Calendar")
-  
-  # Hide this HTML as we instead of the HTML (which we can't convert to PDF) we insert the PNG file which can be converted to PDF
-  # Interactive HTML in knitted HTML output (iframe)
-  # print() ensures knitr emits the HTML (or use results='asis' on the chunk)
-  # print(htmltools::tags$iframe(
-  #  src = out_html,
-  #  style = "width:100%; height:800px; border:0;"
-  #))
-  
-  # ---- create a PNG snapshot via webshot2 ----
-  # Ensure Chrome path set in setup chunk if chromote cannot find it automatically.
-  # Use absolute file:// URL so headless chrome can load the file during knit
-  infile <- normalizePath(out_html, mustWork = TRUE)
-  url_file <- paste0("file://", infile)
-  
-  # Create PNG (recommended for embedding into final PDF)
-  invisible(
-    suppressMessages(
-    webshot2::webshot(
-    url      = url_file,
-    file     = out_png,
-    selector = "#calendar-wrapper",
-    vwidth   = 600,     # ← wider virtual viewport (more horizontal pixels)
-    vheight  = 800,    # ← keep same *visual* height (adjust if needed)
-    zoom     = 2,       # ← increase device pixel ratio (2 = 2× DPR)
-    delay    = 4,       # give the calendar JS time to initialize; increase if necessary
-    cliprect = "viewport"
-  )))
-
-  # Embed the PNG in the knitted document (works for html_document and pdf_document) ----
-  knitr::include_graphics(normalizePath(out_png))
-  
-  # optional: also create a PDF snapshot (if you need a standalone PDF file)
-  #           and download link for the generated PDF (if you also create it)
-  # webshot2::webshot(url = url_file, file = out_pdf, selector = "#calendar-wrapper",
-  #                   vwidth = 1600, vheight = 2400, delay = 5, cliprect = "viewport")
-  # cat(sprintf('<p><a href="%s" target="_blank">Download calendar PDF</a></p>', out_pdf))
-} else
-{
-  # We cant save to PDF without Chrome
-  print('<br>Google chrome is not installed, so PDF version of booking calendar is omitted.<br>')
-}
-```
-
 ## Monthy Wait List (`r paste(format(report_start_date,"%b %Y"),'-',format(report_end_date,"%b %Y"))`)
 
 Organs included: `r paste(report_organs)`<br>
@@ -199,11 +233,11 @@ makeWaitingListPlot(report_start_date, report_end_date, report_organs)
 
 Includes both treated and TCI dates for all organs<br>
 ```{r tciCalendarThisYear, echo = FALSE, warning = FALSE}
-makeCalendarHeatmap(report_start_date, TRUE)
+makeCalendarHeatmap(report_start_date, report_organs, TRUE)
 ```
 
 ```{r tciCalendarNextYear, echo = FALSE, warning = FALSE}
-makeCalendarHeatmap(as.Date(report_start_date) + 365, TRUE)
+makeCalendarHeatmap(as.Date(report_start_date) + 365, report_organs, TRUE)
 ```
 
 ## Credits
