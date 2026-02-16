@@ -50,8 +50,10 @@ rxWaitReportData <- rxWaitData |>
   filter((ID != "000-1" & ID != "00000-1" & ID != "000000-1"))
 
 # Filter to just the organs of interest
-rxWaitReportData <- rxWaitReportData |>
-    filter(Organs == "All Organs" | Organs %in% report_organs)
+if (!("All Organs" %in% report_organs)) {
+  rxWaitReportData <- rxWaitReportData |>
+    dplyr::filter(Organs %in% report_organs)
+}
 
 # Filter to just the referral date period of interest
 rxWaitReportData <- rxWaitReportData |>

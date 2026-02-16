@@ -213,7 +213,7 @@ makeOperatorPlot <- function(startDate, endDate, organs) {
 makeWaitingListPlot <- function(startDate, endDate, organs) {
   processMonthlyRxWaitingList(startDate, endDate, organs)
 
-  if (is.null(nrow(monthlyRxWaitData))) {
+  if (is.null(monthlyRxWaitData) || nrow(monthlyRxWaitData)==0) {
     monthlyWaitingPlot <<- ggplot()
     return(monthlyWaitingPlot)
   }
@@ -224,6 +224,8 @@ makeWaitingListPlot <- function(startDate, endDate, organs) {
     "Treated"          = "green"
   )
 
+  monthlyRxWaitData <- monthlyRxWaitData |> dplyr::filter(!is.na(MonthStart))
+  
   # FIXME: Works well but when running from the app (not command line)
   # I get the following warning which I don't know how to fix:
   #  Warning: 'bar' objects don't have these attributes: 'mode'
@@ -248,7 +250,7 @@ makeWaitingListPlot <- function(startDate, endDate, organs) {
     scale_fill_manual(values = c("gray", "lightgreen")) +
     scale_x_date(date_breaks = "month", date_labels = "%b-%y") +
     geom_vline(
-      xintercept = as.numeric(Sys.Date()),
+      xintercept = Sys.Date(),
       color = "purple", linetype = "dotted", size = 0.5
     ) +
     guides(color = guide_legend("Waiting List by Month:\n")) +

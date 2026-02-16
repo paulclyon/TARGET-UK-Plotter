@@ -10,9 +10,15 @@ getTciData <- function(startDate, reportOrgans, includeTreated)
   tciData <- subset(rxWaitData, select = c(ID, TciDate, TciStatus, Organs))
   
   # Filter to just the organs of interest and other stuff
-  tciData <- tciData |> filter(reportOrgans == "All Organs" | Organs %in% reportOrgans)
-  tciData <- dplyr::filter(tciData, !is.na(TciDate)) # Remove the nulls
-  tciData <- dplyr::filter(tciData, TciDate >= firstDateOfMonth) # Remove anything before the 1st day of month
+  if (nrow(tciData)>0)
+  {
+    if (!("All Organs" %in% reportOrgans)) {
+      tciData <-tciData |>
+        dplyr::filter(Organs %in% reportOrgans)
+    }
+    tciData <- dplyr::filter(tciData, !is.na(TciDate)) # Remove the nulls
+    tciData <- dplyr::filter(tciData, TciDate >= firstDateOfMonth) # Remove anything before the 1st day of month
+  }
   data.table::setnames(tciData, c("title","start","status","body"))
   tciData <- tciData %>% mutate(calendarId = paste(body," (",status,")",sep=""))
   tciData <- tciData %>% mutate(body = paste(body," (",status,")",sep=""))
@@ -23,7 +29,10 @@ getTciData <- function(startDate, reportOrgans, includeTreated)
   if (includeTreated)
   {
     rxData <- subset(rxDoneData, select = c(ID, RxDate, Organs))
-    rxData <- rxData |> filter(reportOrgans == "All Organs" | Organs %in% reportOrgans)
+    if (!("All Organs" %in% reportOrgans)) {
+      rxData <- rxData |>
+        dplyr::filter(Organs %in% reportOrgans)
+    }
     rxData <- dplyr::filter(rxData, RxDate >= firstDateOfMonth) # Remove anything before the 1st day of month
     data.table::setnames(rxData, c("title","start","body"))
     rxData <- rxData %>% mutate(body = paste(body,"*",sep=""))
@@ -194,45 +203,47 @@ makeTciCalendar <- function(startDate, reportOrgans, includeTreated = TRUE, with
       3L
     })
     if (is.infinite(visible_count) || is.na(visible_count) || visible_count <= 0) visible_count <- 3L
-    
-    # Create the widget (no global assignment) ---
-    w <- toastui::calendar( tciData,
-                            view = "month",
-                            useDetailPopup = TRUE,
-                            useCreationPopup = FALSE,
-                            isReadOnly = TRUE,
-                            navigation = withNavigation,
-                            width = "100%",
-                            height = "100%",
-                            visibleEventCount = visible_count,
-                            defaultDate = asDateWithOrigin(startDate)  # Start the calendar on the date provided
-    ) %>%
-      cal_month_options(startDayOfWeek = 1, narrowWeekend = TRUE) %>%
-      cal_props(calendarPropertiesStatus)
-    
-    # Attach onRender to force the inner widget to match the wrapper height (helps knits & webshot)
-    w <- htmlwidgets::onRender(w, htmlwidgets::JS("
-      function(el,x){
-        try {
-          var wrapper = document.getElementById('calendar-wrapper') || el.closest('.shiny-html-output') || el.parentElement || el;
-          if (!wrapper) wrapper = el;
-          var h = Math.max(wrapper.clientHeight||0, wrapper.scrollHeight||0, 600);
-          el.style.height = h + 'px'; el.style.minHeight = h + 'px';
-          var inner = el.querySelector('.tui-full-calendar, .tui-calendar, .htmlwidget') || el;
-          try { inner.style.height = h + 'px'; inner.style.minHeight = h + 'px'; } catch(e){}
-          if (window.HTMLWidgets && typeof HTMLWidgets.getInstance === 'function') {
-             try { var inst = HTMLWidgets.getInstance(el); if (inst && inst.widget && typeof inst.widget.resize === 'function') inst.widget.resize(); } catch(e){}
-          }
-          try { window.dispatchEvent(new Event('resize')); } catch(e){}
-        } catch(e){ console.warn('fit error', e); }
-      }
-    "))
-      
-    # optional: keep a global reference if other code expects refTciCalendar
-    try({ refTciCalendar <<- w }, silent = TRUE)
-  } else {
-    refTciCalendar <- NA
   }
+  else
+  {
+    visible_count <- 3L
+  }
+
+  # Create the widget (no global assignment) ---
+  w <- toastui::calendar( tciData,
+                          view = "month",
+                          useDetailPopup = TRUE,
+                          useCreationPopup = FALSE,
+                          isReadOnly = TRUE,
+                          navigation = withNavigation,
+                          width = "100%",
+                          height = "100%",
+                          visibleEventCount = visible_count,
+                          defaultDate = asDateWithOrigin(startDate)  # Start the calendar on the date provided
+  ) %>%
+    cal_month_options(startDayOfWeek = 1, narrowWeekend = TRUE) %>%
+    cal_props(calendarPropertiesStatus)
+  
+  # Attach onRender to force the inner widget to match the wrapper height (helps knits & webshot)
+  w <- htmlwidgets::onRender(w, htmlwidgets::JS("
+    function(el,x){
+      try {
+        var wrapper = document.getElementById('calendar-wrapper') || el.closest('.shiny-html-output') || el.parentElement || el;
+        if (!wrapper) wrapper = el;
+        var h = Math.max(wrapper.clientHeight||0, wrapper.scrollHeight||0, 600);
+        el.style.height = h + 'px'; el.style.minHeight = h + 'px';
+        var inner = el.querySelector('.tui-full-calendar, .tui-calendar, .htmlwidget') || el;
+        try { inner.style.height = h + 'px'; inner.style.minHeight = h + 'px'; } catch(e){}
+        if (window.HTMLWidgets && typeof HTMLWidgets.getInstance === 'function') {
+           try { var inst = HTMLWidgets.getInstance(el); if (inst && inst.widget && typeof inst.widget.resize === 'function') inst.widget.resize(); } catch(e){}
+        }
+        try { window.dispatchEvent(new Event('resize')); } catch(e){}
+      } catch(e){ console.warn('fit error', e); }
+    }
+  "))
+    
+  # optional: keep a global reference if other code expects refTciCalendar
+  try({ refTciCalendar <<- w }, silent = TRUE)
   refTciCalendar
 }
 
@@ -249,15 +260,23 @@ makeCalendarHeatmap <- function(startDate, reportOrgans = NA, includeTreated)
   events <- rep(0, 365)
   
   # Set the corresponding events
-  for (i in 1 : nrow(tciData))
-  {
-    thisTciYearDay <- yday(tciData$start[i])
-    # Remember not to include the TCIs if the status is cancelled
-    if (tciData$status[i] != "Cancelled")
-    {
-      events[thisTciYearDay] <- events[thisTciYearDay] + 1
-    }
-  }
+  #for (i in 1 : nrow(tciData))
+    #{
+    #thisTciYearDay <- yday(tciData$start[i])
+    #if (tciData$status[i] != "Cancelled")
+      #{
+      #events[thisTciYearDay] <- events[thisTciYearDay] + 1
+      #}
+    #}
+  
+  # Remember not to include the TCIs if the status is cancelled
+  events <- tciData |>
+    filter(status != "Cancelled") |>
+    mutate(day = yday(start)) |>
+    count(day) |>
+    complete(day = 1:365, fill = list(n = 0)) |>
+    arrange(day) |>
+    pull(n)
                     
   # Creating the calendar with a legend
   calendR(year = calendarYear,
