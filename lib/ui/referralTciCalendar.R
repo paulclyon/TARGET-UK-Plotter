@@ -52,9 +52,9 @@ referralTciCalendarTab <- function() {
           width = 3,
           dateInput(
             "calendarStartDate",
-            "From Earliest Referral:",
+            "Start Date:",
             format = "dd/mm/yyyy",
-            value = Sys.Date() - 365
+            value = Sys.Date()
           ),
           checkboxInput(
             "tciIncludeTreatedCheckBox",
@@ -140,7 +140,8 @@ calendarServer <- function(input, output, session, api, plots)
 
     # create and return the widget (makeTciCalendar should return an htmlwidget)
     makeTciCalendar(
-      input$calendarStartDate,
+      as.Date(input$calendarStartDate) - 365*2, # Go back 2 years
+      as.Date(input$calendarStartDate),
       input$organTciCalCheckbox,
       input$tciIncludeTreatedCheckBox,
       TRUE

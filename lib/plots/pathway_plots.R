@@ -1,6 +1,6 @@
 # Populate monthlyRxWaitData which is basically a list of patients on the waiting list each month
 processMonthlyRxWaitingList <- function(startDate, endDate, organs) {
-  showNotification("Generating treatment waiting list...", type="message", duration=5)
+  id <- showNotification("Generating treatment waiting list...", type="message", duration=NULL) # Don't auto expire
 
   rxWaitData.filtered <- rxWaitData %>% filter(Organs %in% organs)
   rxDoneData.filtered <- rxDoneData %>% filter(Organs %in% organs)
@@ -72,6 +72,7 @@ processMonthlyRxWaitingList <- function(startDate, endDate, organs) {
   # waiting list. Hence, we only filter the ones at the start once we have
   # the referral data.
   startPlotDate <- floor_date(convertToDate(startDate), unit = "month") - as.difftime(1, units = "days")
+  removeNotification(id)
   if (isConvertibleToDate(startDate)) monthlyRxWaitData <<- monthlyRxWaitData %>% filter(MonthStart >= startPlotDate)
 }
 

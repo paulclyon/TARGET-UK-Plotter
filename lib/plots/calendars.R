@@ -42,19 +42,16 @@ getTciData <- function(startDate, reportOrgans, includeTreated)
     rxData <- rxData %>% mutate(body = paste(body," (Treated)",sep=""))
     rxData <- rxData %>% mutate(category = "allday") # Make a new column called category which is allday as oppose to time option
     tciData <- merge(tciData,rxData, all=T) # Merge both tables together (the column order slightly differs so we need merge)
+    tciData$start <- as.Date(tciData$start) # Ensure start column is Date (or POSIXct)
   }
   tciData
 }
 
-
-# Put this in your setup chunk (include=FALSE)
-library(htmltools)
-library(knitr)
-
-getTciCalendarKey <- function() {
-  
-  if (knitr::is_latex_output()) {
-    
+getTciCalendarKey <- function()
+{
+  if (knitr::is_latex_output()) # I don't think this ever gets called as is_latex_output()=F always
+                                # This is because we always render to HYML first and then convert to PDF later
+  {
     latex <- paste0(
       "\\begingroup\n",
       "\\setlength{\\fboxsep}{4pt}\n",
@@ -65,6 +62,7 @@ getTciCalendarKey <- function() {
       "\\definecolor{multiple}{HTML}{F5A9A9}\n",
       "\\definecolor{other}{HTML}{2FA9A9}\n",
       "\\definecolor{completed}{HTML}{808080}\n",
+      "\\definecolor{tcipassed}{HTML}{90EE90}\n",
       "\\definecolor{canceled}{HTML}{FF0000}\n",
       "\\definecolor{deferred}{HTML}{FFC0CB}\n",
       "\\definecolor{confirmed}{HTML}{90EE90}\n",
@@ -73,6 +71,7 @@ getTciCalendarKey <- function() {
       "\n",
       "\\noindent\\textbf{Key:}\\quad ",
       "\\colorbox{completed}{\\strut Completed}\\quad ",
+      "\\colorbox{tcipassed}{\\strut TCI Passed}\\quad ",
       "\\colorbox{lung}{\\strut Lung}\\quad ",
       "\\colorbox{kidney}{\\strut Kidney}\\quad ",
       "\\colorbox{liver}{\\strut Liver}\\quad ",
@@ -96,6 +95,7 @@ getTciCalendarKey <- function() {
   badge <- function(label, bg, color = NULL) {
     style <- paste0("display:inline-block; padding:4px 8px; margin:0 6px 6px 0;",
                     "border-radius:4px; font-size:0.9em;")
+    style <- paste0(style, "border:1px solid rgba(0,0,0,0.15);")
     if (!is.null(color)) style <- paste0(style, "color:", color, ";")
     style <- paste0(style, "background-color:", bg, ";")
     tags$span(style = style, label)
@@ -104,7 +104,8 @@ getTciCalendarKey <- function() {
   tags$div(
     style = "border:2px solid #000; border-radius:6px; padding:10px; margin-bottom:20px; background:#fff; width:100%;",
     tags$b("Key: "),
-    badge("Completed",         "lightgray", "gray"),
+    badge("Completed",         "#E6E6E6", "gray"),
+    badge("TCI Passed",        "#E6E6E6", "#90EE90"),
     tags$b("Upcoming: "),
     badge("Lung",              "#00A0FF"),
     badge("Kidney",            "#FFDB58"),
@@ -136,7 +137,7 @@ makeTransparent<-function(someColor, alpha=100)
                                               blue=curcoldata[3],alpha=alpha, maxColorValue=255)})
 }
 
-makeTciCalendar <- function(startDate, reportOrgans, includeTreated = TRUE, withNavigation = FALSE)
+makeTciCalendar <- function(startDate, dateToShow, reportOrgans, includeTreated = TRUE, withNavigation = FALSE)
 {
   # Because its a calendar you often get the last week of the previous month included, so make sure we go back to start of that month
   tciData     <- getTciData(asDateWithOrigin(startDate)-months(1), reportOrgans, includeTreated)
@@ -195,6 +196,14 @@ makeTciCalendar <- function(startDate, reportOrgans, includeTreated = TRUE, with
   # If we have found some records in the TCI table...
   if (nrow(tciData) > 0)
   {
+    
+    # Ensure any Treated event before today -> red text
+    if (!"color" %in% names(tciData)) {
+      tciData$color <- "#000000"     # Default text colour (black if not already set)
+    }
+    today <- Sys.Date()
+    tciData$color[ tciData$status != "Treated" & tciData$start < today ] <- "#90EE90"
+    
     # The visibleEventCount is set to the max events on any day, fallback to 3 if can't compute it
     visible_count <- tryCatch({
       max((tciData$start %>% duplicate_count())$frequency)
@@ -203,8 +212,7 @@ makeTciCalendar <- function(startDate, reportOrgans, includeTreated = TRUE, with
       3L
     })
     if (is.infinite(visible_count) || is.na(visible_count) || visible_count <= 0) visible_count <- 3L
-  }
-  else
+  }  else
   {
     visible_count <- 3L
   }
@@ -219,7 +227,7 @@ makeTciCalendar <- function(startDate, reportOrgans, includeTreated = TRUE, with
                           width = "100%",
                           height = "100%",
                           visibleEventCount = visible_count,
-                          defaultDate = asDateWithOrigin(startDate)  # Start the calendar on the date provided
+                          defaultDate = asDateWithOrigin(dateToShow)  # Start the calendar on the date provided
   ) %>%
     cal_month_options(startDayOfWeek = 1, narrowWeekend = TRUE) %>%
     cal_props(calendarPropertiesStatus)

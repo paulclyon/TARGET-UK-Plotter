@@ -6,15 +6,17 @@ output:
   pdf_document:
     toc: false
     latex_engine: xelatex
-includes:
-  in_header: tex-header.tex
+header-includes: |
+  \usepackage{pdflscape}
+  \usepackage{xcolor}
+  \setlength{\fboxsep}{6pt}   % padding inside color boxes
+classoption: landscape
 params:
   tci_start_date: !r Sys.Date()
-  first_ref_date: !r Sys.Date() - 365*2
+  first_ref_date: !r Sys.Date() - 365
   last_ref_date:  !r Sys.Date() + 365
   report_organs: ["Liver", "Lung", "Kidney", "Adrenal", "Other"]
 ---
-
 
 ```{r setup, include=FALSE}
 library(knitr)
@@ -27,7 +29,6 @@ library(kableExtra)
 library(webshot2)
 library(htmlwidgets)
 library(htmltools)
-library(here)
 
 tci_start_date    <- params$tci_start_date
 report_start_date <- params$first_ref_date
@@ -39,8 +40,10 @@ reportEnd         <- as.Date(report_end_date)
 
 output_dir <- file.path("..",Sys.getenv("REPORT_OUTPUT_DIR"))
 output_dir <- tempdir()
-out_html   <- file.path(output_dir,"tci_calendar.html")
-out_pdf    <- file.path(output_dir,"tci_calendar.pdf")
+out_html <- file.path(output_dir,"tci_calendar.html")
+out_pdf  <- file.path(output_dir,"tci_calendar.pdf")
+#out_html <- "tci_calendar.html"
+#out_pdf  <- "tci_calendar.pdf"
             
 # Remove Dummy patient numbers from the data
 rxWaitReportData <- rxWaitData |>
@@ -75,6 +78,9 @@ rxWaitReportData <- rxWaitReportData %>% rename(DaysSinceReferral = DaysWaiting)
 # Sort by Patient ID
 rxWaitReportData <- rxWaitReportData %>% arrange(order(ID))
 
+# Make the TCI calendar
+tciCalendar <- makeTciCalendar(tciStart,TRUE,FALSE)
+
 generatedTime <- format(Sys.time(), "%a %b %d %X %Y")
 ```
 
@@ -84,21 +90,8 @@ Organs included: `r paste(report_organs)`<br>
 
 ## TCI Booking Calendars
 
-```{r tci_calendar_key_html, echo=FALSE, eval = !knitr::is_latex_output()}
-# HTML branch: function returns a tags object; knitr will render it
-# returns tag object (let knitr render it) Note DONT USE ASIS on the HTML Chunk**
-getTciCalendarKey()
-```
-
-```{r tci_calendar_key_latex, echo=FALSE, results='asis', eval = knitr::is_latex_output()}
-# LaTeX branch: function must return knitr::asis_output(latex)
-getTciCalendarKey()
-```
-
-
 ```{r tciCalendar, echo = FALSE, warning = FALSE, results='asis'}
-if (isChromeInstalled())
-{
+if (isChromeInstalled()) {
   library(lubridate)
   library(htmltools)
   library(htmlwidgets)
@@ -110,8 +103,8 @@ if (isChromeInstalled())
   tciNextMonth <- tciThisMonth %m+% months(1)
 
   # Create two widgets
-  cal_this_month <- makeTciCalendar(reportStart, tciThisMonth, report_organs, TRUE, FALSE)
-  cal_next_month <- makeTciCalendar(reportStart, tciNextMonth, report_organs, TRUE, FALSE)
+  cal_this_month <- makeTciCalendar(tciThisMonth, report_organs, TRUE, FALSE)
+  cal_next_month <- makeTciCalendar(tciNextMonth, report_organs, TRUE, FALSE)
 
   # Output dir and file paths (unique)
   output_dir <- tempdir()
@@ -119,7 +112,7 @@ if (isChromeInstalled())
   png_this   <- file.path(output_dir, paste0("tci_", format(tciThisMonth, "%Y_%m_%d"), ".png"))
   html_next  <- file.path(output_dir, paste0("tci_", format(tciNextMonth, "%Y_%m_%d"), ".html"))
   png_next   <- file.path(output_dir, paste0("tci_", format(tciNextMonth, "%Y_%m_%d"), ".png"))
-  
+
   # Wrap each widget in its own wrapper and save a standalone HTML page
   page_this <- tagList(
     tags$head(tags$style(HTML("html,body{margin:0;padding:0;} #calendar-wrapper-this{height:1000px !important;} #calendar-wrapper-this .htmlwidget{height:100% !important;}"))),
@@ -159,36 +152,19 @@ if (isChromeInstalled())
                       delay    = 2,
                       cliprect = "viewport")))
   
-  if (knitr::is_latex_output())
-  {
-    cat("\\clearpage\n")
-    cat(sprintf("\\section*{TCI Calendar: %s}\n", format(tciThisMonth, "%b %Y")))
-    cat("\\begin{center}\n")
-    cat(sprintf("\\includegraphics[width=\\textwidth]{%s}\n",
-                normalizePath(png_this, winslash = "/")))
-    cat("\\end{center}\n")
-  
-    cat("\\clearpage\n")
-    cat(sprintf("\\section*{TCI Calendar: %s}\n", format(tciNextMonth, "%b %Y")))
-    cat("\\begin{center}\n")
-    cat(sprintf("\\includegraphics[width=\\textwidth]{%s}\n",
-                normalizePath(png_next, winslash = "/")))
-    cat("\\end{center}\n")
-  
+  # Insert the calendar key
+  if (knitr::is_latex_output()) {
+    getTciCalendarKey()
+  } else {
+    cat(as.character(getTciCalendarKey()))
+  }
   
   # show key and embed PNGs (works for PDF and HTML)
-  #if (knitr::is_latex_output()) {
-  #  cat(sprintf("## TCI Calendar: %s\n\n", format(tciThisMonth, "%b %Y")))
-  #  knitr::include_graphics(normalizePath(png_this))
-  #  cat("\n\n")
-  #  cat(sprintf("## TCI Calendar: %s\n\n", format(tciNextMonth, "%b %Y")))
-  #  knitr::include_graphics(normalizePath(png_next))
-  #}
-  #if (knitr::is_latex_output()) {
-  #  cat(sprintf("## TCI Calendar: %s</p>", format(tciThisMonth, "%b %Y")))
-  #  print(knitr::include_graphics(png_this))
-  #  cat(sprintf("## TCI Calendar: %s</p>", format(tciNextMonth, "%b %Y")))
-  #  print(knitr::include_graphics(png_next))
+  if (knitr::is_latex_output()) {
+    cat(sprintf("## TCI Calendar: %s</p>", format(tciThisMonth, "%b %Y")))
+    print(knitr::include_graphics(png_this))
+    cat(sprintf("## TCI Calendar: %s</p>", format(tciNextMonth, "%b %Y")))
+    print(knitr::include_graphics(png_next))
   } else {
     cat(sprintf("<h3>TCI Calendar for %s</p>", format(tciThisMonth, "%b %Y"),"</h3>"))
     cat(sprintf(
@@ -266,28 +242,8 @@ makeCalendarHeatmap(report_start_date, report_organs, TRUE)
 makeCalendarHeatmap(as.Date(report_start_date) + 365, report_organs, TRUE)
 ```
 
-
-
 ## Credits
-
-```{r reportLogo, echo = FALSE, warning = FALSE}
-# copy logo into the report output dir so it's always available during rendering
-# The RMD knits in a temp directory (as we can see if we run getwd() here), so we need to use here library to get actual path from which we can find the logo
-logo_src  <- here( "www", "TARGETPlotterLogo.png")
-#logo_dest <- file.path(output_dir, basename(logo_src))
-#if (file.exists(logo_src)) {
-#  file.copy(logo_src, logo_dest, overwrite = TRUE)
-#} else {
-#  warning("Logo not found at: ", normalizePath(logo_src))
-#  cat(paste("<!-- logo not available at -->",normalizePath(logo_src, mustWork = F), getwd()))
-#}
-if (file.exists(logo_src)) {
-  knitr::include_graphics(normalizePath(logo_src))
-} else {
-  cat("<!-- TARGETPlotterLogo.png logo not available -->")
-}
-```
-
+![TARGET-UK: The Thermal Ablation Registry - Getting Evidence Together](../www/TARGETPlotterLogo.png)
 <br>
 Report Developer: Dr. Paul Lyon, FRCR<br>
 TARGET-UK Lead: Dr. Paul Lyon, FRCR

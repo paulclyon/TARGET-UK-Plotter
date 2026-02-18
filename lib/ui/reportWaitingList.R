@@ -7,59 +7,6 @@ reportWaitingListTab <- function(id = NULL) {
     tags$head(
       tags$style(HTML("
         .box .content { padding: 6px 12px; }
-        #organReportCheckbox .shiny-options-group {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 6px 12px;
-          align-items: center;
-        }
-        #organReportCheckbox .shiny-options-group .checkbox { margin: 0; }
-        #organReportCheckbox .shiny-options-group input[type='checkbox'] {
-          vertical-align: middle; margin-right: 6px;
-        }
-        @media (max-width: 600px) {
-          #organReportCheckbox .shiny-options-group { grid-template-columns: 1fr; }
-        }
-      "))
-    ),
-    
-    fluidRow(
-      column(
-        width = 3,
-        dateInput(ns("reportDate0"), "TCI Start:", format = "dd/mm/yyyy", value = Sys.Date()),
-        dateInput(ns("reportDate1"), "From Earliest Referral:", format = "dd/mm/yyyy", value = Sys.Date() - 365),
-        dateInput(ns("reportDate2"), "Until Latest Referral:", format = "dd/mm/yyyy", value = Sys.Date() + 365)
-      ),
-      column(
-        width = 6,
-        checkboxGroupInput(ns("organReportCheckbox"), "Organs to Report",
-                           choices = NULL, selected = NULL) # choices set by server (api)
-      ),
-      column(
-        width = 3,
-        actionButton(inputId = ns("buttonRunReport"), label = "Run Report"),
-        downloadButton(outputId = ns("buttonReportToPDF"), label = "Report to PDF"),
-        downloadButton(outputId = ns("buttonReportToDoc"), label = "Report to Doc")
-      )
-    ),
-    
-    fluidRow(
-      wellPanel(style = "background: white",
-                htmlOutput(ns("summaryWaitReport"))
-      )
-    )
-  )
-}
-
-# Improved UI function (if used as a plain UI piece)
-reportWaitingListTab <- function(id = NULL) {
-  # if using as a module call NS for ids; otherwise leave as-is
-  ns <- if (!is.null(id)) shiny::NS(id) else identity
-  
-  list(
-    tags$head(
-      tags$style(HTML("
-        .box .content { padding: 6px 12px; }
         
         #organReportCheckbox > label {
           margin-bottom: 12px;
@@ -96,8 +43,8 @@ reportWaitingListTab <- function(id = NULL) {
       column(
         width = 3,
         actionButton(inputId = ns("buttonRunReport"), label = "Run Report"),
-        downloadButton(outputId = ns("buttonReportToPDF"), label = "Report to PDF"),
-        downloadButton(outputId = ns("buttonReportToDoc"), label = "Report to Doc")
+        downloadButton(outputId = ns("buttonReportToPDF"), label = "Save PDF"),
+        downloadButton(outputId = ns("buttonReportToHTML"), label = "Save HTML")
       )
     ),
     
@@ -163,9 +110,8 @@ reportServer <- function(input, output, session, api, plots)
                           quiet = TRUE)
       }, error = function(e) {
         # surface error to UI log and return NULL
-        showNotification("Report rendering failed. See server log.", type = "error")
-        message("Render error: ", conditionMessage(e))
-        NULL
+        showNotification(paste("Report rendering failed:",conditionMessage(e)), type = "error")
+        FALSE
       })
       
       incProgress(0.7, detail = "Finalising output...")
@@ -194,116 +140,86 @@ reportServer <- function(input, output, session, api, plots)
   }
   
   # Common pattern for download handlers: render to a temp dir then copy/move to 'file'
-  output$buttonReportToDoc <- downloadHandler(
-    filename = function() "targetuk_waiting_list_report.doc",
+  output$buttonReportToHTML <- downloadHandler(
+    filename = function() {
+      paste0("WaitingListReport_", Sys.Date(), ".html")
+    },
+    contentType = "text/html",
     content = function(file) {
-      req(rmdReportFile)
-      tempReportDir <- tempdir()
-      tempReport <- file.path(tempReportDir, "report.Rmd")
-      file.copy(rmdReportFile, tempReport, overwrite = TRUE)
-      
-      params <- make_params()
-      
-      withProgress(message = "Rendering DOC (PDF fallback) ...", value = 0, {
+      # 1) create temp HTML (render to tmp)
+      tmp_html <- tempfile(fileext = ".html")
+      withProgress(message = "Rendering HTML report ...", value = 0, {
         incProgress(0.2)
-        # first try direct PDF render then convert to doc via pandoc if desired
-        ok <- tryCatch({
-          rmarkdown::render(tempReport,
-                            output_format = "pdf_document",
-                            output_file = "report.pdf",
-                            output_dir = tempReportDir,
-                            params = params,
-                            envir = new.env(parent = globalenv()),
-                            quiet = TRUE)
-          TRUE
-        }, error = function(e) {
-          logger("PDF render failed: " %+% conditionMessage(e), TRUE)
-          FALSE
-        })
-        incProgress(0.6)
-        
-        if (ok) {
-          pdf_in <- file.path(tempReportDir, "report.pdf")
-          # Convert PDF to DOCX using pandoc (requires pandoc built with this support)
-          # If pandoc cannot, fallback to copying PDF (or alternative approach)
-          res <- tryCatch({
-            rmarkdown::pandoc_convert(pdf_in, to = "docx", output = file)
-            TRUE
-          }, error = function(e) {
-            logger("Pandoc conversion to docx failed: " %+% conditionMessage(e), TRUE)
-            # as a fallback copy PDF (user may rename)
-            file.copy(pdf_in, file, overwrite = TRUE)
-            FALSE
-          })
-        } else {
-          # fallback: render HTML then use pagedown to create PDF and copy
-          html_out <- rmarkdown::render(tempReport,
-                                        output_format = "html_document",
-                                        output_dir = tempReportDir,
-                                        params = params,
-                                        envir = new.env(parent = globalenv()), quiet = TRUE)
-          # try pagedown -> pdf then copy that to 'file' and let the user rename if needed
-          tryCatch({
-            pagedown::chrome_print(html_out, output = file) # may create PDF directly at 'file'
-          }, error = function(e) {
-            logger("pagedown fallback failed: " %+% conditionMessage(e), TRUE)
-            # final fallback: copy HTML
-            file.copy(html_out, file, overwrite = TRUE)
-          })
-        }
-        incProgress(1)
+      rmarkdown::render(
+        input = rmdReportFile,
+        output_format = rmarkdown::html_document(self_contained = TRUE),
+        output_file = tmp_html,
+        params = make_params(),
+        envir = new.env(parent = globalenv()),
+        quiet = TRUE
+      )
+      if (!file.exists(tmp_html)) showNotification(paste("Could not create temporary HTML file: ", tmp_html), type="error")
+      incProgress(0.8)
+      # 2) Copy into the location Shiny expects (this preserves Shiny's headers)
+      ok <- file.copy(tmp_html, file, overwrite = TRUE)
+      if (!ok) showNotification("Failed to copy temporary HTML file -> output file", type="error")
+      incProgress(1.0)
       })
     }
   )
   
   output$buttonReportToPDF <- downloadHandler(
-    filename = function() "targetuk_waiting_list_report.pdf",
-    content = function(file) {
+      filename = function() {
+        paste0("WaitingListReport_", Sys.Date(), ".pdf")
+      },
+      content = function(file) {
       req(rmdReportFile)
       tempReportDir <- tempdir()
-      tempReport <- file.path(tempReportDir, "report.Rmd")
+      tempReport <- file.path(tempReportDir, "tci_report.Rmd")
       file.copy(rmdReportFile, tempReport, overwrite = TRUE)
-      
       params <- make_params()
-      
       withProgress(message = "Rendering PDF report...", value = 0, {
         incProgress(0.2)
         # prefer native PDF render; fallback to HTML->pagedown
         ok <- tryCatch({
-          rmarkdown::render(tempReport,
-                            output_format = "pdf_document",
+          rmarkdown::render(input = tempReport,
+                            output_format = rmarkdown::pdf_document(
+                              latex_engine = "xelatex",
+                              pandoc_args = c("--variable=geometry:margin=1in")
+                            ),
                             output_file = basename(file),
                             output_dir = dirname(file),
                             params = params,
                             envir = new.env(parent = globalenv()),
                             quiet = TRUE)
+          incProgress(0.6)
           TRUE
         }, error = function(e) {
-          logger("Direct PDF render failed: " %+% conditionMessage(e), TRUE)
+          showNotification(paste("Direct PDF rendering failed:",conditionMessage(e)), type = "error")
           FALSE
         })
-        incProgress(0.6)
-        
         if (!ok) {
           # fallback to html -> pagedown
+          showNotification("Going to try HTML > Pagedown instead", type = "message")
           html_out <- rmarkdown::render(tempReport,
                                         output_format = "html_document",
                                         output_dir = tempReportDir,
                                         params = params,
                                         envir = new.env(parent = globalenv()),
                                         quiet = TRUE)
-          incProgress(0.85)
+          incProgress(0.6)
           # attempt chrome_print to create the PDF at `file`
           tryCatch({
             pagedown::chrome_print(html_out, output = file)
           }, error = function(e) {
             # as a final fallback use pandoc_convert on the html -> pdf
-            message("pagedown failed; trying pandoc_convert: ", conditionMessage(e))
+            showNotification(paste("Pagedown rendering failed:",conditionMessage(e), ". Trying pandoc.."), type = "error")
             rmarkdown::pandoc_convert(html_out, from = "html", to = "pdf", output = file,
                                       options = c("-V", "geometry:portrait", "-V", "title=", "-V", "geometry:margin=0.5in"))
           })
         }
-        incProgress(1)
+        incProgress(0.8)
+        incProgress(1.0)
       })
     }
   )
