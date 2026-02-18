@@ -3,6 +3,7 @@ title: "TARGET-UK: Waiting List Report"
 output:
   html_document:
     toc: false
+    css: print.css
   pdf_document:
     toc: false
     latex_engine: xelatex
