@@ -1,42 +1,37 @@
-/* ===========================
-   SAFE print.css
-   - Keeps screen/UI unchanged.
-   - Applies prettier horizontal key & print fallbacks ONLY for print/PDF.
-   - Save as www/print.css and copy into html_out folder before chrome_print.
-   =========================== */
+/* =========================
+   PRINT-ONLY STYLESHEET (safe for screen)
+   All layout + color overrides are inside @media print so Shiny screen is unaffected.
+   Save this as www/print.css
+   ========================= */
 
-/* Minimal screen-safe defaults (do not change layout) */
+/* Minimal neutral rules for screen (do not change layout) */
 #tci-booking-calendars > div[style] {
-  /* keep the panel you already use; do not alter display/layout here */
-  /* If you added modifications earlier, remove them — keep this minimal */
+  /* keep any inline styling; do not change display/layout here */
   border-radius: 6px;
-  /* preserve border/padding set inline in HTML; avoid overriding layout */
 }
 
-/* ===========================
-   PRINT (PDF) ONLY STYLES
-   - prettier horizontal pill layout for the key when printing
-   - includes box-shadow fallbacks so colours survive headless Chrome
-   =========================== */
+/* Everything that changes appearance for printing is inside this block */
 @media print {
 
-  /* Ask the browser to preserve colour as much as possible */
+  @page { size: A4; margin: 1in; }
+
+  /* ask browsers to preserve colours */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Keep panel border visible in print */
+  /* Panel container for print */
   #tci-booking-calendars > div[style] {
     border: 3px solid #000 !important;
     border-radius: 8px !important;
     padding: 12px 14px !important;
-    background: #fff !important;
+    background: #ffffff !important;
     box-sizing: border-box !important;
     margin-bottom: 18px !important;
   }
 
-  /* Layout: single horizontal row for the key (wraps if needed) */
+  /* Horizontal pill layout for print only */
   .calendar-key {
     display: flex !important;
     align-items: center !important;
@@ -45,21 +40,30 @@
     width: 100% !important;
   }
 
-  /* section labels - 'Key:', 'Upcoming:', 'TCI Status:' */
+  /* White section labels (Key, Upcoming) - print */
   .calendar-key .section-label,
-  #tci-booking-calendars > div[style] b,
-  #tci-booking-calendars > div[style] strong {
+  #tci-booking-calendars > div[style] > b,
+  #tci-booking-calendars > div[style] > strong {
     display: inline-flex !important;
     align-items: center !important;
     padding: 6px 10px !important;
-    background: #222 !important;
-    color: #fff !important;
+    background: #ffffff !important;
+    color: #111111 !important;
     border-radius: 8px !important;
+    border: 1px solid #00000020 !important;
     font-weight: 700 !important;
     font-size: 0.95rem !important;
+    box-shadow: none !important;
   }
 
-  /* pills: inline small rounded boxes */
+  /* Ensure nested elements inherit dark text */
+  #tci-booking-calendars > div[style] > b *,
+  #tci-booking-calendars > div[style] > strong *,
+  .calendar-key .section-label * {
+    color: #111111 !important;
+  }
+
+  /* Pill styling for print */
   .calendar-key .pill,
   #tci-booking-calendars > div[style] span[style] {
     display: inline-flex !important;
@@ -72,11 +76,9 @@
     box-sizing: border-box !important;
     border: 1px solid rgba(0,0,0,0.12) !important;
     background-clip: padding-box !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 
-  /* status small boxes */
+  /* Status boxes for print */
   .calendar-key .status-box,
   #tci-booking-calendars > div[style] span[style*="background"] {
     display:inline-flex !important;
@@ -86,73 +88,19 @@
     height: 32px !important;
     padding: 0 8px !important;
     border-radius: 6px !important;
-    color: #fff !important;
     font-weight: 700 !important;
     box-sizing: border-box !important;
     border: 1px solid rgba(0,0,0,0.08) !important;
   }
 
-  /* textual labels next to status boxes */
-  .calendar-key .status-label {
-    margin-right: 14px !important;
-    font-size: 0.98rem !important;
-    color: #111 !important;
-  }
-
-  /* -----------------------------
-     Box-shadow colour fallbacks
-     (map the inline background colours used in your HTML)
-     ----------------------------- */
-
-  /* Completed (light grey) */
-  #tci-booking-calendars div[style] span[style*="#E6E6E6"] {
-    box-shadow: inset 0 0 0 9999px #E6E6E6 !important;
-    color: #222 !important;
-  }
-
-  /* TCI Passed (green text on grey background) */
-  #tci-booking-calendars div[style] span[style*="color:#90EE90"][style*="#E6E6E6"] {
-    box-shadow: inset 0 0 0 9999px #E6E6E6 !important;
-    color: #90EE90 !important;
-  }
-
-  /* Lung (blue) */
-  #tci-booking-calendars div[style] span[style*="#00A0FF"] {
-    box-shadow: inset 0 0 0 9999px #00A0FF !important;
-    color:#000 !important;
-  }
-
-  /* Kidney (yellow) */
-  #tci-booking-calendars div[style] span[style*="#FFDB58"] {
-    box-shadow: inset 0 0 0 9999px #FFDB58 !important;
-    color:#000 !important;
-  }
-
-  /* Liver */
-  #tci-booking-calendars div[style] span[style*="#C4A484"] {
-    box-shadow: inset 0 0 0 9999px #C4A484 !important;
-    color:#000 !important;
-  }
-
-  /* Bone */
-  #tci-booking-calendars div[style] span[style*="#FF4B33"] {
-    box-shadow: inset 0 0 0 9999px #FF4B33 !important;
-    color:#fff !important;
-  }
-
-  /* Multiple */
-  #tci-booking-calendars div[style] span[style*="#F5A9A9"] {
-    box-shadow: inset 0 0 0 9999px #F5A9A9 !important;
-    color:#000 !important;
-  }
-
-  /* Other/Unspecified */
-  #tci-booking-calendars div[style] span[style*="#2FA9A9"] {
-    box-shadow: inset 0 0 0 9999px #2FA9A9 !important;
-    color:#fff !important;
-  }
-
-  /* STATUS boxes */
+  /* Box-shadow colour preservation (map inline colours you use) */
+  #tci-booking-calendars div[style] span[style*="#E6E6E6"] { box-shadow: inset 0 0 0 9999px #E6E6E6 !important; color: #222 !important; }
+  #tci-booking-calendars div[style] span[style*="#00A0FF"] { box-shadow: inset 0 0 0 9999px #00A0FF !important; color:#000 !important; }
+  #tci-booking-calendars div[style] span[style*="#FFDB58"] { box-shadow: inset 0 0 0 9999px #FFDB58 !important; color:#000 !important; }
+  #tci-booking-calendars div[style] span[style*="#C4A484"] { box-shadow: inset 0 0 0 9999px #C4A484 !important; color:#000 !important; }
+  #tci-booking-calendars div[style] span[style*="#FF4B33"] { box-shadow: inset 0 0 0 9999px #FF4B33 !important; color:#fff !important; }
+  #tci-booking-calendars div[style] span[style*="#F5A9A9"] { box-shadow: inset 0 0 0 9999px #F5A9A9 !important; color:#000 !important; }
+  #tci-booking-calendars div[style] span[style*="#2FA9A9"] { box-shadow: inset 0 0 0 9999px #2FA9A9 !important; color:#fff !important; }
   #tci-booking-calendars div[style] span[style*="#FF0000"] { box-shadow: inset 0 0 0 9999px #FF0000 !important; color:#fff !important; }
   #tci-booking-calendars div[style] span[style*="#FFC0CB"] { box-shadow: inset 0 0 0 9999px #FFC0CB !important; color:#000 !important; }
   #tci-booking-calendars div[style] span[style*="#90EE90"] { box-shadow: inset 0 0 0 9999px #90EE90 !important; color:#000 !important; }

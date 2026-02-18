@@ -5,7 +5,7 @@ reportWaitingListTab <- function(id = NULL) {
   
   list(
     tags$head(
-      tags$link(rel = "stylesheet", href = "print.css")
+      tags$link(rel = "stylesheet", href = "print.css", media = "print")
     ),
     
     fluidRow(
