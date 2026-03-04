@@ -264,6 +264,10 @@ makeCalendarHeatmap <- function(startDate, reportOrgans = NA, includeTreated)
   tciData <- getTciData(firstDateOfYear, reportOrgans, includeTreated)
   calendarYear <- year(startDate)
   
+  # We need to remove everything from tciData but the current year of interest
+  tciData <- tciData |>
+    filter(year(start) == calendarYear)
+  
   # Vector of NA of the same length of the number of days of the year
   events <- rep(0, 365)
   

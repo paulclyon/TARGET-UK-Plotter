@@ -65,8 +65,28 @@ reportServer <- function(input, output, session, api, plots)
   },
   ignoreNULL = TRUE)
   
-  # UI consumer — uses the static result from the eventReactive
   output$summaryWaitReport <- renderUI({
+    res <- report_html()
+    req(res, res$html_file, file.exists(res$html_file))
+    
+    # create a short unique resource prefix for this generated directory
+    # so the browser can fetch the HTML file via /<prefix>/<basename>
+    rp_prefix <- paste0("tmpreport_", as.integer(Sys.time()))
+    shiny::addResourcePath(rp_prefix, res$dir)
+    
+    # build the src path relative to the resource prefix
+    src_path <- file.path(rp_prefix, basename(res$html_file))
+    
+    # return an iframe that loads the full HTML document (interactive)
+    tags$iframe(
+      src = src_path,
+      style = "width:100%; height:900px; border:0;",
+      sandbox = "allow-same-origin allow-scripts allow-forms allow-popups"
+    )
+  })
+  
+  # UI consumer — uses the static result from the eventReactive
+  output$summaryWaitReport2 <- renderUI({
     res <- report_html()
     req(res, res$html_file, file.exists(res$html_file))
     includeHTML(res$html_file)
