@@ -733,9 +733,20 @@ rxDoneAuditData %>%
 ```
 
 ## Credits
-![TARGET-UK: The Thermal Ablation Registry - Getting Evidence Together](../www/TARGETPlotterLogo.png)
+
+```{r reportLogo, echo = FALSE, warning = FALSE}
+# copy logo into the report output dir so it's always available during rendering
+# The RMD knits in a temp directory (as we can see if we run getwd() here), so we need to use here library to get actual path from which we can find the logo
+logo_src  <- here( "www", "TARGETPlotterLogo.png")
+if (file.exists(logo_src)) {
+  knitr::include_graphics(normalizePath(logo_src))
+} else {
+  cat("<!-- TARGETPlotterLogo.png logo not available -->")
+}
+```
+
 <br>
-Audit Report Developer: Dr. Andrew Thornton, FRCR<br>
+Audit Report Developers: Dr. Andrew Thornton, Dr. Paul Lyon<br>
 TARGET-UK Lead: Dr. Paul Lyon, FRCR
 
 \elandscape

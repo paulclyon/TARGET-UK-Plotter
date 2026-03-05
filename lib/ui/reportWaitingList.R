@@ -16,7 +16,7 @@ reportWaitingListTab <- function(id = NULL) {
         dateInput(ns("reportDate2"), "Until Latest Referral:", format = "dd/mm/yyyy", value = Sys.Date() + 365)
       ),
       column(
-        width = 6,
+        width = 3,
         checkboxGroupInput(ns("organReportCheckbox"), "Organs to Report",
                            choices = NULL, selected = NULL) # choices set by server (api)
       ),

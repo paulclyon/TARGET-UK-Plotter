@@ -44,8 +44,44 @@ getDataEntry <- function(field, index, stopIfNotFound = F) {
 # Set the indexed data to the value provided
 # If stopIfNotFound = T the code will terminate with an error if the field does not exist, other will return NA
 # It returns 0 if the set is successful
+# Tweak setDataEntry() to capture and return write result
+setDataEntry <- function(studyID, patientID, patientIndex, fieldName, newData, stopIfNotFound = TRUE, commit = TRUE) {
+  if (!fieldName %in% colnames(studyData$Study)) {
+    if (stopIfNotFound == TRUE) {
+      msg <- paste("Field '", fieldName, "' not found in the data - stopping", sep = '')
+      logger(msg)
+      stop(msg)
+    } else {
+      return(list(success = FALSE, message = "Field not found locally", status_code = NA))
+    }
+  }
+  
+  # store old value
+  old_value <- studyData$Study[[fieldName]][patientIndex]
+  logger(paste(">> Updating record patientID=", patientID, " field='", fieldName, "' old data='", old_value, "' new data='", newData, "'", sep = ""))
+  
+  # Update the local copy first
+  studyData$Study[[fieldName]][patientIndex] <<- newData
+  
+  # If commit==TRUE, attempt to update Castor EDC; otherwise just preview
+  if (isTRUE(commit)) {
+    res <- updateStudyDataByField(studyID, patientID, fieldName, newData, "TARGET-UK Plotter Update")
+    if (isTRUE(res$success)) {
+      logger(paste("Successfully wrote field", fieldName, "for patient", patientID))
+    } else {
+      # Write failed — revert local change OR leave it (choose behavior). Here we'll leave local change but log error.
+      logger(paste("Write to Castor failed for patient", patientID, "field", fieldName, ":", res$message))
+    }
+    return(res)
+  } else {
+    # preview-only: return success TRUE for the local update but not committed
+    logger("Preview only: local studyData updated but not committed to Castor (commit=FALSE).")
+    return(list(success = TRUE, message = "Preview only - local change applied", status_code = NA))
+  }
+}
 
-setDataEntry <- function(studyID, patientID, patientIndex, fieldName, newData, stopIfNotFound = T) {
+
+setDataEntryOld <- function(studyID, patientID, patientIndex, fieldName, newData, stopIfNotFound = T) {
   if (!fieldName %in% colnames(studyData$Study))
   {
     if (stopIfNotFound == T) {

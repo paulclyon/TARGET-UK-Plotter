@@ -214,7 +214,108 @@ getFieldNamesWithOpenAPI <- function(castorOpenAPI)
 
 # We can use the standard Castor API to write data. Largely borrowed from end of this example:
 # https://git.lumc.nl/egjvonasmuth/castor-api-tutorial/-/blob/main/example_rapiclient.R?ref_type=heads
-updateStudyDataByField <- function(studyID, patientID, fieldName, newData, reasonForUpdate="Unspecified Reason")
+# Safe update via the non-OpenAPI endpoint (fix: include Authorization header and return results)
+updateStudyDataByField <- function(studyID, patientID, fieldName, newData, reasonForUpdate = "Unspecified Reason", delay_between_writes = 0)
+{
+  # Ensure castor_api exists and contains token
+  if (!exists("castor_api") || !is.environment(castor_api)) {
+    msg <- "No castor_api environment available. Call connectCastorAPI() first."
+    logger(msg)
+    return(list(success = FALSE, message = msg, status_code = NA))
+  }
+  
+  # Attempt to obtain access token in a robust way
+  access_token <- NULL
+  if (!is.null(castor_api$oauth_token) && !is.null(castor_api$oauth_token$credentials$access_token)) {
+    access_token <- castor_api$oauth_token$credentials$access_token
+  } else if (!is.null(castor_api$token)) {
+    access_token <- castor_api$token
+  }
+  
+  if (is.null(access_token)) {
+    msg <- "No access token found in castor_api. Authentication likely required."
+    logger(msg)
+    return(list(success = FALSE, message = msg, status_code = NA))
+  }
+  
+  base_url <- Sys.getenv("CASTOR_URL")
+  if (is.null(base_url) || base_url == "") {
+    msg <- "CASTOR_URL environment variable is not set."
+    logger(msg)
+    return(list(success = FALSE, message = msg, status_code = NA))
+  }
+  
+  # Ensure fieldID available
+  fieldID <- tryCatch({
+    getFieldIDForName(castor_api, studyID, fieldName)
+  }, error = function(e) {
+    paste0("Failed to get field ID: ", conditionMessage(e))
+  })
+  if (!is.numeric(fieldID) && grepl("^Failed to get field ID", fieldID)) {
+    logger(fieldID)
+    return(list(success = FALSE, message = fieldID, status_code = NA))
+  }
+  
+  # Build the body like the API expects
+  body_list <- list(
+    common = list(
+      change_reason = reasonForUpdate,
+      confirmed_changes = "true"
+    ),
+    data = list(
+      list(
+        field_id = fieldID,
+        field_value = newData
+      )
+    )
+  )
+  
+  # Authorization header
+  headers <- httr::add_headers(Authorization = paste("Bearer", access_token),
+                               `Content-Type` = "application/json")
+  
+  url <- glue::glue("{base_url}/api/study/{studyID}/participant/{patientID}/data-points/study")
+  
+  # Perform POST and capture errors
+  write_result <- tryCatch({
+    response <- httr::POST(url, headers, body = body_list, encode = "json", httr::timeout(60))
+    # Parse response body (if any)
+    resp_text <- tryCatch({ httr::content(response, as = "text", encoding = "utf-8") }, error = function(e) NA)
+    list(response = response, text = resp_text)
+  }, error = function(e) {
+    list(response = NULL, text = paste0("HTTP request failed: ", conditionMessage(e)))
+  })
+  
+  # If there was no HTTP response object
+  if (is.null(write_result$response)) {
+    logger(paste("Write failed:", write_result$text))
+    return(list(success = FALSE, message = write_result$text, status_code = NA))
+  }
+  
+  status <- write_result$response$status_code
+  # Try parse JSON body if present
+  parsed_content <- tryCatch({
+    jsonlite::fromJSON(write_result$text)
+  }, error = function(e) {
+    write_result$text
+  })
+  
+  # Interpret responses: 200/201/202 are usually success
+  if (status >= 200 && status < 300) {
+    logger(paste("API write succeeded for participant", patientID, "field", fieldName, "status:", status))
+    # Optional delay to reduce rate-limiting
+    if (is.numeric(delay_between_writes) && delay_between_writes > 0) Sys.sleep(delay_between_writes)
+    return(list(success = TRUE, message = parsed_content, status_code = status))
+  } else {
+    # Log detailed error
+    msg <- paste0("API write failed. HTTP ", status, " - ", ifelse(is.character(parsed_content), parsed_content, jsonlite::toJSON(parsed_content)))
+    logger(msg)
+    return(list(success = FALSE, message = parsed_content, status_code = status))
+  }
+}
+
+
+updateStudyDataByFieldOld <- function(studyID, patientID, fieldName, newData, reasonForUpdate="Unspecified Reason")
 {
   # First get the field name
   fieldID <- getFieldIDForName(castor_api,studyID,fieldName)
@@ -348,4 +449,6 @@ getFieldIDForName <- function(castorAPI,studyID,fieldName)
   logger(paste("Field name '", fieldName, "' found in open API field data with ID='",fieldID,"'", sep = ""))
   return(fieldID)
 }
+
+
 

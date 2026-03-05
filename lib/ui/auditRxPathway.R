@@ -78,59 +78,53 @@ auditServer <- function(input, output, session, api, plots) {
   })
 
   observeEvent(input$buttonRunAuditReport, {
-    plots$activePlot <- NA
+  plots$activePlot <- NA
 
-    # Elegant way to regenerate the HTML such that is does allow dynamic refresh
-    output$summaryRefAudit <- renderUI({
-      shinyCatch(
-        {
-          message(paste(
-            "Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"),
-            "' to file '", Sys.getenv("AUDIT_PATHWAY_MD"), "'",
-            sep = ""
-          ))
-        },
-        prefix = ""
-      )
-      tryCatch(
-        {
-          # Could also set knit_root_dir parameter but it is probably more trouble than it is worth
-          # The default is the directory of the input file .Rmd which works fine, and if specified,
-          # is relative to that dir
-          includeHTML(rmarkdown::render(rmdAuditFile,
-            params = list(
-              audit_start_date = input$auditDate1,
-              audit_end_date = input$auditDate2,
-              audit_organs = input$organAuditCheckbox
-            ),
-            envir = new.env(parent = globalenv()),
-            output_dir = Sys.getenv("REPORT_OUTPUT_DIR")
-          ))
-        },
-        error = function(errorMessage) {
-          logger(conditionMessage(errorMessage), T)
-          showNotification(conditionMessage(errorMessage))
-          errorMessage # Return value in case of error
-        }
-      )
+  output$summaryRefAudit <- renderUI({
+    # Informational message (does not affect UI)
+    shinyCatch(
+      message(paste0("Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"), "'")),
+      prefix = ""
+    )
+
+    # Render into a temporary dir so we don't overwrite app files
+    tempReportDir <- tempdir()
+    tempRmd <- file.path(tempReportDir, "report.Rmd")
+    file.copy(rmdAuditFile, tempRmd, overwrite = TRUE)
+
+    params <- list(
+      audit_start_date = input$auditDate1,
+      audit_end_date   = input$auditDate2,
+      audit_organs     = input$organAuditCheckbox
+    )
+
+    # Render to HTML
+    render_result <- tryCatch({
+      rmarkdown::render(tempRmd,
+                        output_format = "html_document",
+                        output_dir = tempReportDir,
+                        params = params,
+                        envir = new.env(parent = globalenv()),
+                        quiet = TRUE)
+    }, error = function(e) { 
+      logger(conditionMessage(e), TRUE); 
+      showNotification(conditionMessage(e)); 
+      return(NULL)
     })
 
-    # This is another way to do the magic - embed the output into the observe event to allow refresh!
-    # But doesn't allow multiple refreshes, see the more simple elegant solution I used
-    # output$summaryRefAudit2 <- renderPrint({
-    #  if (api$connected == T && api$loaded == T)
-    #  {
-    #    showNotification(paste("Generating the audit from file '",Sys.getenv("AUDIT_PATHWAY_RMD"),"'",sep=""))
-    #    thisHTML <- finalRefAuditInput()
-    #    showNotification(paste("Audit generation completed, see file '",Sys.getenv("AUDIT_PATHWAY_MD"),"'",sep=""))
-    #  }
-    #  else
-    #  {
-    #    thisHTML <-
-    #      "There is no study data loaded at present - cannot run the audit"
-    #  }
-    #  thisHTML
-    # })
+    if (is.null(render_result) || !file.exists(render_result)) {
+      return(tags$div("Failed to render audit - see notifications for details."))
+    }
+
+    # Read the rendered HTML and embed in an iframe via srcdoc (avoids includeHTML warning)
+    html_text <- paste(readLines(render_result, warn = FALSE), collapse = "\n")
+
+    tags$iframe(
+      srcdoc = html_text,
+      width = "100%",
+      height = "900px",
+      style = "border:0;")
+    })
   })
 
   output$buttonAuditToDoc <- downloadHandler(

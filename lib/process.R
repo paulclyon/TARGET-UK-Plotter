@@ -386,7 +386,7 @@ processData <- function()
         if (!is.na(thisTciStatus))
         {
           # These must match the modality radiobutton options is app.R
-          ref_tci_status <- switch(thisTciStatus, "1"="Provisional", "2"="Confirmed", "3"="Deferred", "4"="Cancelled", "Status Unknown")
+          ref_tci_status <- switch(as.character(thisTciStatus), "1"="Provisional", "2"="Confirmed", "3"="Deferred", "4"="Cancelled", "Status Unknown")
         }
 
         # Sort Clock Stop

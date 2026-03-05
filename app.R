@@ -345,10 +345,6 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$updateAnaesthetistNames, {
-    updateAnaesthetistNames(
-      input$anaesthetistNameCheckbox,
-      input$anaesthetistNewName
-    )
     if (length(input$anaesthetistNameCheckbox) == 0) {
       shinyCatch(
         {
@@ -428,7 +424,7 @@ server <- function(input, output, session) {
     }
   })
 
-  # This is the callback to ensure we are definately going to update the operator data
+  # This is the callback to ensure we are definitely going to update the operator data
   updateOperatorNamesCallback <- function(textEntered) {
     if (!is.na(textEntered) && textEntered == "Proceed") {
       # Create a Progress object

@@ -275,13 +275,6 @@ makeCalendarHeatmap(as.Date(report_start_date) + 365, report_organs, TRUE)
 # copy logo into the report output dir so it's always available during rendering
 # The RMD knits in a temp directory (as we can see if we run getwd() here), so we need to use here library to get actual path from which we can find the logo
 logo_src  <- here( "www", "TARGETPlotterLogo.png")
-#logo_dest <- file.path(output_dir, basename(logo_src))
-#if (file.exists(logo_src)) {
-#  file.copy(logo_src, logo_dest, overwrite = TRUE)
-#} else {
-#  warning("Logo not found at: ", normalizePath(logo_src))
-#  cat(paste("<!-- logo not available at -->",normalizePath(logo_src, mustWork = F), getwd()))
-#}
 if (file.exists(logo_src)) {
   knitr::include_graphics(normalizePath(logo_src))
 } else {
