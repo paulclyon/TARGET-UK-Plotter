@@ -12,7 +12,7 @@ prepareOrganCountRecurrenceData <- function(filtered_df)
     )
 }
 
-makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedGenders, survivalType)
+makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, survivalType)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -26,6 +26,23 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
     filter(between(FirstRxDate, start, end)) |>
     filter(Organ %in% selectedOrgans) |>
     filter(Gender %in% selectedGenders)
+  
+  if (selectedDiagnosisType != "All")
+  {
+    # We just want to use the first letter of what is selected in the GUI e.g. P(rimary) to match the EDC data
+    #filteredSurvivalData <<- filteredSurvivalData |> filter(DiagnosisType == substring(selectedDiagnosisType, 1, 1))
+    filteredSurvivalData <<- switch(substring(selectedDiagnosisType, 1, 1),
+                                    "P" = filteredSurvivalData |> filter(Diagnosis1o %in% selectedSubtypes),
+                                    "S" = filteredSurvivalData |> filter(Diagnosis2o %in% selectedSubtypes),
+                                    "B" = filteredSurvivalData |> filter(DiagnosisBn %in% selectedSubtypes),
+                                    "U" = filteredSurvivalData |> filter(DiagnosisUn %in% selectedSubtypes)
+    )
+  }
+  
+  # Get rid of anything which doesn't have the necessary recurrence data, so that we know if its going to be an empty fit before we fit it
+  #filteredSurvivalData <- filteredSurvivalData |>
+  #  filter(!is.na(TimeLRF), !is.na(StatusLRF))
+  # -- this is specific to the radiobutton
   
   # If no rows to plot, let the user know there is no data
   if (nrow(filteredSurvivalData) == 0) {

@@ -6,42 +6,50 @@ survivalPlotTab <- function() {
         width = 3,
         dateInput(
           "survivalStartDate",
-          "Start Date:",
+          "Start Date",
           format = "dd/mm/yyyy",
           value = Sys.Date() - 365*20
         ),
         dateInput(
           "survivalEndDate",
-          "End Date:",
+          "End Date",
           format = "dd/mm/yyyy",
           value = Sys.Date()
         ),
         numericInput(
           "maxYearsFollowup",
-          "Max Years Follow-up:",
+          "Max Years Follow-up",
           value = 5, 
           min = 1, 
           max = 20
         )
       ),
       column(
-        width = 4,
-        selectInput("survivalSelectedOrgans","Organ to Chart", choices = organFactors, selected = organFactors[1]),
+        width = 3,
+        selectInput("survivalSelectedOrgans","Target Organ", choices = organFactors, selected = organFactors[1]),
+        selectInput("survivalSelectedDiagnosisType", "Diagnosis Type", choices = diagnosis_type_Factors),
         checkboxGroupInput(
           "survivalSelectedGenders",
-          "Genders to Chart",
+          "Genders",
           choices = genderFactors,
           selected = genderFactors
         )
       ),
       column(
-        width = 4,
+        width = 2,
         radioButtons(
           "survivalLRFSRadio",
           "Survival Plot Type",
           c("Overall Survival (OS)" = 0, "Cancer Specific Survival (CSS)" = 1, "Local Recurrence-Free OS" = 2, "Local Recurrence-Free CSS" = 3)
-        ),
-        actionButton(inputId = "refreshSurvivalPlot", label = "Refresh Plot")
+        )
+      ),
+      column(
+        width = 4,
+        checkboxGroupInput(
+          "survivalSelectedSubtypes", "Subtypes",
+          choices = diagnosisSubtypeFactors,
+          selected = diagnosisSubtypeFactors
+        )
       )
     ),
     
@@ -55,14 +63,41 @@ survivalPlotTab <- function() {
 
 survivalPlotServer <- function(input, output, session, api, plots)
 {
-  observeEvent(input$refreshSurvivalPlot, {
-    plots$activePlot <- ggplot()
+  subtypeChoices <- reactive({
+    req(input$survivalSelectedDiagnosisType)
+    
+    switch(
+      input$survivalSelectedDiagnosisType,
+      "All"       = c("All"),
+      "Primary"   = api$diagnosis_1o_Factors,
+      "Secondary" = api$diagnosis_2o_Factors,
+      "Benign"    = api$diagnosis_bn_Factors,
+      api$diagnosisSubtypeFactors
+    )
   })
+  
+  observeEvent(input$survivalSelectedDiagnosisType, {
+    choices <- subtypeChoices()
+    updateCheckboxGroupInput(
+      session,
+      "survivalSelectedSubtypes",
+      choices = choices,
+      selected = choices
+    )
+  }, ignoreInit = FALSE)
   
   observe({
     updateSelectInput(session, "survivalSelectedOrgans", "Organ to Chart",
                       choices = api$organFactors,
                       selected = api$organFactors[1]
+    )
+  })
+  
+  observe({
+    updateSelectInput(
+      session, "survivalSelectedDiagnosisType",
+      choices = api$diagnosis_type_Factors,
+      selected = api$diagnosis_type_Factors[1]
     )
   })
   
@@ -79,6 +114,8 @@ survivalPlotServer <- function(input, output, session, api, plots)
       input$survivalEndDate,
       input$maxYearsFollowup,
       input$survivalSelectedOrgans,
+      input$survivalSelectedDiagnosisType,
+      input$survivalSelectedSubtypes,
       input$survivalSelectedGenders,
       input$survivalLRFSRadio
     )
@@ -93,5 +130,4 @@ survivalPlotServer <- function(input, output, session, api, plots)
     plots$activePlot <- p
     plots$activePlot
   }, height = height)
-
 }

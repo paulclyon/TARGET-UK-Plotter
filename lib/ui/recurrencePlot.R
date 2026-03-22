@@ -6,24 +6,23 @@ recurrencePlotTab <- function() {
         width = 3,
         dateInput(
           "recurrenceStartDate",
-          "Start Date:",
+          "Start Date",
           format = "dd/mm/yyyy",
           value = Sys.Date() - 365*10
         ),
         dateInput(
           "recurrenceEndDate",
-          "End Date:",
+          "End Date",
           format = "dd/mm/yyyy",
           value = Sys.Date()
         ),
         numericInput(
           "maxYearsFollowup",
-          "Max Years Follow-up:",
+          "Max Years Follow-up",
           value = 5, 
           min = 1, 
           max = 20
-        ),
-        actionButton(inputId = "refreshRecurrencePlot", label = "Refresh Plot")
+        )
       ),
       column(
         width = 3,
@@ -54,7 +53,6 @@ recurrencePlotTab <- function() {
 
 recurrencePlotServer <- function(input, output, session, api, plots)
 {
-  
   subtypeChoices <- reactive({
     req(input$recurrenceSelectedDiagnosisType)
     
@@ -70,7 +68,6 @@ recurrencePlotServer <- function(input, output, session, api, plots)
   
   observeEvent(input$recurrenceSelectedDiagnosisType, {
     choices <- subtypeChoices()
-    
     updateCheckboxGroupInput(
       session,
       "recurrenceSelectedSubtypes",
@@ -78,10 +75,6 @@ recurrencePlotServer <- function(input, output, session, api, plots)
       selected = choices
     )
   }, ignoreInit = FALSE)
-  
-  observeEvent(input$refreshRecurrencePlot, {
-    plots$activePlot <- ggplot()
-  })
   
   observe({
     updateSelectInput(
@@ -128,7 +121,4 @@ recurrencePlotServer <- function(input, output, session, api, plots)
     plots$activePlot <- p
     plots$activePlot
   }, height = height)
-  
-  
-
 }
