@@ -49,6 +49,8 @@ if (file.exists(Sys.getenv("DEFAULT_STUDY_TXT"))) {
 castor_api <<- new.env()
 
 # Initialise these global variables as required to render to UI - FIXME some of these are in initializeGlobals others are not - should they be?
+diagnosis_type_Factors <<- c("All", "Primary", "Secondary", "Benign", "Unknown")
+diagnosisSubtypeFactors <<- c()
 organFactors <<- c()
 genderFactors <<- c()
 modalityFactors <<- c("Microwave", "Cryotherapy", "Radiofrequency")

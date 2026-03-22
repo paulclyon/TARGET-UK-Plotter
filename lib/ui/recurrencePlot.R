@@ -22,23 +22,28 @@ recurrencePlotTab <- function() {
           value = 5, 
           min = 1, 
           max = 20
-        )
+        ),
+        actionButton(inputId = "refreshRecurrencePlot", label = "Refresh Plot")
       ),
       column(
-        width = 4,
-        selectInput("recurrenceSelectedOrgans", "Organ to Chart", choices = organFactors),
+        width = 3,
+        selectInput("recurrenceSelectedOrgans", "Target Organ", choices = organFactors),
+        selectInput("recurrenceSelectedDiagnosisType", "Diagnosis Type", choices = diagnosis_type_Factors),
         checkboxGroupInput(
-          "recurrenceSelectedGenders", "Genders to Chart",
+          "recurrenceSelectedGenders", "Genders",
           choices = genderFactors,
           selected = genderFactors
         )
       ),
       column(
-        width = 3,
-        actionButton(inputId = "refreshRecurrencePlot", label = "Refresh Plot")
+        width = 6,
+        checkboxGroupInput(
+          "recurrenceSelectedSubtypes", "Subtypes",
+          choices = diagnosisSubtypeFactors,
+          selected = diagnosisSubtypeFactors
+        )
       )
     ),
-    
     fluidRow(box(
       width = 12,
       plotOutput("plotRecurrenceCurve")
@@ -49,21 +54,56 @@ recurrencePlotTab <- function() {
 
 recurrencePlotServer <- function(input, output, session, api, plots)
 {
+  
+  subtypeChoices <- reactive({
+    req(input$recurrenceSelectedDiagnosisType)
+    
+    switch(
+      input$recurrenceSelectedDiagnosisType,
+      "All"       = c("All"),
+      "Primary"   = api$diagnosis_1o_Factors,
+      "Secondary" = api$diagnosis_2o_Factors,
+      "Benign"    = api$diagnosis_bn_Factors,
+      api$diagnosisSubtypeFactors
+    )
+  })
+  
+  observeEvent(input$recurrenceSelectedDiagnosisType, {
+    choices <- subtypeChoices()
+    
+    updateCheckboxGroupInput(
+      session,
+      "recurrenceSelectedSubtypes",
+      choices = choices,
+      selected = choices
+    )
+  }, ignoreInit = FALSE)
+  
   observeEvent(input$refreshRecurrencePlot, {
     plots$activePlot <- ggplot()
   })
   
   observe({
-    updateSelectInput(session, "recurrenceSelectedOrgans", "Organ to Chart",
-                      choices = api$organFactors,
-                      selected = api$organFactors[1]
+    updateSelectInput(
+      session, "recurrenceSelectedOrgans",
+      choices = api$organFactors,
+      selected = api$organFactors[1]
     )
   })
   
   observe({
-    updateCheckboxGroupInput(session, "recurrenceSelectedGenders", "Genders to Chart",
-                             choices = api$genderFactors,
-                             selected = api$genderFactors
+    updateSelectInput(
+      session, "recurrenceSelectedDiagnosisType",
+      choices = api$diagnosis_type_Factors,
+      selected = api$diagnosis_type_Factors[1]
+    )
+  })
+  
+  observe({
+    updateCheckboxGroupInput(
+      session, "recurrenceSelectedGenders",
+      choices = api$genderFactors,
+      selected = api$genderFactors
     )
   })
 
@@ -73,6 +113,8 @@ recurrencePlotServer <- function(input, output, session, api, plots)
       input$recurrenceEndDate,
       input$maxYearsFollowup,
       input$recurrenceSelectedOrgans,
+      input$recurrenceSelectedDiagnosisType,
+      input$recurrenceSelectedSubtypes,
       input$recurrenceSelectedGenders
     )
   })

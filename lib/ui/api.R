@@ -203,7 +203,13 @@ reloadStudyEvent <- function(input, output, session, api) {
   api$organFactors <- organFactors
   api$genderFactors <- genderFactors
   api$cctaeGradeFactors <- cctaeGradeFactors
-
+  api$diagnosisSubtypeFactors <- diagnosisSubtypeFactors
+  
+  api$diagnosis_1o_Factors <- diagnosis_1o_Factors
+  api$diagnosis_2o_Factors <- diagnosis_2o_Factors
+  api$diagnosis_bn_Factors <- diagnosis_bn_Factors
+  api$diagnosis_un_Factors <- diagnosis_un_Factors 
+  
   # Make sure our Organ tick list matches the data...
   updateSelectInput(session, "operatorPlotDropdown", "Operators to Plot",
     choices = operator1Factors
@@ -219,6 +225,9 @@ reloadStudyEvent <- function(input, output, session, api) {
   )
   updateCheckboxGroupInput(session, "aeGradesCheckbox", "CCTAE Grades",
     choices = cctaeGradeFactors
+  )
+  updateCheckboxGroupInput(session, "recurrenceSelectedSubtypes", "Subtypes",
+    choices = diagnosisSubtypeFactors
   )
 
   # Show the data sidebar items

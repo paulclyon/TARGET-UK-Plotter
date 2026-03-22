@@ -23,7 +23,29 @@ ifValidTARGETStudy <- function(stopIfNotValid = F) {
 # Note this is a new implementation based on castoRedc library version 2.1.0 and above and there is a
 # key change; it is not the export data value that is returned like '0' or '1' instead it is the text
 # equivalent as implemented in the Castor design "No", "Yes" and "Unknown"
-getDataEntry <- function(field, index, stopIfNotFound = F) {
+getDataEntry <- function(field, index, returnLabelIfFactor = FALSE, stopIfNotFound = FALSE) {
+  if (field %in% colnames(studyData$Study)) {
+    value <- studyData$Study[[field]][index]
+    
+    # If it's a factor, return the label
+    if (returnLabelIfFactor && is.factor(studyData$Study[[field]])) {
+      return(as.character(value))
+    }
+    else
+    {
+      return(value) # This may just return a coerced factored > number rather than the label, if it is a factor e.g. option group
+    }
+  } 
+  
+  if (stopIfNotFound == TRUE) {
+    msg <- paste0("Field '", field, "' not found in the data - stopping")
+    stop(msg)
+  }
+  
+  return(NA)
+}
+# This one works but doesn't have option to return the label if it is a factor, so then it gets coerced into a number
+getDataEntryOld <- function(field, index, stopIfNotFound = F) {
   if (field %in% colnames(studyData$Study)) {
     return(studyData$Study[[field]][index])
   } 

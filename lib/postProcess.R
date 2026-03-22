@@ -6,7 +6,7 @@ postProcessData <- function()
   if (!is.null(rxdone_pt_list))
   {
 
-    # First replacing any NA operator with 'unspecified'
+    # Replacing any NA operator with 'unspecified'
     rxdone_operator1_list     <<- rxdone_operator1_list %>% replace_na("unspecified")
     rxdone_operator2_list     <<- rxdone_operator2_list %>% replace_na("unspecified")
     rxdone_operator3_list     <<- rxdone_operator3_list %>% replace_na("unspecified")
@@ -25,6 +25,11 @@ postProcessData <- function()
       DTT_Rx = as.numeric(rxdone_dtt_rx_days_list),
       Ref_RxDone = as.numeric(rxdone_rx_days_list),
       Organs = rxdone_organ_list,
+      DiagnosisType = rxdone_diagnosis_type_list,
+      Diagnosis1o = rxdone_diagnosis_1o_list,
+      Diagnosis2o = rxdone_diagnosis_2o_list,
+      DiagnosisBn = rxdone_diagnosis_bn_list,
+      DiagnosisUn = rxdone_diagnosis_un_list,
       Modality = rxdone_modality_list,
       Tariff = rxdone_tariff_list,
       Operator1 = rxdone_operator1_list,
@@ -63,7 +68,13 @@ postProcessData <- function()
     rxWaitData <<- NA
   }
   
-  # This is just a list the different organ targets which have been referred or treated
+  # These are lists of the 1o, 2o and benign diagnoses
+  diagnosis_1o_Factors <<- levels(factor(rxdone_diagnosis_1o_list))
+  diagnosis_2o_Factors <<- levels(factor(rxdone_diagnosis_2o_list))
+  diagnosis_bn_Factors <<- levels(factor(rxdone_diagnosis_bn_list)) # Benign
+  diagnosis_un_Factors <<- levels(factor(rxdone_diagnosis_un_list)) # Unknown
+  
+  # This is a list the different organ targets which have been referred or treated
   organFactors <<- levels(factor(append(rxdone_organ_list, rxwait_organ_list)))
   
   # Similar for Genders
@@ -101,6 +112,11 @@ postProcessData <- function()
       FirstRxDate = asDateWithOrigin(survival_first_rx_date),
       AgeOnFirstRx = survival_age_list,
       Organ = survival_organ_list,
+      DiagnosisType = survival_diagnosis_type_list,
+      Diagnosis1o = survival_diagnosis_1o_list,
+      Diagnosis2o = survival_diagnosis_2o_list,
+      DiagnosisBn = survival_diagnosis_bn_list,
+      DiagnosisUn = survival_diagnosis_un_list,
       TimeLRF = local_recurrence_days_list/365.25,     # Time to local recurrence
       StatusLRF = local_recurrence_status_list,
       TimeLRFOS = lrf_os_survival_days_list/365.25,        # Local recurrence-free survival i.e. time to LR or Death, if NA they have not recurred or died

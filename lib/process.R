@@ -33,6 +33,35 @@ processData <- function()
       logger(paste(i, "/", patientCount, " Pt=", ptID, " performing referral analysis...", sep = ""))
     }
     
+    # Get Diagnosis - FIXME we assume the first diagnosis is the one we care about for TARGET-UK, but what about the second diagnosis?
+    diagnosis_type <- getDataEntry("dx_diagonsis_type_1",i)   # Key> P=Primary, S=Secondary, B=Benign, U=Unknown, N=N/A (FIXME: diagnosis spelt wrong in Castor!)
+    if (!is.na(diagnosis_type)) diagnosis_type <- substr(diagnosis_type, start = 1, stop = 1) # Get the first char otherwise it returns the descriptive text
+    diagnosis_1o <- NA
+    diagnosis_2o <- NA
+    diagnosis_bn <- NA
+    diagnosis_un <- NA
+    
+    if (!is.na(diagnosis_type) && diagnosis_type == "P")
+    {
+      diagnosis_1o <- getDataEntry("dx_histology_primary_1",i, returnLabelIfFactor=TRUE)    # e.g. Lung: SCLC
+    }
+    else if (!is.na(diagnosis_type) && diagnosis_type == "S")
+    {
+      diagnosis_2o <- getDataEntry("dx_histology_secondary_1",i, returnLabelIfFactor=TRUE)  # e.g. Colorectal
+    }
+    else if (!is.na(diagnosis_type) && diagnosis_type == "B")
+    {
+      diagnosis_bn <- getDataEntry("dx_histology_benign_1",i, returnLabelIfFactor=TRUE)     # e.g. Desmoid
+    }
+    else if (!is.na(diagnosis_type) && diagnosis_type == "U")
+    {
+      diagnosis_un <- "Unknown"                                                             # we don't know what it is as it hasn't been specified
+    }
+    else
+    {
+      # If unknown or N/A diagnosis type then nothing to to -everything is NA
+    }
+    
     #FIXME I don't know how to tell if archived any more since v1.1.0 to 2.1.0 of castoRedc
     #Assuming if archived, it won't come back in studyData
     #ptArchived <- patientData[["archived"]][i]
@@ -194,6 +223,7 @@ processData <- function()
           # If this row shows recurrence...
           # 
           # Original simple coding before improvements for:
+          #   'N' = No
           #   'YA' = Yes (recurrent) and Ablatable Recurrence
           #   'YNA' = Yes (recurrent) and Non-ablatable Recurrence
           #
@@ -215,7 +245,7 @@ processData <- function()
           
           thisLR <- recurrence.df$local.recurrence[j]
           # if (thisLR == "Y" || thisLR == "YA" || thisLR == "YNA")
-          if (thisLR != "NR") # Double negative but it is a good catch all for recurrence
+          if (thisLR != "NR" && thisLR != "N") # Double negative but it is a good catch all for recurrence, also note the historical coding "N" is respected
           {
             thisRecurrenceDate <- thisImagingDate
             # If we have not yet recurred...
@@ -620,6 +650,13 @@ processData <- function()
           }
           rxdone_pt_list                     <<- append(rxdone_pt_list,                       paste(ptID, "-", iRef, sep = ""))
           rxdone_sex_list                    <<- append(rxdone_sex_list,                      sex)
+          
+          rxdone_diagnosis_type_list         <<- append(rxdone_diagnosis_type_list,           diagnosis_type)
+          rxdone_diagnosis_1o_list           <<- append(rxdone_diagnosis_1o_list,             diagnosis_1o)
+          rxdone_diagnosis_2o_list           <<- append(rxdone_diagnosis_2o_list,             diagnosis_2o)
+          rxdone_diagnosis_bn_list           <<- append(rxdone_diagnosis_bn_list,             diagnosis_bn) # Benign
+          rxdone_diagnosis_un_list           <<- append(rxdone_diagnosis_un_list,             diagnosis_un) # Unknown
+          
           rxdone_organ_list                  <<- append(rxdone_organ_list,                    organForRx)
           rxdone_modality_list               <<- append(rxdone_modality_list,                 modalityForRx)
           rxdone_tariff_list                 <<- append(rxdone_tariff_list,                   tariffForRx)
@@ -827,6 +864,13 @@ processData <- function()
       survival_sex_list         <<- append(survival_sex_list, sex)
       survival_age_list         <<- append(survival_age_list, age_at_first_rx)
       survival_organ_list       <<- append(survival_organ_list, survival_organ)
+      
+      survival_diagnosis_type_list <<- append(survival_diagnosis_type_list, diagnosis_type)
+      survival_diagnosis_1o_list   <<- append(survival_diagnosis_1o_list,   diagnosis_1o)
+      survival_diagnosis_2o_list   <<- append(survival_diagnosis_2o_list,   diagnosis_2o)
+      survival_diagnosis_bn_list   <<- append(survival_diagnosis_bn_list,   diagnosis_bn)
+      survival_diagnosis_un_list   <<- append(survival_diagnosis_un_list,   diagnosis_un)
+      
       survival_first_rx_date    <<- append(survival_first_rx_date, date_of_first_rx)
       survival_deceased_list    <<- append(survival_deceased_list, as.integer(deceased))
       survival_deceased_date    <<- append(survival_deceased_date, deceased_date)

@@ -18,15 +18,23 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
   start <- as.Date(strStart, format = "%d/%m/%Y")
   end <- as.Date(strEnd, format = "%d/%m/%Y")
   
-  if (!is.data.frame(survivalData) || nrow(survivalData) == 0) {
-    return(ggplot()) # Any empty plot
-  }
+  #if (!is.data.frame(survivalData) || nrow(survivalData) == 0) {
+  #  return(ggplot()) # Any empty plot
+  #}
+  
   filteredSurvivalData <<- survivalData |>
     filter(between(FirstRxDate, start, end)) |>
     filter(Organ %in% selectedOrgans) |>
     filter(Gender %in% selectedGenders)
+  
+  # If no rows to plot, let the user know there is no data
   if (nrow(filteredSurvivalData) == 0) {
-    return(ggplot())
+    return(ggplot()+
+             annotate("text", x = 0.5, y = 0.5,
+                      label = "No data available for selected filters",
+                      size = 6, hjust = 0.5) +
+             theme_void()
+           )
   }
   
   # Censoring = 1=censored, 2=dead - 
@@ -76,7 +84,7 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
   survivalPlot
 }
 
-makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedGenders)
+makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -91,8 +99,30 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
     filter(Organ %in% selectedOrgans) |>
     filter(Gender %in% selectedGenders)
   
+  if (selectedDiagnosisType != "All")
+  {
+    # We just want to use the first letter of what is selected in the GUI e.g. P(rimary) to match the EDC data
+    #filteredSurvivalData <<- filteredSurvivalData |> filter(DiagnosisType == substring(selectedDiagnosisType, 1, 1))
+    filteredSurvivalData <<- switch(substring(selectedDiagnosisType, 1, 1),
+      "P" = filteredSurvivalData |> filter(Diagnosis1o %in% selectedSubtypes),
+      "S" = filteredSurvivalData |> filter(Diagnosis2o %in% selectedSubtypes),
+      "B" = filteredSurvivalData |> filter(DiagnosisBn %in% selectedSubtypes),
+      "U" = filteredSurvivalData |> filter(DiagnosisUn %in% selectedSubtypes)
+    )
+  }
+  
+  # Get rid of anything which doesn't have the necessary recurrence data, so that we know if its going to be an empty fit before we fit it
+  filteredSurvivalData <- filteredSurvivalData |>
+    filter(!is.na(TimeLRF), !is.na(StatusLRF))
+  
+  # If no rows to plot, let the user know there is no data
   if (nrow(filteredSurvivalData) == 0) {
-    return(ggplot())
+    return(ggplot()+
+             annotate("text", x = 0.5, y = 0.5,
+                      label = "No data available for selected filters",
+                      size = 6, hjust = 0.5) +
+             theme_void()
+    )
   }
   
   # Censoring = 1=censored, 2=recurred (almost treat as if death) - 
