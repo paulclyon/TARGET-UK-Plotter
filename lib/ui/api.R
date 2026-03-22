@@ -200,9 +200,9 @@ reloadStudyEvent <- function(input, output, session, api) {
   ## TODO: Then all of these can be bound to the reactive api processed data value outside of this function
 
   ## The first step is just move the factors to the api
-  api$organFactors <- organFactors
-  api$genderFactors <- genderFactors
-  api$cctaeGradeFactors <- cctaeGradeFactors
+  api$organFactors            <- c("All", organFactors)
+  api$genderFactors           <- genderFactors
+  api$cctaeGradeFactors       <- cctaeGradeFactors
   api$diagnosisSubtypeFactors <- diagnosisSubtypeFactors
   
   api$diagnosis_1o_Factors <- diagnosis_1o_Factors

@@ -198,6 +198,7 @@ processData <- function()
     recurrenceJSON <- getDataEntry("fu_image_matrix", i)
     local_recurrence <- 0
     date_of_first_local_recurrence <- NA
+    no_rx_before_first_local_recurrence <- NA
     date_of_last_imaging_fu <- NA
     
     # Go row by row in the imaging follow-up matrix...
@@ -247,12 +248,19 @@ processData <- function()
           # if (thisLR == "Y" || thisLR == "YA" || thisLR == "YNA")
           if (thisLR != "NR" && thisLR != "N") # Double negative but it is a good catch all for recurrence, also note the historical coding "N" is respected
           {
+            # This records if it is recurrence after 1, 2 or >2 treatments (the definition of LR can vary!) - the recurrence string is like '1LR-U' for 1st LR/RD - untreated
+            thisRecurrenceAfterRxNo <- substring(thisLR,1,1)
+            logger(paste("FIXME",thisLR))
+            
+            # The date of this imaging, which has show recurrence
             thisRecurrenceDate <- thisImagingDate
+            
             # If we have not yet recurred...
             if (local_recurrence == 0)
             {
               local_recurrence <- 1
               date_of_first_local_recurrence <- thisRecurrenceDate
+              no_rx_before_first_local_recurrence <- thisRecurrenceAfterRxNo
             }
             # We have already recurred, so we just want the earliest recurrence date
             else
@@ -260,6 +268,7 @@ processData <- function()
               if (thisRecurrenceDate < date_of_first_local_recurrence)
               {
                 date_of_first_local_recurrence <- thisRecurrenceDate
+                no_rx_before_first_local_recurrence <- thisRecurrenceAfterRxNo
               }
             }
           }
@@ -779,6 +788,7 @@ processData <- function()
       local_recurrence_days <- NA
       if (!is.na(date_of_first_local_recurrence) && isConvertibleToDate(date_of_first_local_recurrence))
       {
+        # FIXME, if there are two treatments before the first LR is true, then this date is still from 1st not 2nd Rx
         local_recurrence_days = as.numeric(difftime(date_of_first_local_recurrence, date_of_first_rx, units = "days"), units = "days")
       }
       else
@@ -890,6 +900,7 @@ processData <- function()
       local_recurrence_list        <<- append(local_recurrence_list, local_recurrence)
       local_recurrence_status_list <<- append(local_recurrence_status_list, local_recurrence_status)
       local_recurrence_date_list   <<- append(local_recurrence_date_list, date_of_first_local_recurrence)
+      local_recurrence_no_rx_before <<- append(local_recurrence_no_rx_before, no_rx_before_first_local_recurrence)
       local_recurrence_days_list   <<- append(local_recurrence_days_list, local_recurrence_days)
       last_imaging_follow_up_list  <<- append(last_imaging_follow_up_list, date_of_last_imaging_fu)
     }

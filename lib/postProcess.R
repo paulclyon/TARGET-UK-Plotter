@@ -124,7 +124,8 @@ postProcessData <- function()
       TimeLRFCSS = lrf_cs_survival_days_list/365.25,        # Local recurrence-free survival i.e. time to LR or Death, if NA they have not recurred or died
       StatusLRFCSS = lrf_cs_survival_status_list,
       LastImagingDate = last_imaging_follow_up_list,
-      FirstLocalRecurrenceDate = local_recurrence_date_list,
+      FirstLRDate = local_recurrence_date_list,
+      NoRxBeforeFirstLR = local_recurrence_no_rx_before,
       LastKnownAlive = survival_last_alive_list,
       StatusOverallSurvival = survival_overall_status_list,    # Overall survival
       StatusCancerSpecificSurvival = survival_cancer_specific_status_list, # Cancer related survival

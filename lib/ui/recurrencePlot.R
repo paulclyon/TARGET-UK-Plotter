@@ -22,7 +22,8 @@ recurrencePlotTab <- function() {
           value = 5, 
           min = 1, 
           max = 20
-        )
+        ),
+        checkboxInput("recurrenceAllow2Rx","Allow two Rx before LR", value=TRUE)
       ),
       column(
         width = 3,
@@ -108,7 +109,8 @@ recurrencePlotServer <- function(input, output, session, api, plots)
       input$recurrenceSelectedOrgans,
       input$recurrenceSelectedDiagnosisType,
       input$recurrenceSelectedSubtypes,
-      input$recurrenceSelectedGenders
+      input$recurrenceSelectedGenders,
+      input$recurrenceAllow2Rx
     )
   })
 

@@ -70,6 +70,7 @@ initialiseGlobals <- function()
   local_recurrence_status_list   <<- c()
   local_recurrence_date_list     <<- c()
   local_recurrence_days_list     <<- c()
+  local_recurrence_no_rx_before  <<- c()
   lrf_os_survival_days_list      <<- c() # Local recurrence-free overall survival days
   lrf_os_survival_status_list    <<- c() # Local recurrence-free overall survival status
   lrf_cs_survival_days_list      <<- c() # Local recurrence-free cancer specific survival days

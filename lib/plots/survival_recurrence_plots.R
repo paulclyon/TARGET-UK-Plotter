@@ -24,10 +24,23 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
   
   filteredSurvivalData <<- survivalData |>
     filter(between(FirstRxDate, start, end)) |>
-    filter(Organ %in% selectedOrgans) |>
     filter(Gender %in% selectedGenders)
   
-  if (selectedDiagnosisType != "All")
+  if (selectedOrgans != "All")
+  {
+    filteredSurvivalData <<- filteredSurvivalData |>
+      filter(Organ %in% selectedOrgans)
+  }
+  
+  if (selectedDiagnosisType == "All")
+  {
+    if (! "All" %in% selectedSubtypes)
+    {
+      # This just removes all rows as no Organ is All, and therefore we get the error message for the blank plot
+      filteredSurvivalData <<- filteredSurvivalData |> filter(Organ %in% selectedSubtypes)
+    }
+  }
+  else
   {
     # We just want to use the first letter of what is selected in the GUI e.g. P(rimary) to match the EDC data
     #filteredSurvivalData <<- filteredSurvivalData |> filter(DiagnosisType == substring(selectedDiagnosisType, 1, 1))
@@ -101,7 +114,9 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
   survivalPlot
 }
 
-makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders)
+# Make the recurrence plot
+# The ignoreFirstRecurrence means that we allow up to two treatments (ablations) before we call local recurrence
+makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, ignoreFirstLR = FALSE)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -113,10 +128,23 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
   
   filteredSurvivalData <<- survivalData |>
     filter(between(FirstRxDate, start, end)) |>
-    filter(Organ %in% selectedOrgans) |>
     filter(Gender %in% selectedGenders)
-  
-  if (selectedDiagnosisType != "All")
+
+  if (selectedOrgans != "All")
+  {
+    filteredSurvivalData <<- filteredSurvivalData |>
+      filter(Organ %in% selectedOrgans)
+  }
+    
+  if (selectedDiagnosisType == "All")
+  {
+    if (! "All" %in% selectedSubtypes)
+    {
+      # This just removes all rows as no Organ is All, and therefore we get the error message for the blank plot
+      filteredSurvivalData <<- filteredSurvivalData |> filter(Organ %in% selectedSubtypes)
+    }
+  }
+  else
   {
     # We just want to use the first letter of what is selected in the GUI e.g. P(rimary) to match the EDC data
     #filteredSurvivalData <<- filteredSurvivalData |> filter(DiagnosisType == substring(selectedDiagnosisType, 1, 1))
@@ -126,6 +154,14 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
       "B" = filteredSurvivalData |> filter(DiagnosisBn %in% selectedSubtypes),
       "U" = filteredSurvivalData |> filter(DiagnosisUn %in% selectedSubtypes)
     )
+  }
+  
+  # This is the bit where we think about the number of Rx (ablations) before we call LR
+  # So if NoRxBeforeFirstLR is just 1, we dont count it as real LR if ignoreFirstLR is TRUE
+  # A way to do this is to change the StatusLRF column status to 1 for all those recurring after just 1 Rx, as follows
+  if (ignoreFirstLR == TRUE)
+  {
+    filteredSurvivalData$StatusLRF[filteredSurvivalData$NoRxBeforeFirstLR==1] <- 1
   }
   
   # Get rid of anything which doesn't have the necessary recurrence data, so that we know if its going to be an empty fit before we fit it
