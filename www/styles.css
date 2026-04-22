@@ -1,0 +1,9 @@
+.report-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-buttons .btn {
+  width: 100%;
+}

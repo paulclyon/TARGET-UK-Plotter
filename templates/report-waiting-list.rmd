@@ -21,7 +21,7 @@ params:
 library(knitr)
 knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_chunk$set(out.width = "100%")
-options(knitr.table.format = "html")
+options(knitr.table.format = if (knitr::is_latex_output()) "latex" else "html")
 
 library(dplyr)
 library(kableExtra)
@@ -38,7 +38,7 @@ tciStart          <- as.Date(tci_start_date)
 reportStart       <- as.Date(report_start_date)
 reportEnd         <- as.Date(report_end_date)
 
-output_dir <- file.path("..",Sys.getenv("REPORT_OUTPUT_DIR"))
+#output_dir <- file.path("..",Sys.getenv("REPORT_OUTPUT_DIR"))
 output_dir <- tempdir()
 out_html   <- file.path(output_dir,"tci_calendar.html")
 out_pdf    <- file.path(output_dir,"tci_calendar.pdf")
@@ -52,7 +52,7 @@ if (!("All Organs" %in% report_organs)) {
   rxWaitReportData <- rxWaitReportData |>
     dplyr::filter(Organs %in% report_organs)
 }
-
+                            
 # Filter to just the referral date period of interest
 rxWaitReportData <- rxWaitReportData |>
   filter(RefDate >= reportStart & RefDate <= reportEnd)
@@ -61,6 +61,27 @@ rxWaitReportData <- rxWaitReportData |>
 rxWaitReportData$ClockStopDays <- rowSums(cbind(rxWaitReportData$ClockStopDaysPreDTT,rxWaitReportData$ClockStopDaysPostDTT), na.rm=T)
 rxWaitReportData <- subset(rxWaitReportData, select = -c(ClockStopDaysPreDTT,ClockStopDaysPostDTT,ClockStopWhy))
 
+# Colour the TCI data accordingly so we can see 'expired TCIs' easily in red
+date_cols <- names(rxWaitReportData)[vapply(rxWaitReportData, inherits, logical(1), "Date")]
+
+rxWaitReportData <- rxWaitReportData |>
+  mutate(
+    TciDate_raw = TciDate,
+    across(
+      .cols = setdiff(date_cols, "TciDate"),
+      .fns  = ~ format(.x, "%d-%m-%Y")
+    ),
+    TciDate = cell_spec(
+      format(TciDate_raw, "%d-%m-%Y"),
+      color = ifelse(
+        is.na(TciDate_raw), "black",
+        ifelse(TciDate_raw < Sys.Date(), "#90EE90", "black")
+      ),
+      format = if (knitr::is_latex_output()) "latex" else "html"
+    )
+  ) |>
+  select(-TciDate_raw)
+  
 rxClockStopData <- subset(rxWaitData, select = c(ID, ClockStopDaysPreDTT, ClockStopDaysPostDTT, ClockStopWhy ))
 rxClockStopData <- dplyr::filter(rxClockStopData, !is.na(ClockStopDaysPreDTT) | !is.na(ClockStopDaysPostDTT))
 
@@ -74,7 +95,8 @@ rxWaitReportData <- rxWaitReportData %>% rename(DaysSinceReferral = DaysWaiting)
 # rxWaitReportData <- rxWaitReportData %>% arrange(desc(TciDate))
 
 # Sort by Patient ID
-rxWaitReportData <- rxWaitReportData %>% arrange(order(ID))
+#rxWaitReportData <- rxWaitReportData %>% arrange(order(ID))
+rxWaitReportData <- rxWaitReportData %>% arrange(ID)
 
 generatedTime <- format(Sys.time(), "%a %b %d %X %Y")
 ```
@@ -82,6 +104,42 @@ generatedTime <- format(Sys.time(), "%a %b %d %X %Y")
 <!-- PCL: I had to do an ugly global variable hack to get report_start_date and report_end_date visible from this file, but it works-->
 
 Organs included: `r paste(report_organs)`<br>
+
+## Referral Details (`r paste(format(report_start_date,"%b %Y"),'-',format(report_end_date,"%b %Y"))`)
+
+```{r echo = FALSE, results = 'asis'}
+if (nrow(rxWaitReportData) > 0) {
+  options(knitr.kable.NA = "")
+  kbl(
+    rxWaitReportData,
+    caption = paste("Current Waiting List (Created ", generatedTime, ")", sep = ""),
+    escape = FALSE
+  ) %>%
+    kable_styling() %>%
+    column_spec(8, width = "10em")
+} else {
+  print("No referrals waiting for date range provided.")
+}
+```
+
+Notes on TCI Table:
+<ul>
+  <li>TCI dates in <span style="color: #90EE90">green</span> have expired, please check/update source data treatment date.</li>
+  <li>Those patients without a DTT date have not yet been seen in clinic, those with a DTT date were seen in clinic in that date.</li>
+  <li>Provisional is a nominal date for patients who have been seen in ablation clinic and have agreed for ablation clinic, and it is the next acailable list at that time; these dates are subject to change based on clinical urgency and other factors.</li>
+  <li>Confirmed date means patients for who have been formally discussed as planning business meeting (patient may not be aware of date at time of report.)</li>
+  <li>Any patient with a TCI date which has already passed who is in the table is likely to have been treated, but the treatment date has not yet been updated in the EDC
+</ul>
+
+## Clock Stops
+
+```{r echo = FALSE,  results = 'asis'}
+if (nrow(rxClockStopData) > 0)
+{
+  kbl(rxClockStopData, caption=paste('Waiting List Clock Stops (Created ',generatedTime,')',sep="")) %>%
+    kable_styling()
+}
+```
 
 ## TCI Booking Calendars
 
@@ -123,11 +181,13 @@ if (isChromeInstalled())
   
   # Wrap each widget in its own wrapper and save a standalone HTML page
   page_this <- tagList(
-    tags$head(tags$style(HTML("html,body{margin:0;padding:0;} #calendar-wrapper-this{height:1000px !important;} #calendar-wrapper-this .htmlwidget{height:100% !important;}"))),
+    tags$head(
+      tags$style(HTML("html,body{margin:0;padding:0;} #calendar-wrapper-this{height:1000px !important;} #calendar-wrapper-this .htmlwidget{height:100% !important;}"))),
     tags$div(id = "calendar-wrapper-this", cal_this_month)
   )
   page_next <- tagList(
-    tags$head(tags$style(HTML("html,body{margin:0;padding:0;} #calendar-wrapper-next{height:1000px !important;} #calendar-wrapper-next .htmlwidget{height:100% !important;}"))),
+    tags$head(
+      tags$style(HTML("html,body{margin:0;padding:0;} #calendar-wrapper-next{height:1000px !important;} #calendar-wrapper-next .htmlwidget{height:100% !important;}"))),
     tags$div(id = "calendar-wrapper-next", cal_next_month)
   )
 
@@ -191,12 +251,12 @@ if (isChromeInstalled())
   #  cat(sprintf("## TCI Calendar: %s</p>", format(tciNextMonth, "%b %Y")))
   #  print(knitr::include_graphics(png_next))
   } else {
-    cat(sprintf("<h3>TCI Calendar for %s</p>", format(tciThisMonth, "%b %Y"),"</h3>"))
+    cat(sprintf("<h3>TCI Calendar for %s</h3>", format(tciThisMonth, "%b %Y")))
     cat(sprintf(
       '<img src="file://%s" style="width:100%%; height:auto; border:1px solid #ddd; margin-bottom:20px;" />',
       normalizePath(png_this)
     ))
-    cat(sprintf("<h3>TCI Calendar for %s</p>", format(tciNextMonth, "%b %Y"),"</h3>"))
+    cat(sprintf("<h3>TCI Calendar for %s</h3>", format(tciNextMonth, "%b %Y")))
     cat(sprintf(
       '<img src="file://%s" style="width:100%%; height:auto; border:1px solid #ddd; margin-bottom:20px;" />',
       normalizePath(png_next)
@@ -213,38 +273,6 @@ if (isChromeInstalled())
 
 } else {
   print('<br>Google chrome is not installed, so PDF version of booking calendar is omitted.  Install Chrome / Chromium for TCI Calendar here.<br>')
-}
-```
-
-
-## Referral Details (`r paste(format(report_start_date,"%b %Y"),'-',format(report_end_date,"%b %Y"))`)
-
-```{r echo = FALSE,  results = 'asis'}
-if (nrow(rxWaitReportData) > 0)
-{
-options(knitr.kable.NA = '')
-  kbl(rxWaitReportData, caption=paste('Current Waiting List (Created ',generatedTime,')',sep="")) %>%
-    kable_styling() %>%
-    column_spec(8, width = "10em")
-} else {
-  print("No referrals waiting for date range provided.")
-}
-```
-Notes on TCI Table:
-<ul>
-  <li>Those patients without a DTT date have not yet been seen in clinic, those with a DTT date were seen in clinic in that date.</li>
-  <li>Provisional is a nominal date for patients who have been seen in ablation clinic and have agreed for ablation clinic, and it is the next acailable list at that time; these dates are subject to change based on clinical urgency and other factors.</li>
-  <li>Confirmed date means patients for who have been formally discussed as planning business meeting (patient may not be aware of date at time of report.)</li>
-  <li>Any patient with a TCI date which has already passed who is in the table is likely to have been treated, but the treatment date has not yet been updated in the EDC
-</ul>
-
-## Clock Stops
-
-```{r echo = FALSE,  results = 'asis'}
-if (nrow(rxClockStopData) > 0)
-{
-  kbl(rxClockStopData, caption=paste('Waiting List Clock Stops (Created ',generatedTime,')',sep="")) %>%
-    kable_styling()
 }
 ```
 

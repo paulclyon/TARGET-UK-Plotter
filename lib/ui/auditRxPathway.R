@@ -1,6 +1,12 @@
 # Audit of the time to treatment referral pathway
-auditRxPathwayTab <- function() {
+auditRxPathwayTab <- function(id = NULL) {
+  # if using as a module call NS for ids; otherwise leave as-is
+  ns <- if (!is.null(id)) shiny::NS(id) else identity
+  
   list(
+    tags$head(
+      tags$link(rel = "stylesheet", href = "styles.css")
+    ),
     fluidRow(tabPanel(
       "AuditPathway",
       column(
@@ -29,9 +35,12 @@ auditRxPathwayTab <- function() {
       ),
       column(
         width = 3,
-        actionButton(inputId = "buttonRunAuditReport", label = "Run Audit Report"),
-        downloadButton(outputId = "buttonAuditToPDF", label = "Report to PDF"),
-        downloadButton(outputId = "buttonAuditToDoc", label = "Report to Doc")
+        div(
+          class = "report-buttons",
+          actionButton(ns("buttonRunAuditReport"), "Run Audit Report", class = "btn-primary"),
+          downloadButton(ns("buttonAuditToPDF"), "Report to PDF"),
+          downloadButton(ns("buttonAuditToDoc"), "Report to Doc")
+        )
       )
     )),
     wellPanel(

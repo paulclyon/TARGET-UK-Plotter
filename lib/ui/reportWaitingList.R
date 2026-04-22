@@ -5,13 +5,14 @@ reportWaitingListTab <- function(id = NULL) {
   
   list(
     tags$head(
-      tags$link(rel = "stylesheet", href = "print.css", media = "print")
+      tags$link(rel = "stylesheet", href = "print.css", media = "print"),
+      tags$link(rel = "stylesheet", href = "styles.css")
     ),
     
     fluidRow(
       column(
         width = 3,
-        dateInput(ns("reportDate0"), "TCI Start:", format = "dd/mm/yyyy", value = Sys.Date()),
+        dateInput(ns("reportDate0"), "TCI Calendar Start:", format = "dd/mm/yyyy", value = Sys.Date()),
         dateInput(ns("reportDate1"), "From Earliest Referral:", format = "dd/mm/yyyy", value = Sys.Date() - 365),
         dateInput(ns("reportDate2"), "Until Latest Referral:", format = "dd/mm/yyyy", value = Sys.Date() + 365)
       ),
@@ -22,9 +23,12 @@ reportWaitingListTab <- function(id = NULL) {
       ),
       column(
         width = 3,
-        actionButton(inputId = ns("buttonRunReport"), label = "Run Report"),
-        downloadButton(outputId = ns("buttonReportToPDF"), label = "Save PDF"),
-        downloadButton(outputId = ns("buttonReportToHTML"), label = "Save HTML")
+        div(
+          class = "report-buttons",
+          actionButton(ns("buttonRunReport"), "Run Report", class = "btn-primary"),
+          downloadButton(ns("buttonReportToPDF"), "Save PDF"),
+          downloadButton(ns("buttonReportToHTML"), "Save HTML")
+        )
       )
     ),
     
@@ -153,8 +157,9 @@ reportServer <- function(input, output, session, api, plots)
     },
     contentType = "text/html",
     content = function(file) {
-    html_out <- generateTheHTML()[1]
-    html_out <- as.character(html_out)
+      res <- generateTheHTML()
+      html_out <- res$html_file
+      html_out <- as.character(html_out)
     if (!file.exists(html_out)) {
       # HTML render failed — stop and surface error (or you could fallback to LaTeX here)
       stop("HTML render failed; cannot produce PDF.")}

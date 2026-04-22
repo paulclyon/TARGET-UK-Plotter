@@ -202,7 +202,7 @@ makeTciCalendar <- function(startDate, dateToShow, reportOrgans, includeTreated 
       tciData$color <- "#000000"     # Default text colour (black if not already set)
     }
     today <- Sys.Date()
-    tciData$color[ tciData$status != "Treated" & tciData$start < today ] <- "#90EE90"
+    tciData$color[ tciData$status != "Treated" & tciData$start < today ] <- "#90EE90"  # This is TCI Passed
     
     # The visibleEventCount is set to the max events on any day, fallback to 3 if can't compute it
     visible_count <- tryCatch({
