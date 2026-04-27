@@ -24,8 +24,8 @@ library(dplyr)
 library(kableExtra)
 
 audit_start_date <- params$audit_start_date
-audit_end_date <- params$audit_end_date
-audit_organs <- params$audit_organs
+audit_end_date   <- params$audit_end_date
+audit_organs     <- params$audit_organs
 
 # This is a way of generating an All Organs stats and individual organ stats in single table
 overall_group <- function(data, col_name) {
@@ -58,6 +58,15 @@ rxDoneAuditData <- rxDoneData |>
 rxDoneAuditDataPreceding <- rxDoneData |>
   filter((ID != "000-1" & ID != "00000-1" & ID != "000000-1")) |>
   filter(RxDate >= (auditStart - auditLength) & RxDate < auditStart)
+
+if (! ("All" %in% audit_organs))
+{
+  # Only keep selected organs if All Organs is not seelcted
+  rxDoneAuditData <- rxDoneAuditData |>
+    filter(Organs %in% audit_organs)
+  rxDoneAuditDataPreceding <- rxDoneAuditDataPreceding |>
+    filter(Organs %in% audit_organs)  
+}
 
 auditPeriodText <- paste(format.Date(audit_start_date, "%e %b %Y"),
   "–",

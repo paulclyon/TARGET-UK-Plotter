@@ -157,7 +157,7 @@ makeRxWaitPlot <- function(startDate, endDate, organs) {
   rxwaitPlot <<- rxWaitData.filtered |>
     ggplot(aes(
       x = RefDate,
-      text = paste(ID, " (", Organs, ")\n", "Provisional RxDate=", ProvisionalRxDate, ClockStopWhy, sep = "")
+      text = paste(ID, " (", Organs, ")\n", ClockStopWhy, sep = "")
     )) +
     geom_point(aes(y = Ref_DTT, colour = "Days to DTT", alpha = 0.2), size = 1) +
     geom_point(aes(y = DaysWaiting, colour = "Days Waiting", alpha = 0.2), size = 1) +

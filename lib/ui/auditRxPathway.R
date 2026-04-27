@@ -37,7 +37,7 @@ auditRxPathwayTab <- function(id = NULL) {
         width = 3,
         div(
           class = "report-buttons",
-          actionButton(ns("buttonRunAuditReport"), "Run Audit Report", class = "btn-primary"),
+          actionButton(ns("buttonRunAuditReport"), "Run Pathway Audit", class = "btn-primary"),
           downloadButton(ns("buttonAuditToPDF"), "Report to PDF"),
           downloadButton(ns("buttonAuditToDoc"), "Report to Doc")
         )

@@ -268,8 +268,11 @@ makeCalendarHeatmap <- function(startDate, reportOrgans = NA, includeTreated)
   tciData <- tciData |>
     filter(year(start) == calendarYear)
   
+  # Make sure we work out if it is a leap year or not
+  daysInYear <-  ifelse(lubridate::leap_year(calendarYear), 366, 365)
+  
   # Vector of NA of the same length of the number of days of the year
-  events <- rep(0, 365)
+  events <- rep(0, daysInYear)
   
   # Set the corresponding events
   #for (i in 1 : nrow(tciData))
@@ -286,7 +289,7 @@ makeCalendarHeatmap <- function(startDate, reportOrgans = NA, includeTreated)
     filter(status != "Cancelled") |>
     mutate(day = yday(start)) |>
     count(day) |>
-    complete(day = 1:365, fill = list(n = 0)) |>
+    complete(day = 1:daysInYear, fill = list(n = 0)) |>
     arrange(day) |>
     pull(n)
                     

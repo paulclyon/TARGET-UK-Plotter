@@ -12,9 +12,9 @@ reportWaitingListTab <- function(id = NULL) {
     fluidRow(
       column(
         width = 3,
-        dateInput(ns("reportDate0"), "TCI Calendar Start:", format = "dd/mm/yyyy", value = Sys.Date()),
         dateInput(ns("reportDate1"), "From Earliest Referral:", format = "dd/mm/yyyy", value = Sys.Date() - 365),
-        dateInput(ns("reportDate2"), "Until Latest Referral:", format = "dd/mm/yyyy", value = Sys.Date() + 365)
+        dateInput(ns("reportDate2"), "Until Latest Referral:", format = "dd/mm/yyyy", value = Sys.Date() + 365),
+        dateInput(ns("reportDate0"), "TCI Calendar Start:", format = "dd/mm/yyyy", value = Sys.Date())
       ),
       column(
         width = 3,
@@ -25,9 +25,9 @@ reportWaitingListTab <- function(id = NULL) {
         width = 3,
         div(
           class = "report-buttons",
-          actionButton(ns("buttonRunReport"), "Run Report", class = "btn-primary"),
-          downloadButton(ns("buttonReportToPDF"), "Save PDF"),
-          downloadButton(ns("buttonReportToHTML"), "Save HTML")
+          actionButton(ns("buttonRunReport"), "Run Waiting List Report", class = "btn-primary"),
+          downloadButton(ns("buttonReportToPDF"), "Report to PDF"),
+          downloadButton(ns("buttonReportToHTML"), "Report to HTML")
         )
       )
     ),
