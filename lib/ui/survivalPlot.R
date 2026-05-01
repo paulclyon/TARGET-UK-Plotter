@@ -22,7 +22,8 @@ survivalPlotTab <- function() {
           value = 5, 
           min = 1, 
           max = 20
-        )
+        ),
+        checkboxInput("survivalAllow2Rx","Allow two Rx before LR", value=TRUE)
       ),
       column(
         width = 2,
@@ -117,7 +118,8 @@ survivalPlotServer <- function(input, output, session, api, plots)
       input$survivalSelectedDiagnosisType,
       input$survivalSelectedSubtypes,
       input$survivalSelectedGenders,
-      input$survivalLRFSRadio
+      input$survivalLRFSRadio,
+      input$survivalAllow2Rx
     )
   })
 

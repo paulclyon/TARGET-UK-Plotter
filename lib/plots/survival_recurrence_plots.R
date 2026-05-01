@@ -12,7 +12,8 @@ prepareOrganCountRecurrenceData <- function(filtered_df)
     )
 }
 
-makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, survivalType)
+# The ignoreFirstRecurrence means that we allow up to two treatments (ablations) before we call local recurrence
+makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, survivalType, ignoreFirstLR = FALSE)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -50,6 +51,16 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
                                     "B" = filteredSurvivalData |> filter(DiagnosisBn %in% selectedSubtypes),
                                     "U" = filteredSurvivalData |> filter(DiagnosisUn %in% selectedSubtypes)
     )
+  }
+  
+  # This is the bit where we think about the number of Rx (ablations) before we call LR
+  # So if NoRxBeforeFirstLR is just 1, we dont count it as real LR if ignoreFirstLR is TRUE
+  # A way to do this is to change the StatusLRF/LRFOS/LRFCSS column status to 1 for all those recurring after just 1 Rx, if not deceased, as follows
+  if (ignoreFirstLR == TRUE)
+  {
+    filteredSurvivalData$StatusLRF[filteredSurvivalData$NoRxBeforeFirstLR==1] <- 1
+    filteredSurvivalData$StatusLRFOS[filteredSurvivalData$NoRxBeforeFirstLR==1 & filteredSurvivalData$Deceased == 0] <- 1
+    filteredSurvivalData$StatusLRFCSS[filteredSurvivalData$NoRxBeforeFirstLR==1 & filteredSurvivalData$Deceased == 0] <- 1
   }
   
   # Get rid of anything which doesn't have the necessary recurrence data, so that we know if its going to be an empty fit before we fit it
@@ -130,6 +141,8 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
     filter(between(FirstRxDate, start, end)) |>
     filter(Gender %in% selectedGenders)
 
+  logger("FIXME selectedOrgans:", paste(selectedOrgans, collapse = ", "))
+  
   if (selectedOrgans != "All")
   {
     filteredSurvivalData <<- filteredSurvivalData |>
