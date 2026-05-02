@@ -22,3 +22,5 @@ audit/audit-pathway.html
 *.history
 templates/report-waiting-list copy working a bit.rmd
 templates/report-waiting-list copy.rmd
+templates/audit-pathway-year-fix.Rmd
+templates/audit-pathway-original.rmd
