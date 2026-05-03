@@ -1,21 +1,10 @@
 ---
 title: "TARGET-UK: Ablation Waiting Time Audit Report"
-header-includes:
-- \usepackage{pdflscape}
-- \usepackage{booktabs}
-- \usepackage{longtable}
-- \usepackage{array}
-- \usepackage{adjustbox}
-- \newcommand{\blandscape}{\begin{landscape}}
-- \newcommand{\elandscape}{\end{landscape}}
 output:
   html_document:
     toc: true
-    css: !expr NULL
-  pdf_document:
-    toc: true
-    latex_engine: xelatex
-date: "2024-01-29"
+    self_contained: true
+date: "`r format(Sys.Date(), '%d %B %Y')`"
 params:
   audit_start_date: !r Sys.Date() - 365
   audit_end_date: !r Sys.Date()
@@ -23,47 +12,58 @@ params:
 ---
 
 ```{css, echo=FALSE}
-/* HTML only: make wide tables scroll horizontally rather than overflow */
-.table-responsive-custom {
-  overflow-x: auto;
-  width: 100%;
+/* Screen and print shared */
+body { font-size: 14px; }
+table { 
+  font-size: 13px; 
+  width: 100% !important;
+  table-layout: auto;
 }
-table {
-  font-size: 11px;
+th, td { 
+  padding: 4px 8px !important;
+  font-size: 13px;
+}
+img { max-width: 100% !important; height: auto !important; }
+
+/* Print-specific: force landscape and control margins */
+@media print {
+  @page { 
+    size: A4 portrait;
+    margin: 8mm 6mm 8mm 6mm;
+  }
+  body { 
+    font-size: 11px;
+    width: 198mm;
+  }
+  table {
+    font-size: 10px;
+    page-break-inside: avoid;
+    table-layout: auto;
+  }
+  th, td { padding: 2px 4px !important; font-size: 10px; }
+  img, .plot { 
+    max-width: 196mm !important; 
+    width: 196mm !important;
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+  .figure { 
+    max-width: 196mm !important;
+    page-break-inside: avoid;
+  }
+  h2 { page-break-before: auto; }
 }
 ```
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_chunk$set(out.width = "100%")
+knitr::opts_chunk$set(fig.width = 10, fig.height = 5, dpi = 120)
+options(knitr.table.format = "html")
 library(dplyr)
 library(lubridate)
 library(purrr)
 library(kableExtra)
-
-# Detect output format so tables and styling can adapt
-is_pdf <- knitr::is_latex_output()
-options(knitr.table.format = if (is_pdf) "latex" else "html")
-
-# Helper: wrap a kable in scrollable div (HTML) or scale_down adjustbox (PDF)
-# wide = TRUE for multi-year tables that have many columns
-kbl_responsive <- function(kbl_obj, wide = FALSE) {
-  if (is_pdf) {
-    latex_opts <- c("hold_position", if (wide) "scale_down" else NULL)
-    kbl_obj |> kable_styling(
-      latex_options = latex_opts,
-      font_size      = if (wide) 7 else 8
-    )
-  } else {
-    kbl_obj |>
-      kable_styling(
-        bootstrap_options = c("striped", "hover", "condensed", "responsive"),
-        font_size          = 11,
-        full_width         = TRUE
-      ) |>
-      scroll_box(width = "100%")
-  }
-}
 
 audit_start_date <- params$audit_start_date
 audit_end_date   <- params$audit_end_date
@@ -117,6 +117,13 @@ overall_group <- function(data, col_name) {
   rbind(d1, d2) %>%
     group_by(summary_level, !!sym(col_name)) %>%
     { subset(., select = -c(summary_level)) }
+}
+
+add_year_separators <- function(tbl, group_width, nYears) {
+  for (i in seq_len(nYears)) {
+    tbl <- kableExtra::column_spec(tbl, 2 + (i - 1) * group_width, border_left = TRUE)
+  }
+  tbl
 }
 
 # ---------------------------------------------------------------------------
@@ -193,9 +200,12 @@ buildMultiYearTable <- function(summarise_fn, pct_cols, count_cols, raw_col) {
   organs_to_test <- c(audit_organs, "All Organs")
 
   # Build comparison columns year-by-year (each vs its predecessor)
-  result <- yr_tables[[1]] |>
-    mutate(`Organ Treated` = paste0(Organs, " (N=", n, ")")) |>
-    select(`Organ Treated`, Organs, mean, median, all_of(pct_cols))
+result <- yr_tables[[1]] |>
+  mutate(
+    `Organ Treated` = paste0(Organs, " (N=", n, ")"),
+    !!paste0("n_", yearLabels[1]) := paste0("N=", n)
+  ) |>
+  select(`Organ Treated`, Organs, all_of(paste0("n_", yearLabels[1])), mean, median, all_of(pct_cols))
 
   colnames(result)[colnames(result) == "mean"]   <- paste0("mean_",   yearLabels[1])
   colnames(result)[colnames(result) == "median"] <- paste0("median_", yearLabels[1])
@@ -248,14 +258,18 @@ buildMultiYearTable <- function(summarise_fn, pct_cols, count_cols, raw_col) {
       add <- add |> select(Organs, starts_with("n_"), starts_with("mean_"),
                            starts_with("median_"), ends_with(lbl))
 
-      result <- result |> left_join(add |> select(-starts_with("mean_"), -starts_with("median_"),
-                                                   -starts_with("n_"),
-                                                   Organs, 
-                                                   !!paste0("n_", lbl),
-                                                   !!paste0("mean_", lbl),
-                                                   !!paste0("median_", lbl),
-                                                   all_of(paste0(pct_cols, "_", lbl))),
-                                    by = "Organs")
+      result <- result |> left_join(
+        add |> select(
+          Organs,
+          all_of(c(
+            paste0("n_", lbl),
+            paste0("mean_", lbl),
+            paste0("median_", lbl),
+            paste0(pct_cols, "_", lbl)
+          ))
+        ),
+        by = "Organs"
+      )
     } else {
       # First year -- just add N column
       result <- result |>
@@ -290,20 +304,17 @@ buildMultiYearBoxplot <- function(value_col, title_str, ylab_str, hlines = list(
 
   auditPeriodText <- paste0(format(auditStart, "%e %b %Y"), " -- ", format(auditEnd, "%e %b %Y"))
 
-  p +
-    ggtitle(paste0(title_str, "\n", auditPeriodText)) +
+  p + ggtitle(paste0(title_str, "\n", auditPeriodText)) +
     labs(y = ylab_str, x = "Organ Treated") +
+    scale_color_brewer(palette = "Set1") +
     theme(
-      legend.position  = "bottom",
-      # Rotate x labels so organ names don't overlap when many years shown
-      axis.text.x      = element_text(angle = if (nYears > 2) 35 else 0,
-                                      hjust = if (nYears > 2) 1 else 0.5),
-      plot.title       = element_text(size = 11),
-      # Ensure plot doesn't exceed page width
-      plot.margin      = margin(5, 5, 5, 5, "mm")
-    ) +
-    # Scale colours clearly across up to 4 years
-    scale_color_brewer(palette = "Set1")
+      legend.position = "bottom",
+      axis.text.x     = element_text(
+        angle = if (nYears > 2) 35 else 0,
+        hjust = if (nYears > 2) 1 else 0.5
+      ),
+      plot.margin = margin(5, 10, 5, 5, "mm")
+    )
 }
 
 # ---------------------------------------------------------------------------
@@ -315,13 +326,10 @@ auditPeriodText <- paste0(
 )
 ```
 
-\blandscape
-
-Audit Generated on: `r format(Sys.time(), "%a %b %d %X %Y")`
-
-Audit Period from: `r audit_start_date` to: `r audit_end_date`<br><br>
-Organs included in audit: `r paste(audit_organs)`<br>
-Years in audit: `r paste(yearLabels, collapse = ", ")`<br>
+**Audit Generated on:** `r format(Sys.time(), "%a %b %d %X %Y")`<br>
+**Audit Period:** `r format(audit_start_date, "%d %B %Y")` – `r format(audit_end_date, "%d %B %Y")`<br>
+**Organs included in audit:** `r paste(audit_organs)`<br>
+**Years in audit:** `r paste(yearLabels, collapse = ", ")`<br>
 
 ## Ablation Referral to DTT Times
 
@@ -356,7 +364,7 @@ if (nYears == 1) {
     kbl(col.names = c("Organ Treated", "Mean time\n(days)", "Median\n(days)",
                       "% within 10 days\n(Local std.)", "% within 21 days\n(Local std.)")) |>
     add_header_above(data.frame(paste0("Time from Referral Received-to-DTT\n", auditPeriodText), 5)) |>
-    kbl_responsive()
+    kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE)
 } else {
   # Multi-year: build wide comparison table
   dttMulti <- buildMultiYearTable(
@@ -369,28 +377,31 @@ if (nYears == 1) {
   # Select display columns in year order
   display_cols <- c("Organ Treated",
     unlist(lapply(yearLabels, function(lbl) c(
+      paste0("n_", lbl),
       paste0("mean_", lbl), paste0("median_", lbl),
       paste0("w10%_", lbl), paste0("w21%_", lbl)
     )))
   )
-
+  
   col_headers <- c("Organ Treated",
-    rep(c("Mean\n(days)", "Median\n(days)", "% <=10 days", "% <=21 days"), nYears))
-
-  span_headers <- c(1, setNames(rep(4, nYears), yearLabels))
+    rep(c("N", "Mean\n(days)", "Median\n(days)", "% <=10 days", "% <=21 days"), nYears))
+  
+  span_headers <- c(setNames(1, " "), setNames(rep(5, nYears), yearLabels))
 
   dttMulti |>
     select(any_of(display_cols)) |>
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
     add_header_above(c("Time from Referral Received-to-DTT" = length(col_headers))) |>
-    kbl_responsive(wide = TRUE)
+
+    kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
+    add_year_separators(5, nYears)
 }
 ```
 
 Mean, median (days) and percentage of referrals meeting defined time standards. Numbers in brackets show the preceding year's values. * t-test significant difference vs preceding year. + z-test significant difference vs preceding year.
 
-```{r ref_dtt_boxplot}
+```{r ref_dtt_boxplot, warning=FALSE}
 buildMultiYearBoxplot(
   value_col = "Ref_DTT",
   title_str = "Time from Referral Received-to-DTT",
@@ -438,8 +449,10 @@ if (nYears == 1) {
                       "% within 31 days\n(Cancer std.)", "% within 45 days\n(Local std.)",
                       "% within 60 days\n(Local std.)")) |>
     add_header_above(data.frame(paste0("Time from DTT-to-Ablation\n", auditPeriodText), 6)) |>
-    kbl_responsive()
-} else {
+    kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
+    add_year_separators(6, nYears)
+} else
+{
   dttRxMulti <- buildMultiYearTable(
     summarise_fn = generateDTTtoRxTable,
     pct_cols     = c("w31%", "w45%", "w60%"),
@@ -449,27 +462,29 @@ if (nYears == 1) {
 
   display_cols <- c("Organ Treated",
     unlist(lapply(yearLabels, function(lbl) c(
+      paste0("n_", lbl),
       paste0("mean_", lbl), paste0("median_", lbl),
       paste0("w31%_", lbl), paste0("w45%_", lbl), paste0("w60%_", lbl)
     )))
   )
-
+  
   col_headers  <- c("Organ Treated",
-    rep(c("Mean\n(days)", "Median\n(days)", "% <=31 days", "% <=45 days", "% <=60 days"), nYears))
-  span_headers <- c(1, setNames(rep(5, nYears), yearLabels))
+    rep(c("N", "Mean\n(days)", "Median\n(days)", "% <=31 days", "% <=45 days", "% <=60 days"), nYears))
+  span_headers <- c(setNames(1, " "), setNames(rep(6, nYears), yearLabels))
 
   dttRxMulti |>
     select(any_of(display_cols)) |>
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
     add_header_above(c("Time from DTT-to-Ablation" = length(col_headers))) |>
-    kbl_responsive(wide = TRUE)
+    kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
+    add_year_separators(4, nYears)
 }
 ```
 
 Mean, median (days) and percentage of referrals meeting defined time standards from the decision to treat clinic date (DTT) and the day of ablation treatment.
 
-```{r dtt_rx_boxplot}
+```{r dtt_rx_boxplot, warning=FALSE}
 buildMultiYearBoxplot(
   value_col = "DTT_Rx",
   title_str = "Time from DTT-to-Ablation",
@@ -509,7 +524,7 @@ if (nYears == 1) {
     kbl(col.names = c("Organ Treated", "Mean time\n(days)", "Median\n(days)",
                       "% within 90 days\n(Local std.)")) |>
     add_header_above(data.frame(paste0("Time from Referral received-to-Ablation\n", auditPeriodText), 4)) |>
-    kbl_responsive()
+    kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE)
 } else {
   refRxMulti <- buildMultiYearTable(
     summarise_fn = generateRefToRxTable,
@@ -520,25 +535,26 @@ if (nYears == 1) {
 
   display_cols <- c("Organ Treated",
     unlist(lapply(yearLabels, function(lbl) c(
+      paste0("n_", lbl),
       paste0("mean_", lbl), paste0("median_", lbl), paste0("w90%_", lbl)
     )))
   )
-
-  col_headers  <- c("Organ Treated", rep(c("Mean\n(days)", "Median\n(days)", "% <=90 days"), nYears))
-  span_headers <- c(1, setNames(rep(3, nYears), yearLabels))
+  
+  col_headers  <- c("Organ Treated", rep(c("N", "Mean\n(days)", "Median\n(days)", "% <=90 days"), nYears))
+  span_headers <- c(setNames(1, " "), setNames(rep(4, nYears), yearLabels))
 
   refRxMulti |>
     select(any_of(display_cols)) |>
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
     add_header_above(c("Time from Referral received-to-Ablation" = length(col_headers))) |>
-    kbl_responsive(wide = TRUE)
+    kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE)
 }
 ```
 
 Mean, median (days) and percentage of referrals meeting defined time standard from the referral received date to treatment date overall.
 
-```{r ref_rx_boxplot}
+```{r ref_rx_boxplot, warning=FALSE}
 buildMultiYearBoxplot(
   value_col = "Ref_RxDone",
   title_str = "Time from Referral received-to-Ablation",
@@ -559,7 +575,8 @@ rxDoneAuditData |>
   select(ID, Organs, Ref_DTT, DTT_Rx, ClockStopDaysPreDTT, ClockStopDaysPostDTT) |>
   kbl(col.names = c("ID", "Organ Treated", "Referral to DTT\n(days)", "DTT to Rx\n(days)",
                     "Clock Stop Pre DTT\n(days)", "Clock Stop Post DTT\n(days)")) |>
-  kbl_responsive()
+  kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = FALSE) |>
+  column_spec(1, width = "12em")
 ```
 
 ## Ablation Referral Days Stopped (Pre- or Post-DTT)
@@ -583,10 +600,10 @@ rxDoneAuditData |>
   mutate(n = n(), clockstopped = paste0(clockstopped, " (N=", n, ")")) |>
   summarise(mean = round(mean(daysStopped), 1), median = round(median(daysStopped), 1)) |>
   kbl(col.names = c("Clock Status", "Mean time\n(days)", "Median\n(days)")) |>
-  kbl_responsive()
-```
-
-## Ablation Referral Days Stopped (Pre- and Post-DTT Combined)
+  kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE) |>
+  column_spec(1, width = "30em") |>
+  column_spec(2, width = "8em") |>
+  column_spec(3, width = "8em")
 
 ```{r daystopped_pre_and_post_dtt}
 rxDoneAuditData |>
@@ -605,10 +622,10 @@ rxDoneAuditData |>
   mutate(n = n(), clockstopped = paste0(clockstopped, " (N=", n, ")")) |>
   summarise(mean = round(mean(daysStopped), 1), median = round(median(daysStopped), 1)) |>
   kbl(col.names = c("Clock Status", "Mean time\n(days)", "Median\n(days)")) |>
-  kbl_responsive()
-```
-
-## Ablation Referral Clockstops
+  kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE) |>
+  column_spec(1, width = "30em") |>
+  column_spec(2, width = "8em") |>
+  column_spec(3, width = "8em")
 
 ```{r clockstop}
 rxDoneAuditData |>
@@ -620,9 +637,12 @@ rxDoneAuditData |>
     )
   ) |>
   filter(clockstopped != "Not Stopped") |>
-  select(ID, ClockStopWhy) |>
-  kbl(col.names = c("ID", "Reason for clock stop")) |>
-  kbl_responsive()
+  select(ID, Organs, ClockStopWhy) |>
+  kbl(col.names = c("ID", "Organ", "Reason for clock stop")) |>
+  kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = FALSE) |>
+  column_spec(1, width = "8em") |>
+  column_spec(2, width = "8em") |>
+  column_spec(3, width = "60em")
 ```
 
 ## Time to Treatment Plot
@@ -684,10 +704,14 @@ rxDoneAuditData %>%
     ClockStopDaysPreDTT  = if_else(is.na(ClockStopDaysPreDTT),  0, ClockStopDaysPreDTT),
     ClockStopDaysPostDTT = if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT)
   ) %>%
-  select(ID, Ref_RxDone, ClockStopDaysPreDTT, ClockStopDaysPostDTT) %>%
-  kbl(col.names = c("ID", "Referral to Ablation time\n(days)",
+  select(ID, Organs, Ref_RxDone, ClockStopDaysPreDTT, ClockStopDaysPostDTT) %>%
+  kbl(col.names = c("ID", "Organ", "Referral to Ablation time\n(days)",
                     "Clock Stop Pre DTT\n(days)", "Clock Stop Post DTT\n(days)")) %>%
-  kbl_responsive()
+  kable_styling(
+    bootstrap_options = c("striped","condensed","responsive"),
+    full_width = TRUE
+  ) |>
+  column_spec(2, width = "10em")
 ```
 
 ## Credits
@@ -705,4 +729,3 @@ if (file.exists(logo_src)) {
 Audit Report Developers: Dr. Andrew Thornton, Dr. Paul Lyon<br>
 TARGET-UK Lead: Dr. Paul Lyon, FRCR
 
-\elandscape

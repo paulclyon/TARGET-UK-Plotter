@@ -55,6 +55,7 @@ auditRxPathwayTab <- function(id = NULL) {
 auditServer <- function(input, output, session, api, plots) {
   rmdAuditFile <- c(Sys.getenv("AUDIT_PATHWAY_RMD"))
   mdAuditFile <- c(Sys.getenv("AUDIT_PATHWAY_MD"))
+  currentAuditParams <- reactiveVal(NULL)
 
   finalRefAuditInput <- reactive({
     tryCatch(
@@ -87,6 +88,11 @@ auditServer <- function(input, output, session, api, plots) {
   })
 
   observeEvent(input$buttonRunAuditReport, {
+    currentAuditParams(list(
+      audit_start_date = input$auditDate1,
+      audit_end_date   = input$auditDate2,
+      audit_organs     = input$organAuditCheckbox
+    ))
   plots$activePlot <- NA
 
   output$summaryRefAudit <- renderUI({
@@ -101,11 +107,8 @@ auditServer <- function(input, output, session, api, plots) {
     tempRmd <- file.path(tempReportDir, "report.Rmd")
     file.copy(rmdAuditFile, tempRmd, overwrite = TRUE)
 
-    params <- list(
-      audit_start_date = input$auditDate1,
-      audit_end_date   = input$auditDate2,
-      audit_organs     = input$organAuditCheckbox
-    )
+    params <- currentAuditParams()
+    req(params)
 
     # Render to HTML
     render_result <- tryCatch({
@@ -148,11 +151,8 @@ auditServer <- function(input, output, session, api, plots) {
       file.copy(rmdAuditFile, tempReport, overwrite = TRUE)
 
       # Set up parameters to pass to Rmd document
-      params <- list(
-        audit_start_date = input$auditDate1,
-        audit_end_date = input$auditDate2,
-        audit_organs = input$organAuditCheckbox
-      )
+      params <- isolate(currentAuditParams())
+      req(params)
 
       shinyCatch(
         message(paste(
@@ -184,45 +184,43 @@ auditServer <- function(input, output, session, api, plots) {
   output$buttonAuditToPDF <- downloadHandler(
     filename = "targetuk_waiting_time_audit_report.pdf",
     content = function(file) {
-      # Copy the report file to a temporary directory before processing it, in
-      # case we don't have write permissions to the current working dir (which
-      # can happen when deployed).
       tempReportDir <- tempdir()
-
       tempReport <- file.path(tempReportDir, "report.Rmd")
       file.copy(rmdAuditFile, tempReport, overwrite = TRUE)
-
-      # Set up parameters to pass to Rmd document
-      params <- list(
-        audit_start_date = input$auditDate1,
-        audit_end_date = input$auditDate2,
-        audit_organs = input$organAuditCheckbox
-      )
-
-      shinyCatch(
-        message(paste(
-          "Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"),
-          sep = ""
-        )),
-        prefix = ""
-      )
-
-      rmarkdown::render(tempReport,
+      
+      params <- isolate(currentAuditParams())
+      req(params)
+      
+      shinyCatch(message(paste0("Generating audit from '", Sys.getenv("AUDIT_PATHWAY_RMD"), "'")), prefix = "")
+      
+      html_file <- rmarkdown::render(
+        tempReport,
         output_format = "html_document",
-        output_dir = tempReportDir,
-        params = params,
-        envir = new.env(parent = globalenv())
+        output_dir    = tempReportDir,
+        params        = params,
+        envir         = new.env(parent = globalenv())
       )
-
-      shinyCatch(
-        message("Converting to pdf"),
-        prefix = ""
+      
+      shinyCatch(message("Converting to PDF via Chrome"), prefix = "")
+      
+      # pagedown uses Chrome's print engine - fully respects CSS @media print
+      pagedown::chrome_print(
+        input  = html_file,
+        output = file,
+        options = list(
+          paperWidth  = 8.27,   # A4 portrait width
+          paperHeight = 11.69,  # A4 portrait height
+          marginTop    = 0.4,
+          marginBottom = 0.4,
+          marginLeft   = 0.4,
+          marginRight  = 0.4,
+          printBackground   = TRUE,
+          preferCSSPageSize = TRUE
+        )
       )
-      pandoc::pandoc_convert(file = file.path(tempReportDir, "report.html"), from = "html", to = "pdf", output = file)
-      shinyCatch(
-        message("Created \"targetuk_waiting_time_audit_report.pdf\""),
-        prefix = ""
-      )
+      
+      shinyCatch(message("Created targetuk_waiting_time_audit_report.pdf"), prefix = "")
     }
+  
   )
 }
