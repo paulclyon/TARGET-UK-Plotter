@@ -167,8 +167,9 @@ processData <- function()
     if (!is.na(clinicalfuJSON) && str_length(clinicalfuJSON) > 0)
     {
       clinicalfuMatrix <- jsonlite::fromJSON(clinicalfuJSON)
-      clinicalfu.df <- data.frame(matrix(unlist(clinicalfuMatrix), ncol = 5, byrow = T))
+      clinicalfu.df <- as.data.frame(t(sapply(clinicalfuMatrix, unlist)))
       colnames(clinicalfu.df) <- clinicalfuColNames
+      clinicalfu.df <- clinicalfu.df[apply(clinicalfu.df, 1, function(row) any(row != "")), ]
       
       # For each row in the matrix, check if there is any clinical follow-up data , if so grab the last date of follow-up
       for (j in 1:nrow(clinicalfu.df))
@@ -194,104 +195,123 @@ processData <- function()
     date_last_alive_fu <- getDataEntry("fu_last_alive_date", i)
     if (!is.na(date_last_alive_fu)) date_last_alive_fu <- convertToDate(date_last_alive_fu)
     
-    # Get recurrence status
-    recurrenceJSON <- getDataEntry("fu_image_matrix", i)
-    local_recurrence <- 0
+    # Decide if it is benign or malignant, if not specified there will be no imaging follow-up table
+    date_of_last_imaging_fu <- NA
     date_of_first_local_recurrence <- NA
     no_rx_before_first_local_recurrence <- NA
-    date_of_last_imaging_fu <- NA
+    local_recurrence <- 0
+    local_recurrence_status <- NA
     
-    # Go row by row in the imaging follow-up matrix...
-    if (!is.na(recurrenceJSON) && str_length(recurrenceJSON) > 0)
+    # Get recurrence status if malignant lesion
+    indication <- getDataEntry("fu_indication", i)
+    #if (!is.na(indication) & indication == "Malignant")
+    if (is.na(indication) | indication == "Malignant") # FIXME this is temporary until we define the malignant ones in imaging FU in EDC
     {
-      recurrenceMatrix <- jsonlite::fromJSON(recurrenceJSON)
-      recurrence.df <- data.frame(matrix(unlist(recurrenceMatrix), ncol = 7, byrow = T))
-      colnames(recurrence.df) <- recurrenceColNames
-
-      # For each row in the matrix, check if there is any local recurrence, if so grab the first date of recurrence
-      for (j in 1:nrow(recurrence.df))
+      recurrenceJSON <- getDataEntry("fu_image_matrix_malignant", i)
+      # Go row by row in the imaging follow-up matrix...
+      if (!is.na(recurrenceJSON) && str_length(recurrenceJSON) > 0)
       {
-        # Get the date of the imaging
-        if (!is.na(recurrence.df$imaging.date[j]) && isConvertibleToDate(recurrence.df$imaging.date[j]))
+        recurrenceMatrix <- jsonlite::fromJSON(recurrenceJSON)
+        recurrence.df <- as.data.frame(t(sapply(recurrenceMatrix, unlist)))
+        colnames(recurrence.df) <- recurrenceColNames
+        recurrence.df <- recurrence.df[apply(recurrence.df, 1, function(row) any(row != "")), ] # Strip out any empty trailing rows
+        colnames(recurrence.df) <- recurrenceColNames
+  
+        # For each row in the matrix, check if there is any local recurrence, if so grab the first date of recurrence
+        for (j in 1:nrow(recurrence.df))
         {
-          # Get the last imaging follow-up date
-          thisImagingDate <- convertToDate(recurrence.df$imaging.date[j])
-          if (is.na(date_of_last_imaging_fu) || date_of_last_imaging_fu < thisImagingDate)
+          # Get the date of the imaging
+          if (!is.na(recurrence.df$imaging.date[j]) && isConvertibleToDate(recurrence.df$imaging.date[j]))
           {
-            date_of_last_imaging_fu <- thisImagingDate
-          }
-          
-          # If this row shows recurrence...
-          # 
-          # Original simple coding before improvements for:
-          #   'N' = No
-          #   'YA' = Yes (recurrent) and Ablatable Recurrence
-          #   'YNA' = Yes (recurrent) and Non-ablatable Recurrence
-          #
-          # This is the new coding:
-          #
-          #   No RD/LR (NR)
-          #   1st RD/LR - untreated (1LR-U)
-          #   1st RD/LR - re-ablated (1LR-RA)
-          #   1st RD/LR - surgically resected (1LR-SR)
-          #   1st RD/LR - treated by radioRx (1LR-RT)
-          #   1st RD/LR - treated by chemoRx (1LR-CT)
-          #   1st RD/LR - treated by other (1LR-O)
-          #   >1st RD/LR - untreated (2LR-U)
-          #   >1st RD/LR - re-ablated (2LR-RA)
-          #   >1st RD/LR - surgically resected (2LR-SR)
-          #   >1st RD/LR - treated by radioRx (2LR-RT)
-          #   >1st RD/LR - treated by chemoRx (2LR-CT)
-          #   >1st RD/LR - treated by other (2LR-O)
-          
-          thisLR <- recurrence.df$local.recurrence[j]
-          # if (thisLR == "Y" || thisLR == "YA" || thisLR == "YNA")
-          if (thisLR != "NR" && thisLR != "N") # Double negative but it is a good catch all for recurrence, also note the historical coding "N" is respected
-          {
-            # This records if it is recurrence after 1, 2 or >2 treatments (the definition of LR can vary!) - the recurrence string is like '1LR-U' for 1st LR/RD - untreated
-            thisRecurrenceAfterRxNo <- substring(thisLR,1,1)
-            logger(paste("FIXME",thisLR))
-            
-            # The date of this imaging, which has show recurrence
-            thisRecurrenceDate <- thisImagingDate
-            
-            # If we have not yet recurred...
-            if (local_recurrence == 0)
+            # Get the last imaging follow-up date
+            thisImagingDate <- convertToDate(recurrence.df$imaging.date[j])
+            logger(paste0("FIXME imaging date",recurrence.df$imaging.date[j],thisImagingDate))
+            if (is.na(date_of_last_imaging_fu) || date_of_last_imaging_fu < thisImagingDate) # This OR || is correct as TRUE & NA = NA, not TRUE
             {
-              local_recurrence <- 1
-              date_of_first_local_recurrence <- thisRecurrenceDate
-              no_rx_before_first_local_recurrence <- thisRecurrenceAfterRxNo
+              date_of_last_imaging_fu <- thisImagingDate
             }
-            # We have already recurred, so we just want the earliest recurrence date
-            else
+            
+            # If this row shows recurrence...
+            # 
+            # Original simple coding before improvements for:
+            #   'N' = No
+            #   'YA' = Yes (recurrent) and Ablatable Recurrence
+            #   'YNA' = Yes (recurrent) and Non-ablatable Recurrence
+            #
+            # This is the new coding:
+            #
+            #   No RD/LR (NR)
+            #   1st RD/LR - untreated (1LR-U)
+            #   1st RD/LR - re-ablated (1LR-RA)
+            #   1st RD/LR - surgically resected (1LR-SR)
+            #   1st RD/LR - treated by radioRx (1LR-RT)
+            #   1st RD/LR - treated by chemoRx (1LR-CT)
+            #   1st RD/LR - treated by other (1LR-O)
+            #   >1st RD/LR - untreated (2LR-U)
+            #   >1st RD/LR - re-ablated (2LR-RA)
+            #   >1st RD/LR - surgically resected (2LR-SR)
+            #   >1st RD/LR - treated by radioRx (2LR-RT)
+            #   >1st RD/LR - treated by chemoRx (2LR-CT)
+            #   >1st RD/LR - treated by other (2LR-O)
+            
+            thisLR <- recurrence.df$local.recurrence[j]
+
+            # if (thisLR == "Y" || thisLR == "YA" || thisLR == "YNA")
+            if (thisLR != "NR" && thisLR != "N") # Double negative but it is a good catch all for recurrence, also note the historical coding "N" is respected
             {
-              if (thisRecurrenceDate < date_of_first_local_recurrence)
+              # This records if it is recurrence after 1, 2 or >2 treatments (the definition of LR can vary!) - the recurrence string is like '1LR-U' for 1st LR/RD - untreated
+              thisRecurrenceAfterRxNo <- substring(thisLR,1,1)
+
+              # The date of this imaging, which has show recurrence
+              thisRecurrenceDate <- thisImagingDate
+              
+              # If we have not yet recurred...
+              if (local_recurrence == 0)
               {
+                local_recurrence <- 1
                 date_of_first_local_recurrence <- thisRecurrenceDate
                 no_rx_before_first_local_recurrence <- thisRecurrenceAfterRxNo
               }
+              # We have already recurred, so we just want the earliest recurrence date
+              else
+              {
+                if (thisRecurrenceDate < date_of_first_local_recurrence)
+                {
+                  date_of_first_local_recurrence <- thisRecurrenceDate
+                  no_rx_before_first_local_recurrence <- thisRecurrenceAfterRxNo
+                }
+              }
+            }
+          }
+          else
+          {
+            if (recurrence.df$imaging.date[j] != "")
+            {
+              addDataIntegrityError(ptID, date=recurrence.df$imaging.date[j], error=paste(i, "/", patientCount, " Pt=", ptID, " patient's imaging follow-up date (",recurrence.df$imaging.date[j],") is not valid date on row ",j, sep = ""))
             }
           }
         }
+        
+        # Set the recurrence status, just like we do with survival
+        # https://thriv.github.io/biodatasci2018/r-survival.html
+        if (local_recurrence == 1)
+        {
+          local_recurrence_status <- 2  # This is cf. death due to cancer i.e. counts on the Kaplin-Meyer
+        }
         else
         {
-          if (recurrence.df$imaging.date[j] != "")
-          {
-            addDataIntegrityError(ptID, date=recurrence.df$imaging.date[j], error=paste(i, "/", patientCount, " Pt=", ptID, " patient's imaging follow-up date (",recurrence.df$imaging.date[j],") is not valid date on row ",j, sep = ""))
-          }
+          local_recurrence_status <- 1
         }
       }
     }
-    
-    # Set the recurrence status, just like we do with survival
-    # https://thriv.github.io/biodatasci2018/r-survival.html
-    if (local_recurrence == 1)
+    else if (!is.na(indication) & indication == "Benign")
     {
-      local_recurrence_status <- 2  # This is cf. death due to cancer i.e. counts on the Kaplin-Meyer
+      # Get the benign imaging follow-up table
+      recurrenceJSON <- getDataEntry("fu_image_matrix_benign", i)
     }
     else
     {
-      local_recurrence_status <- 1
+      # If its not malignant or benign there is no follow-up imaging data
     }
     
     # Work out when last known alive as the latest date via imaging, clinical follow-up or last known alive field if filled out
@@ -422,6 +442,7 @@ processData <- function()
         # Get To Come In (TCI) rx date and status, NA if not set
         ref_tci_date <- convertToDate(getDataEntry(paste("ref_tci_date_", as.integer(iRef), sep = ""), i))
         thisTciStatus <- getDataEntry(paste("ref_tci_status_", as.integer(iRef), sep = ""), i)
+        ref_tci_status <- NA
         if (!is.na(thisTciStatus))
         {
           # These must match the modality radiobutton options is app.R
@@ -439,40 +460,52 @@ processData <- function()
         if (!is.na(clockStopJSON) && str_length(clockStopJSON) > 0 )
         {
           clockStopMatrix <- jsonlite::fromJSON(clockStopJSON)
-          refclockstop.df <- data.frame(matrix(unlist(clockStopMatrix), ncol = 4, byrow = T))
+          refclockstop.df <- as.data.frame(t(sapply(clockStopMatrix, unlist)))
+          
+          # Clock stop padding
+          target_cols <- length(clockStopColNames)
+          if (ncol(refclockstop.df) < target_cols) {
+            for (col in (ncol(refclockstop.df) + 1):target_cols) {
+              refclockstop.df[[as.character(col)]] <- NA
+            }
+          }
           colnames(refclockstop.df) <- clockStopColNames
+          refclockstop.df <- refclockstop.df[apply(refclockstop.df, 1, function(row) any(row != "")), ]    # Remove the blank rows
           
           # For each row in the matrix
-          for (j in 1:nrow(refclockstop.df))
+          if (nrow(refclockstop.df) > 0)
           {
-            dateClockstopped <- convertToDate(refclockstop.df$date.stopped[j])
-            dateClockRestart <- convertToDate(refclockstop.df$date.restart[j])
-            
-            if (!is.na(dateClockstopped)) {
-              if (is.na(dateClockRestart)) {
-                # Make the restart date today if there is no useful restart date
-                dateClockRestart = Sys.Date()
-                virtualRestart = T # This is just so we can put an asterix if it hasn't been restarted yet, virtual stop
-              } else {
-                virtualRestart = F
-              }
+            for (j in 1:nrow(refclockstop.df))
+            {
+              dateClockstopped <- convertToDate(refclockstop.df$date.stopped[j])
+              dateClockRestart <- convertToDate(refclockstop.df$date.restart[j])
               
-              # If we don't yet have a DTT date (for example see in clinic after radiotherapy), or have stopped the clock before the DTT...
-              if (is.na(ref_dtt_date) || (!is.na(ref_dtt_date) && dateClockstopped < ref_dtt_date))
-              {
-                  clockstoppedDaysPreDTT <- clockstoppedDaysPreDTT +
-                    as.integer(difftime(dateClockstopped, dateClockRestart, units = "days"), units = "days")
-              }
-              else
-              {
-                  clockstoppedDaysPostDTT  = clockstoppedDaysPostDTT +
-                    as.integer(difftime(dateClockstopped, dateClockRestart, units = "days"), units = "days")
-              }
-
-              clockstoppedReason <- paste(clockstoppedReason, " ", j, ":", refclockstop.df$reason[j], sep = "")
-              
-              if (virtualRestart == T) {
-                clockstoppedReason <- paste(clockstoppedReason, "*", sep = "")
+              if (!is.na(dateClockstopped)) {
+                if (is.na(dateClockRestart)) {
+                  # Make the restart date today if there is no useful restart date
+                  dateClockRestart = Sys.Date()
+                  virtualRestart = T # This is just so we can put an asterix if it hasn't been restarted yet, virtual stop
+                } else {
+                  virtualRestart = F
+                }
+                
+                # If we don't yet have a DTT date (for example see in clinic after radiotherapy), or have stopped the clock before the DTT...
+                if (is.na(ref_dtt_date) || (!is.na(ref_dtt_date) && dateClockstopped < ref_dtt_date))
+                {
+                    clockstoppedDaysPreDTT <- clockstoppedDaysPreDTT +
+                      as.integer(difftime(dateClockstopped, dateClockRestart, units = "days"), units = "days")
+                }
+                else
+                {
+                    clockstoppedDaysPostDTT  = clockstoppedDaysPostDTT +
+                      as.integer(difftime(dateClockstopped, dateClockRestart, units = "days"), units = "days")
+                }
+  
+                clockstoppedReason <- paste(clockstoppedReason, " ", j, ":", refclockstop.df$reason[j], sep = "")
+                
+                if (virtualRestart == T) {
+                  clockstoppedReason <- paste(clockstoppedReason, "*", sep = "")
+                }
               }
             }
           }
@@ -533,8 +566,9 @@ processData <- function()
           if (!is.na(rxTableJSON) && str_length(rxTableJSON) > 0 )
           {
             rxTableMatrix <- jsonlite::fromJSON(rxTableJSON)
-            rxTable.df <- data.frame(matrix(unlist(rxTableMatrix), ncol = 12, byrow = T))
+            rxTable.df <- as.data.frame(t(sapply(rxTableMatrix, unlist)))
             colnames(rxTable.df) <- rxTableColNames
+            rxTable.df <- rxTable.df[apply(rxTable.df, 1, function(row) any(row != "")), ]
             
             # Get the free text for the treatments and concat into a string for the Treatment pathway table
             for (j in 1:nrow(rxTable.df))
@@ -576,7 +610,19 @@ processData <- function()
           {
             # These complications occurred early, ie. during the admission of the ablation
             earlyAETableMatrix <- jsonlite::fromJSON(earlyAETableJSON)
-            earlyAETable.df <- data.frame(matrix(unlist(earlyAETableMatrix), ncol = 8, byrow = T))
+            earlyAETable.df <- as.data.frame(t(sapply(earlyAETableMatrix, unlist)))
+            
+            # Sometimes in Castor it can return tables with shorter number of columns which can then crash, unless we pad out to expected no. cols with NAs
+            # earlyAETable padding
+            target_cols <- length(aeTableColNames)-3
+            if (ncol(earlyAETable.df) < target_cols) {
+              for (col in (ncol(earlyAETable.df) + 1):target_cols) {
+                earlyAETable.df[[as.character(col)]] <- NA
+              }
+            }
+
+            # Now we can important new columns either add either side
+            earlyAETable.df <- earlyAETable.df[apply(earlyAETable.df, 1, function(row) any(row != "")), ] # Remove the empty rows
             earlyAETable.df <- cbind(organForRx,earlyAETable.df)  # Pre-pend the Organ for Rx
             earlyAETable.df <- cbind(ptID,earlyAETable.df)        # Pre-pend the Patient ID
             earlyAETable.df <- cbind(earlyAETable.df,0)           # Append the post-discharge field i.e. early means before discharge
@@ -600,7 +646,17 @@ processData <- function()
           {
             # These complications occurred later, after discharge
             lateAETableMatrix <- jsonlite::fromJSON(lateAETableJSON)
-            lateAETable.df <- data.frame(matrix(unlist(lateAETableMatrix), ncol = 8, byrow = T)) # FIXME get the description field added in
+            lateAETable.df <- as.data.frame(t(sapply(lateAETableMatrix, unlist)))
+            
+            # Sometimes in Castor it can return tables with shorter number of columns which can then crash, unless we pad out to expected no. cols with NAs
+            target_cols <- length(aeTableColNames)-3
+            if (ncol(lateAETable.df) < target_cols) {
+              for (col in (ncol(lateAETable.df) + 1):target_cols) {
+                lateAETable.df[[as.character(col)]] <- NA
+              }
+            }
+            
+            lateAETable.df <- lateAETable.df[apply(lateAETable.df, 1, function(row) any(row != "")), ]  # Remove the empty rows
             lateAETable.df <- cbind(organForRx,lateAETable.df)  # Pre-pend the Organ for Rx
             lateAETable.df <- cbind(ptID,lateAETable.df)        # Pre-pend the Patient ID
             lateAETable.df <- cbind(lateAETable.df,1)           # Append the post-discharge field i.e. late means after discharge
@@ -660,11 +716,11 @@ processData <- function()
           rxdone_pt_list                     <<- append(rxdone_pt_list,                       paste(ptID, "-", iRef, sep = ""))
           rxdone_sex_list                    <<- append(rxdone_sex_list,                      sex)
           
-          rxdone_diagnosis_type_list         <<- append(rxdone_diagnosis_type_list,           diagnosis_type)
-          rxdone_diagnosis_1o_list           <<- append(rxdone_diagnosis_1o_list,             diagnosis_1o)
-          rxdone_diagnosis_2o_list           <<- append(rxdone_diagnosis_2o_list,             diagnosis_2o)
-          rxdone_diagnosis_bn_list           <<- append(rxdone_diagnosis_bn_list,             diagnosis_bn) # Benign
-          rxdone_diagnosis_un_list           <<- append(rxdone_diagnosis_un_list,             diagnosis_un) # Unknown
+          rxdone_diagnosis_type_list         <<- append(rxdone_diagnosis_type_list,           diagnosis_type) # S=Secondary, P=Primary or B=Benign
+          rxdone_diagnosis_1o_list           <<- append(rxdone_diagnosis_1o_list,             diagnosis_1o)   # Cancer
+          rxdone_diagnosis_2o_list           <<- append(rxdone_diagnosis_2o_list,             diagnosis_2o)   # Cancer
+          rxdone_diagnosis_bn_list           <<- append(rxdone_diagnosis_bn_list,             diagnosis_bn)   # Benign
+          rxdone_diagnosis_un_list           <<- append(rxdone_diagnosis_un_list,             diagnosis_un)   # Unknown
           
           rxdone_organ_list                  <<- append(rxdone_organ_list,                    organForRx)
           rxdone_modality_list               <<- append(rxdone_modality_list,                 modalityForRx)
@@ -783,71 +839,79 @@ processData <- function()
         survival_days <- NA
       }
       
-      # 'Dead or alive, you are coming with me...'
-      # Get the local recurrence days i.e. if there is local recurrence, how long did it take after first treatment?
-      local_recurrence_days <- NA
-      if (!is.na(date_of_first_local_recurrence) && isConvertibleToDate(date_of_first_local_recurrence))
+      # If you have cancer... 'Dead or alive, you are coming with me...'
+      lrf_os_survival_days   <- NA
+      lrf_os_survival_status <- NA
+      lrf_cs_survival_days   <- NA
+      lrf_cs_survival_status <- NA
+      local_recurrence_days  <- NA
+      if (!is.na(diagnosis_type) && diagnosis_type != "B")
       {
-        # FIXME, if there are two treatments before the first LR is true, then this date is still from 1st not 2nd Rx
-        local_recurrence_days = as.numeric(difftime(date_of_first_local_recurrence, date_of_first_rx, units = "days"), units = "days")
-      }
-      else
-      {
-        # Otherwise the point of censoring is the last imaging date...
-        if (isConvertibleToDate(date_of_last_imaging_fu))
+        # Get the local recurrence days i.e. if there is local recurrence, how long did it take after first treatment?
+        local_recurrence_days <- NA
+        if (!is.na(date_of_first_local_recurrence) && isConvertibleToDate(date_of_first_local_recurrence))
         {
-          local_recurrence_days = as.numeric(difftime(date_of_last_imaging_fu, date_of_first_rx, units = "days"), units = "days")
-        }
-      }
-      
-      # Set the local recurrence-free survival days and status
-      # I.e. work out how long they have lived without any knowledge of recurrence
-      # i.e. last known alive date if not recurred, or recurrence date if recurred
-      #
-      # For LRFS curves the event is usually defined as local recurrence (tumour coming back at the original site).
-      # Death without recurrence is usually treated as a censoring event, not as a recurrence i.e. if a patient dies 
-      # without documented LR -> their data line is censored at their death date.
-      # If a patient has LR (whether or not they later die) -> that's counted as an event and the curve steps down.
-      # So on the LRFS KM drops in curve = LR, censoring = deaths without recurrnce or end of follow-up.
-      # BUT sometimes studies define LRFS differently i.e. including death from any cause as an event (i.e. LRF-OS)
-      # Here we work about both and the user can choose what KM they want
-
-      # If they have locally recurred...
-      if (!is.na(date_of_first_local_recurrence))
-      {
-        lrf_os_survival_days   <- local_recurrence_days
-        lrf_os_survival_status <- 2   # Recurred, treated like death
-        lrf_cs_survival_days   <- local_recurrence_days
-        lrf_cs_survival_status <- 2   # Recurred, treated like death
-      }
-      # If they haven't locally recurred but are now deceased...
-      else if (deceased == 1)
-      {
-        # Presume they can't die before they recur, but if they have kick out a warning...
-        if (!is.na(local_recurrence_days) && survival_days < local_recurrence_days)
-        {
-          addDataIntegrityError(ptID, date=date_of_first_local_recurrence, error = paste("Patient appears to have died before local recurrence date.", sep = ""))
-        }
-        
-        lrf_os_survival_days <- survival_days
-        lrf_os_survival_status <- 2     # Dead, treated like recurrence
-        lrf_cs_survival_days <- survival_days
-        if (deceased_related == 0)      # Here the LFS (cancer specific) survival status depends on if they had cancer
-        {
-          lrf_cs_survival_status <- 1   # Dead but not of cancer cause, censor this
+          # FIXME, if there are two treatments before the first LR is true, then this date is still from 1st not 2nd Rx
+          local_recurrence_days = as.numeric(difftime(date_of_first_local_recurrence, date_of_first_rx, units = "days"), units = "days")
         }
         else
         {
-          lrf_cs_survival_status <- 2   # Dead of cancer cause, treated same as local recurrence (it counts)
+          # Otherwise the point of censoring is the last imaging date...
+          if (isConvertibleToDate(date_of_last_imaging_fu))
+          {
+            local_recurrence_days = as.numeric(difftime(date_of_last_imaging_fu, date_of_first_rx, units = "days"), units = "days")
+          }
         }
-      }
-      # They haven't recurred nor are they deceased, they are just lost to follow-up
-      else
-      {
-        lrf_os_survival_days <- survival_days
-        lrf_os_survival_status <- 1   # Censored at point of last follow-up
-        lrf_cs_survival_days <- survival_days
-        lrf_cs_survival_status <- 1   # Censored at point of last follow-up
+        
+        # Set the local recurrence-free survival days and status
+        # I.e. work out how long they have lived without any knowledge of recurrence
+        # i.e. last known alive date if not recurred, or recurrence date if recurred
+        #
+        # For LRFS curves the event is usually defined as local recurrence (tumour coming back at the original site).
+        # Death without recurrence is usually treated as a censoring event, not as a recurrence i.e. if a patient dies 
+        # without documented LR -> their data line is censored at their death date.
+        # If a patient has LR (whether or not they later die) -> that's counted as an event and the curve steps down.
+        # So on the LRFS KM drops in curve = LR, censoring = deaths without recurrnce or end of follow-up.
+        # BUT sometimes studies define LRFS differently i.e. including death from any cause as an event (i.e. LRF-OS)
+        # Here we work about both and the user can choose what KM they want
+  
+        # If they have locally recurred...
+        if (!is.na(date_of_first_local_recurrence))
+        {
+          lrf_os_survival_days   <- local_recurrence_days
+          lrf_os_survival_status <- 2   # Recurred, treated like death
+          lrf_cs_survival_days   <- local_recurrence_days
+          lrf_cs_survival_status <- 2   # Recurred, treated like death
+        }
+        # If they haven't locally recurred but are now deceased...
+        else if (deceased == 1)
+        {
+          # Presume they can't die before they recur, but if they have kick out a warning...
+          if (!is.na(local_recurrence_days) && survival_days < local_recurrence_days)
+          {
+            addDataIntegrityError(ptID, date=date_of_first_local_recurrence, error = paste("Patient appears to have died before local recurrence date.", sep = ""))
+          }
+          
+          lrf_os_survival_days <- survival_days
+          lrf_os_survival_status <- 2     # Dead, treated like recurrence
+          lrf_cs_survival_days <- survival_days
+          if (deceased_related == 0)      # Here the LFS (cancer specific) survival status depends on if they had cancer
+          {
+            lrf_cs_survival_status <- 1   # Dead but not of cancer cause, censor this
+          }
+          else
+          {
+            lrf_cs_survival_status <- 2   # Dead of cancer cause, treated same as local recurrence (it counts)
+          }
+        }
+        # They haven't recurred nor are they deceased, they are just lost to follow-up
+        else
+        {
+          lrf_os_survival_days <- survival_days
+          lrf_os_survival_status <- 1   # Censored at point of last follow-up
+          lrf_cs_survival_days <- survival_days
+          lrf_cs_survival_status <- 1   # Censored at point of last follow-up
+        }
       }
       
       logger(paste("     Ref=", iRef, "/", pt_ref_count, 
@@ -864,31 +928,30 @@ processData <- function()
     #}
     
     # Now we have been through all the referrals update the survival data...
+    age_at_first_rx <- NA
     if (!is.na(date_of_first_rx))
     {
       if (!is.na(birth_year))
         {
           age_at_first_rx <- as.integer(format(asDateWithOrigin(date_of_first_rx), "%Y")) - birth_year
       }
-      survival_pt_list          <<- append(survival_pt_list, ptID)
-      survival_sex_list         <<- append(survival_sex_list, sex)
-      survival_age_list         <<- append(survival_age_list, age_at_first_rx)
-      survival_organ_list       <<- append(survival_organ_list, survival_organ)
-      
+      survival_pt_list             <<- append(survival_pt_list, ptID)
+      survival_sex_list            <<- append(survival_sex_list, sex)
+      survival_age_list            <<- append(survival_age_list, age_at_first_rx)
+      survival_organ_list          <<- append(survival_organ_list, survival_organ)
       survival_diagnosis_type_list <<- append(survival_diagnosis_type_list, diagnosis_type)
       survival_diagnosis_1o_list   <<- append(survival_diagnosis_1o_list,   diagnosis_1o)
       survival_diagnosis_2o_list   <<- append(survival_diagnosis_2o_list,   diagnosis_2o)
       survival_diagnosis_bn_list   <<- append(survival_diagnosis_bn_list,   diagnosis_bn)
       survival_diagnosis_un_list   <<- append(survival_diagnosis_un_list,   diagnosis_un)
-      
-      survival_first_rx_date    <<- append(survival_first_rx_date, date_of_first_rx)
-      survival_deceased_list    <<- append(survival_deceased_list, as.integer(deceased))
-      survival_deceased_date    <<- append(survival_deceased_date, deceased_date)
-      survival_last_alive_list  <<- append(survival_last_alive_list, last_alive_date)
-      survival_days_list        <<- append(survival_days_list, survival_days)
-      survival_deceased_related <<- append(survival_deceased_related, deceased_related)
-      survival_lost_to_fu       <<- append(survival_lost_to_fu, lost_to_fu)
-      survival_lost_to_fu_date  <<- append(survival_lost_to_fu_date, lost_to_fu_date)
+      survival_first_rx_date       <<- append(survival_first_rx_date, date_of_first_rx)
+      survival_deceased_list       <<- append(survival_deceased_list, as.integer(deceased))
+      survival_deceased_date       <<- append(survival_deceased_date, deceased_date)
+      survival_last_alive_list     <<- append(survival_last_alive_list, last_alive_date)
+      survival_days_list           <<- append(survival_days_list, survival_days)
+      survival_deceased_related    <<- append(survival_deceased_related, deceased_related)
+      survival_lost_to_fu          <<- append(survival_lost_to_fu, lost_to_fu)
+      survival_lost_to_fu_date     <<- append(survival_lost_to_fu_date, lost_to_fu_date)
       survival_overall_status_list <<- append(survival_overall_status_list, survival_overall_status)
       survival_cancer_specific_status_list <<- append(survival_cancer_specific_status_list, survival_cancer_specific_status)      
       lrf_os_survival_days_list    <<- append(lrf_os_survival_days_list, lrf_os_survival_days)        # Local recurrence-free overall survival i.e. time to LR or death of any cause
@@ -896,13 +959,17 @@ processData <- function()
       lrf_cs_survival_days_list    <<- append(lrf_cs_survival_days_list, lrf_cs_survival_days)        # Local recurrence-free cancer specific survival i.e. time to LR or cancer specific death
       lrf_cs_survival_status_list  <<- append(lrf_cs_survival_status_list, lrf_cs_survival_status)
       
-      # And the recurrence data
-      local_recurrence_list        <<- append(local_recurrence_list, local_recurrence)
-      local_recurrence_status_list <<- append(local_recurrence_status_list, local_recurrence_status)
-      local_recurrence_date_list   <<- append(local_recurrence_date_list, date_of_first_local_recurrence)
-      local_recurrence_no_rx_before <<- append(local_recurrence_no_rx_before, no_rx_before_first_local_recurrence)
-      local_recurrence_days_list   <<- append(local_recurrence_days_list, local_recurrence_days)
-      last_imaging_follow_up_list  <<- append(last_imaging_follow_up_list, date_of_last_imaging_fu)
+      # And the recurrence data if it is a malignant indication
+      #if (!is.na(indication) & indication == "Malignant")
+      if (is.na(indication) | indication == "Malignant") # FIXME this is temporary until we define the malignant ones in imaging FU in EDC
+      {
+        local_recurrence_list        <<- append(local_recurrence_list, local_recurrence)
+        local_recurrence_status_list <<- append(local_recurrence_status_list, local_recurrence_status)
+        local_recurrence_date_list   <<- append(local_recurrence_date_list, date_of_first_local_recurrence)
+        local_recurrence_no_rx_before <<- append(local_recurrence_no_rx_before, no_rx_before_first_local_recurrence)
+        local_recurrence_days_list   <<- append(local_recurrence_days_list, local_recurrence_days)
+        last_imaging_follow_up_list  <<- append(last_imaging_follow_up_list, date_of_last_imaging_fu)
+      }
     }
   } # This ends the for loop for each patient...
 

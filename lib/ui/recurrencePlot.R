@@ -28,7 +28,8 @@ recurrencePlotTab <- function() {
       column(
         width = 3,
         selectInput("recurrenceSelectedOrgans", "Target Organ", choices = organFactors),
-        selectInput("recurrenceSelectedDiagnosisType", "Diagnosis Type", choices = diagnosis_type_Factors),
+        selectInput("recurrenceSelectedDiagnosisType", "Diagnosis Type", 
+                    choices = c(diagnosis_type_Factors[diagnosis_type_Factors != "Benign"], "1o & 2o")),
         checkboxGroupInput(
           "recurrenceSelectedGenders", "Genders",
           choices = genderFactors,
@@ -56,14 +57,14 @@ recurrencePlotServer <- function(input, output, session, api, plots)
 {
   subtypeChoices <- reactive({
     req(input$recurrenceSelectedDiagnosisType)
-    
     switch(
       input$recurrenceSelectedDiagnosisType,
       "All"       = c("All"),
       "Primary"   = api$diagnosis_1o_Factors,
       "Secondary" = api$diagnosis_2o_Factors,
-      "Benign"    = api$diagnosis_bn_Factors,
-      api$diagnosisSubtypeFactors
+      "1o & 2o"   = c(api$diagnosis_1o_Factors, api$diagnosis_2o_Factors),
+      "Unknown"   = api$diagnosis_un_Factors,
+      c("All")
     )
   })
   
@@ -86,9 +87,11 @@ recurrencePlotServer <- function(input, output, session, api, plots)
   })
   
   observe({
+    req(api$diagnosis_type_Factors)
+    baseChoices <- api$diagnosis_type_Factors[api$diagnosis_type_Factors != "Benign"]
     updateSelectInput(
       session, "recurrenceSelectedDiagnosisType",
-      choices = api$diagnosis_type_Factors,
+      choices = c(baseChoices[baseChoices == "All"], "Primary", "Secondary", "1o & 2o", "Unknown"),
       selected = api$diagnosis_type_Factors[1]
     )
   })

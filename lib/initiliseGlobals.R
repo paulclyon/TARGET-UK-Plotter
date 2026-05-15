@@ -4,10 +4,12 @@ initialiseGlobals <- function()
   # This is the order of the clock stop columns
   clockStopColNames              <<- c("date.stopped","date.restart","reason","free.text")
   rxTableColNames                <<- c("rx.organ","lesion.size","max.depth","closest.serosa","punctures","no.applicators.or.postitions","modality","max.power","min.power","rx.time","new.or.rec","free.text")
-  aeTableColNames                <<- c("PtID","Organ","Complication","DateofOnset","DateofResolution","Grade","Description","Intervention","InterventionDate","PostDischarge","Duration")
+  aeTableColNames                <<- c("PtID","Organ","Complication","DateofOnset","DateofResolution","Grade","Description","Intervention","InterventionDate","AdditionalHopsitalDays","PostDischarge","Duration")
   dataIntegrityColNames          <<- c("PtID","RefID","Date","Organ(s)","Error")
   loggerColNames                 <<- c("TimeStamp","IsError","Message")
+  #recurrenceColNames             <<- c("imaging.date","exam.type","organ","local.recurrence","no.with.lr","treatment.for.lr","new.in.target.organ","distant.progression","disease.status")
   recurrenceColNames             <<- c("imaging.date","exam.type","local.recurrence","new.in.target.organ","distant.progression","disease.status","free-text")
+  
   clinicalfuColNames             <<- c("followup.date","clinician.type","clinician.name","impression","outcome")
   rxdone_diagnosis_type_list     <<- c()
   rxdone_diagnosis_1o_list       <<- c()

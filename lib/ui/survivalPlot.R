@@ -26,6 +26,14 @@ survivalPlotTab <- function() {
         checkboxInput("survivalAllow2Rx","Allow two Rx before LR", value=TRUE)
       ),
       column(
+        width = 3,
+        radioButtons(
+          "survivalLRFSRadio",
+          "Survival Plot Type",
+          c("Overall Survival (OS)" = 0, "Cancer Specific Survival (CSS)" = 1, "Local Recurrence-Free OS" = 2, "Local Recurrence-Free CSS" = 3)
+        )
+      ),
+      column(
         width = 2,
         selectInput("survivalSelectedOrgans","Target Organ", choices = organFactors, selected = organFactors[1]),
         selectInput("survivalSelectedDiagnosisType", "Diagnosis Type", choices = diagnosis_type_Factors),
@@ -34,14 +42,6 @@ survivalPlotTab <- function() {
           "Genders",
           choices = genderFactors,
           selected = genderFactors
-        )
-      ),
-      column(
-        width = 3,
-        radioButtons(
-          "survivalLRFSRadio",
-          "Survival Plot Type",
-          c("Overall Survival (OS)" = 0, "Cancer Specific Survival (CSS)" = 1, "Local Recurrence-Free OS" = 2, "Local Recurrence-Free CSS" = 3)
         )
       ),
       column(

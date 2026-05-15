@@ -141,8 +141,6 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
     filter(between(FirstRxDate, start, end)) |>
     filter(Gender %in% selectedGenders)
 
-  logger("FIXME selectedOrgans:", paste(selectedOrgans, collapse = ", "))
-  
   if (selectedOrgans != "All")
   {
     filteredSurvivalData <<- filteredSurvivalData |>
@@ -151,21 +149,23 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
     
   if (selectedDiagnosisType == "All")
   {
-    if (! "All" %in% selectedSubtypes)
+    if (!"All" %in% selectedSubtypes)
     {
-      # This just removes all rows as no Organ is All, and therefore we get the error message for the blank plot
       filteredSurvivalData <<- filteredSurvivalData |> filter(Organ %in% selectedSubtypes)
     }
   }
+  else if (selectedDiagnosisType == "1o & 2o")
+  {
+    filteredSurvivalData <<- filteredSurvivalData |> 
+      filter(Diagnosis1o %in% selectedSubtypes | Diagnosis2o %in% selectedSubtypes)
+  }
   else
   {
-    # We just want to use the first letter of what is selected in the GUI e.g. P(rimary) to match the EDC data
-    #filteredSurvivalData <<- filteredSurvivalData |> filter(DiagnosisType == substring(selectedDiagnosisType, 1, 1))
     filteredSurvivalData <<- switch(substring(selectedDiagnosisType, 1, 1),
-      "P" = filteredSurvivalData |> filter(Diagnosis1o %in% selectedSubtypes),
-      "S" = filteredSurvivalData |> filter(Diagnosis2o %in% selectedSubtypes),
-      "B" = filteredSurvivalData |> filter(DiagnosisBn %in% selectedSubtypes),
-      "U" = filteredSurvivalData |> filter(DiagnosisUn %in% selectedSubtypes)
+                                    "P" = filteredSurvivalData |> filter(Diagnosis1o %in% selectedSubtypes),
+                                    "S" = filteredSurvivalData |> filter(Diagnosis2o %in% selectedSubtypes),
+                                    "B" = filteredSurvivalData |> filter(DiagnosisBn %in% selectedSubtypes),
+                                    "U" = filteredSurvivalData |> filter(DiagnosisUn %in% selectedSubtypes)
     )
   }
   
