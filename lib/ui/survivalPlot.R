@@ -23,14 +23,23 @@ survivalPlotTab <- function() {
           min = 1, 
           max = 20
         ),
-        checkboxInput("survivalAllow2Rx","Allow two Rx before LR", value=TRUE)
+        sliderInput(
+          "survivalTumourSizeRange",
+          "Tumour Size (mm)",
+          min   = 0,
+          max   = 100,
+          value = c(0, 100),
+          step  = 1,
+          ticks = TRUE
+        ),
+        checkboxInput("survivalAllow2Rx","Allow 2xRx before LTP", value=TRUE)
       ),
       column(
         width = 3,
         radioButtons(
-          "survivalLRFSRadio",
+          "survivalLTPFSRadio",
           "Survival Plot Type",
-          c("Overall Survival (OS)" = 0, "Cancer Specific Survival (CSS)" = 1, "Local Recurrence-Free OS" = 2, "Local Recurrence-Free CSS" = 3)
+          c("Overall Survival (OS)" = 0, "Cancer Specific Survival (CSS)" = 1, "Local Tumour Progression-Free OS" = 2, "Local Tumour Progression-Free CSS" = 3)
         )
       ),
       column(
@@ -109,6 +118,23 @@ survivalPlotServer <- function(input, output, session, api, plots)
     )
   })
   
+  # Update tumour size slider range dynamically based on actual data
+  observe({
+    sizes <- as.numeric(api$cancerData$survival_max_tumour_size)  # adjust column name to match your data frame
+    sizes <- sizes[!is.na(sizes)]
+    if (length(sizes) > 0) {
+      dataMin <- floor(min(sizes))
+      dataMax <- ceiling(max(sizes))
+      updateSliderInput(
+        session,
+        "survivalTumourSizeRange",
+        min   = dataMin,
+        max   = dataMax,
+        value = c(dataMin, dataMax)
+      )
+    }
+  })
+  
   finalSurvivalPlotInput <- reactive({
     makeSurvivalPlot(
       input$survivalStartDate,
@@ -118,15 +144,14 @@ survivalPlotServer <- function(input, output, session, api, plots)
       input$survivalSelectedDiagnosisType,
       input$survivalSelectedSubtypes,
       input$survivalSelectedGenders,
-      input$survivalLRFSRadio,
-      input$survivalAllow2Rx
+      input$survivalLTPFSRadio,
+      input$survivalAllow2Rx,
+      input$survivalTumourSizeRange[1],   # minTumourSize
+      input$survivalTumourSizeRange[2]    # maxTumourSize
     )
   })
-
+  
   height <- reactive(detectedHeight(input, "plotSurvivalCurve"))
-
-  # See this for dynamic generation of filtered survival curves in shiny
-  #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots
   output$plotSurvivalCurve <- renderPlot({
     p <- finalSurvivalPlotInput()
     plots$activePlot <- p

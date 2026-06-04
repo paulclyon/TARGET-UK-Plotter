@@ -23,26 +23,46 @@ recurrencePlotTab <- function() {
           min = 1, 
           max = 20
         ),
-        checkboxInput("recurrenceAllow2Rx","Allow two Rx before LR", value=TRUE)
+        sliderInput(
+          "recurrenceTumourSizeRange",
+          "Tumour Size (mm)",
+          min   = 0,
+          max   = 100,
+          value = c(0, 100),
+          step  = 1,
+          ticks = TRUE
+        ),
+        checkboxInput("recurrenceAllow2Rx","Allow 2xRx before LTP", value=TRUE)
       ),
       column(
-        width = 3,
-        selectInput("recurrenceSelectedOrgans", "Target Organ", choices = organFactors),
-        selectInput("recurrenceSelectedDiagnosisType", "Diagnosis Type", 
-                    choices = c(diagnosis_type_Factors[diagnosis_type_Factors != "Benign"], "1o & 2o")),
-        checkboxGroupInput(
-          "recurrenceSelectedGenders", "Genders",
-          choices = genderFactors,
-          selected = genderFactors
-        )
-      ),
-      column(
-        width = 6,
-        checkboxGroupInput(
-          "recurrenceSelectedSubtypes", "Subtypes",
-          choices = diagnosisSubtypeFactors,
-          selected = diagnosisSubtypeFactors
-        )
+        width = 9,
+        fluidRow(
+          column(
+            width = 3,
+            selectInput("recurrenceSelectedOrgans", "Target Organ", choices = organFactors),
+            selectInput("recurrenceSelectedDiagnosisType", "Diagnosis Type", 
+                        choices = c(diagnosis_type_Factors[diagnosis_type_Factors != "Benign"], "1o & 2o")),
+            checkboxGroupInput(
+              "recurrenceSelectedGenders", "Genders",
+              choices = genderFactors,
+              selected = genderFactors
+            )
+          ),
+          column(
+            width = 9,
+            checkboxGroupInput(
+              "recurrenceSelectedSubtypes", "Subtypes",
+              choices = diagnosisSubtypeFactors,
+              selected = diagnosisSubtypeFactors
+            )
+          )
+        ),
+        div(style=
+              "background-color: lightgrey;
+               border: 5px solid blue;
+               padding: 5px;
+               margin: 5px;",
+            textOutput("informationalRecurrencePlot"))
       )
     ),
     fluidRow(box(
@@ -87,6 +107,22 @@ recurrencePlotServer <- function(input, output, session, api, plots)
   })
   
   observe({
+    sizes <- as.numeric(api$cancerData$survival_max_tumour_size)  # adjust column name to match your data frame
+    sizes <- sizes[!is.na(sizes)]
+    if (length(sizes) > 0) {
+      dataMin <- floor(min(sizes))
+      dataMax <- ceiling(max(sizes))
+      updateSliderInput(
+        session,
+        "recurrenceTumourSizeRange",
+        min   = dataMin,
+        max   = dataMax,
+        value = c(dataMin, dataMax)
+      )
+    }
+  })
+  
+  observe({
     req(api$diagnosis_type_Factors)
     baseChoices <- api$diagnosis_type_Factors[api$diagnosis_type_Factors != "Benign"]
     updateSelectInput(
@@ -113,10 +149,19 @@ recurrencePlotServer <- function(input, output, session, api, plots)
       input$recurrenceSelectedDiagnosisType,
       input$recurrenceSelectedSubtypes,
       input$recurrenceSelectedGenders,
-      input$recurrenceAllow2Rx
+      input$recurrenceAllow2Rx,
+      input$recurrenceTumourSizeRange[1],   # minTumourSize
+      input$recurrenceTumourSizeRange[2]    # maxTumourSize
     )
   })
 
+  output$informationalRecurrencePlot <- renderText({ informationalText() })
+  
+  informationalText <- reactive({
+    headerText <- "Informational:\n"
+    paste(headerText,"This is a per-patient analysis i.e. time-to-LTP is measured from first ablation even if LTP occurs after a subsequent ablation of a new lesion.")}
+  )
+  
   height <- reactive(detectedHeight(input, "plotRecurrenceCurve"))
 
   output$plotRecurrenceCurve <- renderPlot({

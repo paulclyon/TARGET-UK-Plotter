@@ -2,7 +2,7 @@
 postProcessData <- function()
 {
   # The as.Dates() work around is needed to set Dates as the column types otherwise if the first element in the column is NA, it is represented as just the number which is still the date but unredable to the human
-  # This is important as this makes them all a Dates object which displays nicely in the tables - you can check the types of the data frame easily with str(survivalData)
+  # This is important as this makes them all a Dates object which displays nicely in the tables - you can check the types of the data frame easily with str(cancerData)
   if (!is.null(rxdone_pt_list))
   {
 
@@ -16,33 +16,34 @@ postProcessData <- function()
     
     # If the list is not empty
     rxDoneData <<- data.frame(
-      ID = rxdone_pt_list,
-      Gender = rxdone_sex_list,
-      RefDate = asDateWithOrigin(rxdone_refdate_list),
-      DTTDate = asDateWithOrigin(rxdone_dttdate_list),
-      RxDate = asDateWithOrigin(rxdone_rxdate_list),
-      Ref_DTT = as.numeric(rxdone_dtt_days_list),
-      DTT_Rx = as.numeric(rxdone_dtt_rx_days_list),
-      Ref_RxDone = as.numeric(rxdone_rx_days_list),
-      Organs = rxdone_organ_list,
+      ID            = rxdone_pt_list,
+      Gender        = rxdone_sex_list,
+      RefDate       = asDateWithOrigin(rxdone_refdate_list),
+      DTTDate       = asDateWithOrigin(rxdone_dttdate_list),
+      RxDate        = asDateWithOrigin(rxdone_rxdate_list),
+      Ref_DTT       = as.numeric(rxdone_dtt_days_list),
+      DTT_Rx        = as.numeric(rxdone_dtt_rx_days_list),
+      Ref_RxDone    = as.numeric(rxdone_rx_days_list),
+      Organs        = rxdone_organ_list,
+      MaxTumourSize = as.numeric(rxdone_max_tumour_size_list),
       DiagnosisType = rxdone_diagnosis_type_list,
-      Diagnosis1o = rxdone_diagnosis_1o_list,
-      Diagnosis2o = rxdone_diagnosis_2o_list,
-      DiagnosisBn = rxdone_diagnosis_bn_list,
-      DiagnosisUn = rxdone_diagnosis_un_list,
-      Modality = rxdone_modality_list,
-      Tariff = rxdone_tariff_list,
-      Operator1 = rxdone_operator1_list,
-      Operator2 = rxdone_operator2_list,
-      Operator3 = rxdone_operator3_list,
+      Diagnosis1o   = rxdone_diagnosis_1o_list,
+      Diagnosis2o   = rxdone_diagnosis_2o_list,
+      DiagnosisBn.  = rxdone_diagnosis_bn_list,
+      DiagnosisUn   = rxdone_diagnosis_un_list,
+      Modality      = rxdone_modality_list,
+      Tariff        = rxdone_tariff_list,
+      Operator1     = rxdone_operator1_list,
+      Operator2     = rxdone_operator2_list,
+      Operator3     = rxdone_operator3_list,
       Anaesthetist1 = rxdone_anaesthetist1_list,
       Anaesthetist2 = rxdone_anaesthetist2_list,
       Anaesthetist3 = rxdone_anaesthetist3_list,
       ClockStopDaysPreDTT = as.numeric(rxdone_clockstop_days_predtt_list),
       ClockStopDaysPostDTT = as.numeric(rxdone_clockstop_days_postdtt_list),
-      ClockStopWhy = rxdone_clockstop_reason_list,
-      Postcode = rxdone_postcode_list,
-      FreeText = rxdone_freetext_list
+      ClockStopWhy  = rxdone_clockstop_reason_list,
+      Postcode      = rxdone_postcode_list,
+      FreeText      = rxdone_freetext_list
     )
     
   } else {
@@ -77,6 +78,9 @@ postProcessData <- function()
   # This is a list the different organ targets which have been referred or treated
   organFactors <<- levels(factor(append(rxdone_organ_list, rxwait_organ_list)))
   
+  # This is a list the different modalities treated
+  modalityFactors <<- levels(factor(rxdone_modality_list))
+  
   # Similar for Genders
   genderFactors <<- levels(factor(rxdone_sex_list))
 
@@ -98,7 +102,7 @@ postProcessData <- function()
   # Censoring status is 1=censored (could still be alive but we don't know), 2=dead
   if (length(survival_pt_list)==0)
   {
-    survivalData <<- NA
+    cancerData <<- NA
     survivalFitSex <<- NA
     survivalFitOrgan <<- NA
     survivalPlotOrgan <<- NA
@@ -106,36 +110,43 @@ postProcessData <- function()
   }
   else
   {
-    survivalData <<- data.frame(
-      ID = survival_pt_list,
-      Gender = survival_sex_list,
-      FirstRxDate = asDateWithOrigin(survival_first_rx_date),
-      AgeOnFirstRx = survival_age_list,
-      Organ = survival_organ_list,
-      DiagnosisType = survival_diagnosis_type_list,
-      Diagnosis1o = survival_diagnosis_1o_list,
-      Diagnosis2o = survival_diagnosis_2o_list,
-      DiagnosisBn = survival_diagnosis_bn_list,
-      DiagnosisUn = survival_diagnosis_un_list,
-      TimeLRF = local_recurrence_days_list/365.25,     # Time to local recurrence
-      StatusLRF = local_recurrence_status_list,
-      TimeLRFOS = lrf_os_survival_days_list/365.25,        # Local recurrence-free survival i.e. time to LR or Death, if NA they have not recurred or died
-      StatusLRFOS = lrf_os_survival_status_list,
-      TimeLRFCSS = lrf_cs_survival_days_list/365.25,        # Local recurrence-free survival i.e. time to LR or Death, if NA they have not recurred or died
-      StatusLRFCSS = lrf_cs_survival_status_list,
-      LastImagingDate = asDateWithOrigin(last_imaging_follow_up_list),
-      FirstLRDate = asDateWithOrigin(local_recurrence_date_list),
-      NoRxBeforeFirstLR = local_recurrence_no_rx_before,
-      LastKnownAlive = asDateWithOrigin(survival_last_alive_list),
-      StatusOverallSurvival = survival_overall_status_list,    # Overall survival
+    allData <<- data.frame(
+      ID                           = survival_pt_list,
+      Gender                       = survival_sex_list,
+      FirstRxDate                  = asDateWithOrigin(survival_first_rx_date),
+      AgeOnFirstRx                 = survival_age_list,
+      Organ                        = survival_organ_list,
+      MaxTumourSize                = as.numeric(survival_max_tumour_size_list),
+      RxModalities                 = suvival_rx_modalities,
+      DiagnosisType                = survival_diagnosis_type_list,
+      Diagnosis1o                  = survival_diagnosis_1o_list,
+      Diagnosis2o                  = survival_diagnosis_2o_list,
+      DiagnosisBn                  = survival_diagnosis_bn_list,
+      DiagnosisUn                  = survival_diagnosis_un_list,
+      TimeLTPF                     = ltp_days_list/365.25,                     # Time to LTP
+      StatusLTPF                   = ltp_status_list,
+      TimeLTPFOS                   = ltpf_os_survival_days_list/365.25,        # LTP-free survival i.e. time to LR or Death, if NA they have not recurred or died
+      StatusLTPFOS                 = ltpf_os_survival_status_list,
+      TimeLTPFCSS                  = ltpf_cs_survival_days_list/365.25,        # LTP-free survival i.e. time to LR or Death, if NA they have not recurred or died
+      StatusLTPFCSS                = ltpf_cs_survival_status_list,
+      LastImagingDate              = asDateWithOrigin(last_imaging_follow_up_list),
+      FirstLTPDate                 = asDateWithOrigin(ltp_date_list),
+      NoRxBeforeFirstLTP           = ltp_no_rx_before,
+      LastKnownAlive               = asDateWithOrigin(survival_last_alive_list),
+      StatusOverallSurvival        = survival_overall_status_list,    # Overall survival
       StatusCancerSpecificSurvival = survival_cancer_specific_status_list, # Cancer related survival
-      TimeSurvival = survival_days_list/365.25,
-      Deceased = survival_deceased_list,
-      DeceasedDate = asDateWithOrigin(survival_deceased_date),
-      CancerRelatedDeath = survival_deceased_related,
-      LostToFU = survival_lost_to_fu,
-      LostToFUDate = asDateWithOrigin(survival_lost_to_fu_date)
+      TimeSurvival                 = survival_days_list/365.25,
+      Deceased                     = survival_deceased_list,
+      DeceasedDate                 = asDateWithOrigin(survival_deceased_date),
+      CancerRelatedDeath           = survival_deceased_related,
+      LostToFU                     = survival_lost_to_fu,
+      LostToFUDate                 = asDateWithOrigin(survival_lost_to_fu_date)
     )
+    # Now clean up the data into individual cancer and benign tables
+    cancerData <<- allData[!is.na(allData$DiagnosisType) & allData$DiagnosisType != "B", ]
+    cancerData <<- cancerData[, !colnames(cancerData) %in% c("DiagnosisBn")]
+    benignData <<- allData[!is.na(allData$DiagnosisType) & allData$DiagnosisType == "B", ]
+    benignData <<- benignData[, !colnames(benignData) %in% c("Diagnosis1o", "Diagnosis2o", "NoRxBeforeFirstLTP", "TimeLTPF", "StatusLTPF", "TimeLTPFOS", "StatusLTPFOS", "TimeLTPFCSS", "StatusLTPFCSS")]
   }
 }
 

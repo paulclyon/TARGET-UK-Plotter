@@ -201,6 +201,7 @@ reloadStudyEvent <- function(input, output, session, api) {
 
   ## The first step is just move the factors to the api
   api$organFactors            <- c("All", organFactors)
+  api$modalityFactors         <- c("All", modalityFactors)
   api$genderFactors           <- genderFactors
   api$cctaeGradeFactors       <- cctaeGradeFactors
   api$diagnosisSubtypeFactors <- diagnosisSubtypeFactors
@@ -249,7 +250,7 @@ reloadStudyEvent <- function(input, output, session, api) {
 
 apiServer <- function(input, output, session)
 {
-  api <- reactiveValues(connected = FALSE, loaded = FALSE, organFactors = NULL, genderFactors = NULL, cctaeGradeFactors = NULL)
+  api <- reactiveValues(connected = FALSE, loaded = FALSE, organFactors = NULL, modalityFactors = NULL, genderFactors = NULL, cctaeGradeFactors = NULL)
   output$apiStatus <- renderAPIStatus(api)
   observeEvent(input$connectAPI, disableReenable("connectAPI", connectAPIEvent, input, api))
   observeEvent(input$disconnectAPI, disableReenable("disconnectAPI", disconnectAPIEvent, api))

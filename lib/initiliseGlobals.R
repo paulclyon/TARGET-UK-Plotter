@@ -7,8 +7,18 @@ initialiseGlobals <- function()
   aeTableColNames                <<- c("PtID","Organ","Complication","DateofOnset","DateofResolution","Grade","Description","Intervention","InterventionDate","AdditionalHopsitalDays","PostDischarge","Duration")
   dataIntegrityColNames          <<- c("PtID","RefID","Date","Organ(s)","Error")
   loggerColNames                 <<- c("TimeStamp","IsError","Message")
-  #recurrenceColNames             <<- c("imaging.date","exam.type","organ","local.recurrence","no.with.lr","treatment.for.lr","new.in.target.organ","distant.progression","disease.status")
-  recurrenceColNames             <<- c("imaging.date","exam.type","local.recurrence","new.in.target.organ","distant.progression","disease.status","free-text")
+  
+  newRecurrenceMatrix <<- T
+  if (newRecurrenceMatrix == T)
+  {
+    # FIXME : new table
+    recurrenceColNames           <<- c("imaging.date","exam.type","organ","ltp","ltp.list","treatment.for.ltp","new.in.target.organ","distant.progression","disease.status")
+  }
+  else
+  {
+    # FIXME : old table
+    recurrenceColNames           <<- c("imaging.date","exam.type","ltp","new.in.target.organ","distant.progression","disease.status","ablated.organ")
+  }
   
   clinicalfuColNames             <<- c("followup.date","clinician.type","clinician.name","impression","outcome")
   rxdone_diagnosis_type_list     <<- c()
@@ -17,8 +27,9 @@ initialiseGlobals <- function()
   rxdone_diagnosis_bn_list       <<- c()
   rxdone_diagnosis_un_list       <<- c()
   rxdone_organ_list              <<- c()
-  rxdone_sex_list                <<- c()
   rxdone_modality_list           <<- c()
+  rxdone_max_tumour_size_list    <<- c()
+  rxdone_sex_list                <<- c()
   rxdone_tariff_list             <<- c()
   rxdone_pt_list                 <<- c()
   rxdone_refdate_list            <<- c()
@@ -59,6 +70,8 @@ initialiseGlobals <- function()
   survival_diagnosis_bn_list     <<- c()
   survival_diagnosis_un_list     <<- c()
   survival_first_rx_date         <<- c()
+  suvival_rx_modalities          <<- c()
+  survival_max_tumour_size_list  <<- c()
   survival_days_list             <<- c()
   survival_deceased_list         <<- c()
   survival_deceased_date         <<- c()
@@ -68,15 +81,15 @@ initialiseGlobals <- function()
   survival_overall_status_list   <<- c()
   survival_cancer_specific_status_list <<- c()  
   survival_last_alive_list       <<- c() # This is the last clinical follow-up date or last imaging date, whatever is later
-  local_recurrence_list          <<- c()
-  local_recurrence_status_list   <<- c()
-  local_recurrence_date_list     <<- c()
-  local_recurrence_days_list     <<- c()
-  local_recurrence_no_rx_before  <<- c()
-  lrf_os_survival_days_list      <<- c() # Local recurrence-free overall survival days
-  lrf_os_survival_status_list    <<- c() # Local recurrence-free overall survival status
-  lrf_cs_survival_days_list      <<- c() # Local recurrence-free cancer specific survival days
-  lrf_cs_survival_status_list    <<- c() # Local recurrence-free cancer specific survival status
+  ltp_list                       <<- c()
+  ltp_status_list                <<- c()
+  ltp_date_list                  <<- c()
+  ltp_days_list                  <<- c()
+  ltp_no_rx_before               <<- c()
+  ltpf_os_survival_days_list     <<- c() # Local Tumour Progression-free overall survival days
+  ltpf_os_survival_status_list   <<- c() # Local Tumour Progression-free overall survival status
+  ltpf_cs_survival_days_list     <<- c() # Local Tumour Progression-free cancer specific survival days
+  ltpf_cs_survival_status_list   <<- c() # Local Tumour Progression-free cancer specific survival status
   last_imaging_follow_up_list    <<- c()
   operator1                      <<- NA
   operator2                      <<- NA
@@ -97,7 +110,15 @@ initialiseGlobals <- function()
   # The major dataframes
   rxDoneData                     <<- NA
   rxWaitData                     <<- NA
-  monthlyRxWaitData              <<- NA
+  #monthlyRxWaitData              <<- NA
+  
+  monthlyRxWaitData <<- data.frame(
+    MonthStart    = as.Date(character()),
+    Counts        = integer(),
+    Type          = character(),
+    OnWaitingList = integer()
+  )
+  
   refclockstop.df                <<- NA
   recurrence.df                  <<- NA
   clinicalfu.df                  <<- NA
@@ -109,7 +130,8 @@ initialiseGlobals <- function()
   operatorPlot                   <<- ggplot()
   patientData                    <<- NA
   studyData                      <<- NA
-  survivalData                   <<- NA
+  cancerData                     <<- NA
+  benignData                     <<- NA
   aeData                         <<- NA
   survivalPlotSex                <<- ggplot()
   survivalPlotOrgan              <<- ggplot()

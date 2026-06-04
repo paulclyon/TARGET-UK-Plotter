@@ -52,8 +52,8 @@ castor_api <<- new.env()
 diagnosis_type_Factors <<- c("All", "Primary", "Secondary", "Benign", "Unknown")
 diagnosisSubtypeFactors <<- c()
 organFactors <<- c()
-genderFactors <<- c()
 modalityFactors <<- c("Microwave", "Cryotherapy", "Radiofrequency")
+genderFactors <<- c()
 operator1Factors <<- c()
 anaesthetist1Factors <<- c()
 operatorAllFactors <<- c()
@@ -97,9 +97,10 @@ ui <- dashboardPage(
         id = "tablesID",
         tabName = "tables",
         icon = icon("table"),
-        menuSubItem("Pathway Table", tabName = "rxPathwayTab"),
-        menuSubItem("Adverse Events Table", tabName = "aeTab"),
-        menuSubItem("Recur./Survival Table", tabName = "survivalTab")
+        menuSubItem("Pathway Table",         tabName = "rxPathwayTab"),
+        menuSubItem("Adverse Events Table",  tabName = "aeTab"),
+        menuSubItem("Cancer Table",          tabName = "cancerTab"),
+        menuSubItem("Benign Table",          tabName = "benignTab")
       ), id = "tablesMenuItem")),
       hidden(tagAppendAttributes(menuItem(
         "Data Validation",
@@ -178,7 +179,8 @@ ui <- dashboardPage(
       tabItem("referralTciCalendar", referralTciCalendarTab()),
       tabItem("rxPathwayTab", pathwayTab()),
       tabItem("aeTab", aeTab()),
-      tabItem("survivalTab", survivalTab()),
+      tabItem("cancerTab", cancerTab()),
+      tabItem("benignTab", benignTab()),
       tabItem("dataIntegrityTab", dataIntegrityTab()),
       tabItem("loggerTab", loggerTab()),
       tabItem("reportWaitingList", reportWaitingListTab()),
@@ -294,7 +296,8 @@ server <- function(input, output, session) {
   aeTableServer(input, output, session, isDocker, api)
   recurrencePlotServer(input, output, session, api, plots)
   survivalPlotServer(input, output, session, api, plots)
-  survivalTableServer(input, output, session, isDocker, api)
+  cancerTableServer(input, output, session, isDocker, api)
+  benignTableServer(input, output, session, isDocker, api)
   dataIntegrityTableServer(input, output, session, isDocker)
   loggerTableServer(input, output, session, isDocker)
   referralStatusPlotServer(input, output, session, api, plots)

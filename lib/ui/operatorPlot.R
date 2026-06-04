@@ -60,7 +60,7 @@ operatorPlotServer <- function(input, output, session, plots) {
       filteredRxDoneData <- filteredRxDoneData %>% filter(Anaesthetist1 %in% input$anaesthetistPlotDropdown)
     }
     p <- finalOperatorPlotInput()
-    p <- p %+% subset(filteredRxDoneData)
+    p <- p + subset(filteredRxDoneData)
 
     # We need to round up to get the bin to include the full month otherwise it loses treatment data
     p <- p + scale_x_date(

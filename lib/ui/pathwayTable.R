@@ -15,7 +15,8 @@ pathwayTab <- function() {
         ),
         selectInput("pathwayTabSelectedOrgans", "Target Organ", choices = organFactors),
         selectInput("pathwayTabSelectedDiagnosisType", "Diagnosis Type",
-                    choices = c("All", "Primary", "Secondary", "1o & 2o", "Benign", "Unknown"))
+                    choices = c("All", "Primary", "Secondary", "1o & 2o", "Benign", "Unknown")),
+        selectInput("pathwayTabSelectedModality", "Modality", choices = modalityFactors)
       ),
       column(
         width = 5,
@@ -66,6 +67,13 @@ pathwayTableServer <- function(input, output, session, isDocker, api) {
   })
   
   observe({
+    req(api$modalityFactors)
+    updateSelectInput(session, "pathwayTabSelectedModality", "Modality",
+                      choices = c("All", api$modalityFactors),
+                      selected = "All")
+  })
+  
+  observe({
     req(api$diagnosis_type_Factors)
     updateSelectInput(
       session, "pathwayTabSelectedDiagnosisType",
@@ -100,6 +108,9 @@ pathwayTableServer <- function(input, output, session, isDocker, api) {
     if (!is.null(input$pathwayTabSelectedOrgans) && input$pathwayTabSelectedOrgans != "All")
       data <- data[data$Organs %in% input$pathwayTabSelectedOrgans, ]
     
+    if (!is.null(input$pathwayTabSelectedModality) && input$pathwayTabSelectedModality != "All")
+      data <- data[data$Modality %in% input$pathwayTabSelectedModality, ]
+    
     subtypes <- input$pathwayTabSelectedSubtypes
     if (is.null(subtypes)) subtypes <- c("All")
     diagType <- input$pathwayTabSelectedDiagnosisType
@@ -126,7 +137,10 @@ pathwayTableServer <- function(input, output, session, isDocker, api) {
     switch(input$rxTimesTableRadio,
            "rxdoneTable"      = rxDoneData,
            "rxwaitTable"      = rxWaitData,
-           "monthlyWaitTable" = monthlyRxWaitData
+           "monthlyWaitTable" = {
+             processMonthlyRxWaitingList(input$startDate, input$endDate, input$pathwayTabSelectedOrgans)
+             monthlyRxWaitData
+           }
     )
   })
   

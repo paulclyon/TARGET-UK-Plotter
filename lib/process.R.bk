@@ -60,7 +60,7 @@ processData <- function()
     }
     else
     {
-      # If unknown or N/A diagnosis type then nothing to do - everything is NA
+      # If unknown or N/A diagnosis type then nothing to to -everything is NA
     }
     
     #FIXME I don't know how to tell if archived any more since v1.1.0 to 2.1.0 of castoRedc
@@ -162,8 +162,7 @@ processData <- function()
     survival_organ <- NA # Set this now as null, and check on each referral
     date_of_last_clinical_fu <- NA
     
-    # FIX 1: Initialise patient-level max tumour size accumulator (was never updated in original)
-    survival_max_tumour_size <- NA
+    survival_max_tumour_size <- 0
     
     # Get clinical status / last clinical follow-up
     clinicalfuJSON <- getDataEntry("fu_clinical_matrix", i)
@@ -183,7 +182,7 @@ processData <- function()
         {
           # Get the last imaging follow-up date
           thisClinicalFUDate <- convertToDate(clinicalfu.df$followup.date[j])
-          
+
           # Get the last clinical follow-up date
           if (is.na(date_of_last_clinical_fu) || date_of_last_clinical_fu < thisClinicalFUDate)
           {
@@ -210,7 +209,7 @@ processData <- function()
     indication <- getDataEntry("fu_indication", i)
     
     if (!is.na(indication) & indication == "Malignant")
-      #if (is.na(indication) | indication == "Malignant") # FIXME this is temporary until we define the malignant ones in imaging FU in EDC
+    #if (is.na(indication) | indication == "Malignant") # FIXME this is temporary until we define the malignant ones in imaging FU in EDC
     {
       #FIXME: Matrix flipping!
       if (newRecurrenceMatrix ==T)
@@ -227,14 +226,16 @@ processData <- function()
       {
         imagingMatrix <- jsonlite::fromJSON(imagingJSON)
         imaging.df <- as.data.frame(t(sapply(imagingMatrix, unlist)))
+        logger(paste("FIXME: imaging.df colnames=", paste(colnames(imaging.df), collapse=", ")))
+        logger(paste("FIXME: imaging.df ncol=", ncol(imaging.df)))
         
         if (newRecurrenceMatrix ==T)
           (stopifnot("Recurrence matrix has unexpected number of columns - has the Castor schema changed?" = 
-                       ncol(imaging.df) == length(recurrenceColNames)))
+            ncol(imaging.df) == length(recurrenceColNames)))
         colnames(imaging.df) <- recurrenceColNames
         logger(paste("FIXME: raw ltp value=", imaging.df$ltp[j], " class=", class(imaging.df$ltp[j])))
         imaging.df <- imaging.df[apply(imaging.df, 1, function(row) any(row != "")), ] # Strip out any empty trailing rows
-        
+
         # For each row in the matrix, check if there is any local tumour progression, if so grab the first date of local tumour progression
         for (j in 1:nrow(imaging.df))
         {
@@ -274,13 +275,13 @@ processData <- function()
               )
             }
             logger(paste("FIXME ltp= : ",thisLTP))
-            
+
             # if (thisLTP == "Y" || thisLTP == "YA" || thisLTP == "YNA")
             if (substring(thisLTP, 1, 1) != "N") # Good catch all for local tumour progression, also respecting historical coding "N"
             {
               # This records if it is local tumour progression after 1, 2 or >2 treatments (the definition of LTP can vary!) - the local tumour progression string is like '1LTP-U' for 1st LTP/RD - untreated
               thisRecurrenceAfterRxNo <- substring(thisLTP,1,1)
-              
+
               # The date of this imaging, which has show local tumour progression
               thisRecurrenceDate <- thisImagingDate
               
@@ -369,21 +370,11 @@ processData <- function()
     # Get these dates...
     date_of_diagnosis <- NA # Reset this each time we enter the referral loop
     date_of_first_rx  <- NA # Reset this each time we enter the referral loop
-    
+
     if (pt_ref_count == 0)
     {
       logger(" No referrals for this patient")
     }
-    
-    # Initialise per-patient survival variables before referral loop
-    survival_overall_status  <- NA
-    survival_cancer_specific_status <- NA
-    survival_days <- NA
-    ltpf_os_survival_days   <- NA
-    ltpf_os_survival_status <- NA
-    ltpf_cs_survival_days   <- NA
-    ltpf_cs_survival_status <- NA
-    ltp_days  <- NA
     
     # For each referral...
     for (iRef in 1:pt_ref_count)
@@ -391,7 +382,7 @@ processData <- function()
       noRefsProcessed <<- noRefsProcessed + 1
       ptForRx <- getDataEntry(paste("ref_intention_rx_", as.integer(iRef), sep = ""), i)
       ptOffPathway <- getDataEntry(paste("ref_off_rx_pathway_", as.integer(iRef), sep = ""), i)
-      
+
       # Only continue if the patient is for treatment and is not off the pathway
       # (or if these things haven't been filled out and are NA so we can fix missing data using the plot)
       # Note that earlier version of castoRedc used "1" here, now it is "Yes" and "No"
@@ -399,8 +390,8 @@ processData <- function()
       {
         organForRx = NA
         org <- getDataEntry(paste("ref_organ_", as.integer(iRef), sep = ""), i)
-        
-        # The older getDataEntry() function/castoRedc library would give "L", "K" etc but the newer gives "Liver", "Kidney" etc which I don't understand!
+
+        # The older getDataEntry() function/castoRedc librray would given "L", "K" etc but the newer gives "Liver", "Kidney" etc which I don't understand!
         if (is.na(org))
         {
           org = "Other/Unspecified"
@@ -408,16 +399,16 @@ processData <- function()
         if (packageVersion("castoRedc") == '1.1.0')
         {
           organForRx <- switch(as.character(org),
-                               "LIV" = "Liver",
-                               "L" = "Lung",
-                               "K" = "Kidney",
-                               "P" = "Pancreas",
-                               "A" = "Adrenal",
-                               "M" = "MSK",
-                               "B" = "Bone",
-                               "MO" = "Multiple Organs",
-                               "STMO" = "ST Multiple Organs",
-                               "Other/Unspecified" #This is the catch-all default
+            "LIV" = "Liver",
+            "L" = "Lung",
+            "K" = "Kidney",
+            "P" = "Pancreas",
+            "A" = "Adrenal",
+            "M" = "MSK",
+            "B" = "Bone",
+            "MO" = "Multiple Organs",
+            "STMO" = "ST Multiple Organs",
+            "Other/Unspecified" #This is the catch-all default
           )
         }
         else
@@ -436,9 +427,9 @@ processData <- function()
           survival_organ <- "Multiple Organs"
         }
         
-        # Get the date of referral, if it is NA later on we set it as the treatment date, if that is set, as a bit of a hack
+        # Get the data of referral, if it is NA later on we set it as the treatment date, if that is set, as a bit of a hack
         ref_date <- convertToDate(getDataEntry(paste("ref_date_recd_", as.integer(iRef), sep = ""), i))
-        
+
         # If we don't have valid referral date received, use referral letter date as next best thing
         if (is.na(ref_date))
         {
@@ -480,7 +471,7 @@ processData <- function()
           # These must match the modality radiobutton options is app.R
           ref_tci_status <- switch(as.character(thisTciStatus), "1"="Provisional", "2"="Confirmed", "3"="Deferred", "4"="Cancelled", "Status Unknown")
         }
-        
+
         # Sort Clock Stop
         # Parse the JSON and get it into a nice data frame
         refclockstop.df <- NA
@@ -524,15 +515,15 @@ processData <- function()
                 # If we don't yet have a DTT date (for example see in clinic after radiotherapy), or have stopped the clock before the DTT...
                 if (is.na(ref_dtt_date) || (!is.na(ref_dtt_date) && dateClockstopped < ref_dtt_date))
                 {
-                  clockstoppedDaysPreDTT <- clockstoppedDaysPreDTT +
-                    as.integer(difftime(dateClockstopped, dateClockRestart, units = "days"), units = "days")
+                    clockstoppedDaysPreDTT <- clockstoppedDaysPreDTT +
+                      as.integer(difftime(dateClockstopped, dateClockRestart, units = "days"), units = "days")
                 }
                 else
                 {
-                  clockstoppedDaysPostDTT <- clockstoppedDaysPostDTT +
-                    as.integer(difftime(dateClockstopped, dateClockRestart, units = "days"), units = "days")
+                    clockstoppedDaysPostDTT  = clockstoppedDaysPostDTT +
+                      as.integer(difftime(dateClockstopped, dateClockRestart, units = "days"), units = "days")
                 }
-                
+  
                 clockstoppedReason <- paste(clockstoppedReason, " ", j, ":", refclockstop.df$reason[j], sep = "")
                 
                 if (virtualRestart == T) {
@@ -552,7 +543,7 @@ processData <- function()
           clockstoppedDaysPostDTT = NA # Don't plot all the zeros, only if it is non-zero
         }
         
-        # Sort Rx Date. Note used to use the ref_date_rx_i field but it is a calculation of anaes_date_i
+        # Sort Rx Date. Note used to use the ref_date_rx_i field but is is a calculation of anaes_date_i
         # and had some issues with it being a lot of NAs but not all NAs (weird), anyway went for the source
         # and it works much better!
         ref_rx_date <- convertToDate(getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i))
@@ -595,11 +586,6 @@ processData <- function()
           
           # Get the free text for Rx and the modality of the treatment (for cost code purposes)
           rxTableJSON <- getDataEntry(paste("rx_tumour_rx_matrix_", as.integer(iRef), sep = ""), i, T)
-          
-          # FIX 2: Initialise maxTumourSize and modalityForRx before the JSON block so they are always defined
-          maxTumourSize <- NA
-          modalityForRx <- NA
-          
           if (!is.na(rxTableJSON) && str_length(rxTableJSON) > 0 )
           {
             rxTableMatrix <- jsonlite::fromJSON(rxTableJSON)
@@ -619,7 +605,8 @@ processData <- function()
             
             # For each row in the matrix find out which modality has been used
             # Once a modality has been found we are done as we make assumption we don't mix and max for any given case
-            # If there are multiple modalities for different tumours, multiple organs, the code is not that clever yet...
+            # If there are multiple modalities for different tumours, mulitple organs, the code is not that clever yet...
+            modalityForRx <- NA
             for (j in 1:nrow(rxTable.df))
             {
               modalityForRx <- rxTable.df$modality[j]
@@ -634,17 +621,12 @@ processData <- function()
                 modalityForRx <- "Other/Unknown"
               }
             }
-            # This is like 'microwave,cryotherapy' but won't repeat e.g. not 'microwave,cryotherapy,cryotherapy'
+            # This is like 'microwave,cryotherapy' but won't repeat e.g. not 'microave,cryotherapy,cryotherapy'
             modalityListForThisPatient <- unique(append(modalityListForThisPatient, modalityForRx))
-            
-            # maxTumourSize computed only when rxTable.df exists
-            maxTumourSize <- if (all(is.na(as.numeric(rxTable.df$lesion.size)))) NA else max(as.numeric(rxTable.df$lesion.size), na.rm = TRUE)
           }
           
-          # Roll up per-referral maxTumourSize into patient-level survival_max_tumour_size
-          if (!is.na(maxTumourSize)) {
-            survival_max_tumour_size <- if (is.na(survival_max_tumour_size)) maxTumourSize else max(survival_max_tumour_size, maxTumourSize, na.rm = TRUE)
-          }
+          # For each row in the matrix find out which is the largest tumour size treated
+          maxTumourSize <- max(rxTable.df$lesion.size, na.rm = TRUE)
           
           # Get the tariff for the Rx
           tariffForRx <- getTariffForRx(organForRx, modalityForRx)
@@ -666,8 +648,8 @@ processData <- function()
                 earlyAETable.df[[as.character(col)]] <- NA
               }
             }
-            
-            # Now we can add new columns either side
+
+            # Now we can important new columns either add either side
             earlyAETable.df <- earlyAETable.df[apply(earlyAETable.df, 1, function(row) any(row != "")), ] # Remove the empty rows
             earlyAETable.df <- cbind(organForRx,earlyAETable.df)  # Pre-pend the Organ for Rx
             earlyAETable.df <- cbind(ptID,earlyAETable.df)        # Pre-pend the Patient ID
@@ -725,7 +707,7 @@ processData <- function()
           aeData$Grade[is.na(aeData$Grade)]  <<- "Unspecified" # Replace 'unspecified i.e. NA grade with 'Unspecified'
           aeData$Grade[aeData$Grade == ""]   <<- "Unspecified" # Replace 'unspecified i.e. "" grade with 'Unspecified'
           aeData$Grade[aeData$Grade == " "]  <<- "Unspecified" # Replace 'unspecified i.e. "" grade with 'Unspecified'
-          
+
           # Time between referral and Rx
           ref_rx_days = as.numeric(difftime(ref_rx_date, ref_date, units = "days"), units = "days")
           if (ref_rx_days < 0)
@@ -735,11 +717,11 @@ processData <- function()
           
           # Correct for clockstop
           if (!is.na(clockstoppedDaysPreDTT)) {
-            ref_dtt_days <- ref_dtt_days + clockstoppedDaysPreDTT # Remember clockstoppedDaysPreDTT is -ve
+            ref_dtt_days <- ref_dtt_days + clockstoppedDaysPreDTT # Remember clockstoppedDaysPostDTT is -ve
             ref_rx_days  <- ref_rx_days  + clockstoppedDaysPreDTT # Remember clockstoppedDaysPreDTT is -ve
           }
           if (!is.na(clockstoppedDaysPostDTT)) {
-            ref_rx_days <- ref_rx_days + clockstoppedDaysPostDTT # Remember clockstoppedDaysPostDTT is -ve
+            ref_rx_days <- ref_rx_days + clockstoppedDaysPostDTT # Remember clockstoppedDaysPreDTT is -ve
           }
           if (!is.na(ref_dtt_days)) {
             ref_dtt_rx_days <- ref_rx_days - ref_dtt_days
@@ -749,7 +731,7 @@ processData <- function()
           
           # Update date of first rx
           if (!is.na(date_of_first_rx)) {
-            date_of_first_rx <- dplyr::if_else(   # FIX 3: was incorrectly updating date_of_diagnosis here
+            date_of_diagnosis <- dplyr::if_else(
               asDateWithOrigin(ref_rx_date) < asDateWithOrigin(date_of_first_rx),
               ref_rx_date,
               date_of_first_rx
@@ -789,7 +771,7 @@ processData <- function()
             rxdone_rxdate_list                 <<- append(rxdone_rxdate_list,                   ref_rx_date)
             rxdone_dtt_days_list               <<- append(rxdone_dtt_days_list,                 ref_dtt_days)    # Days from Ref to DTT
             rxdone_rx_days_list                <<- append(rxdone_rx_days_list,                  ref_rx_days)     # Days from Ref to Rx
-            rxdone_dtt_rx_days_list            <<- append(rxdone_dtt_rx_days_list,              ref_dtt_rx_days) # Days from DTT to Rx
+            rxdone_dtt_rx_days_list            <<- append(rxdone_dtt_rx_days_list,              ref_dtt_rx_days) # Days from DDT to Rx
             rxdone_clockstop_days_predtt_list  <<- append(rxdone_clockstop_days_predtt_list,    clockstoppedDaysPreDTT)
             rxdone_clockstop_days_postdtt_list <<- append(rxdone_clockstop_days_postdtt_list,   clockstoppedDaysPostDTT)
             rxdone_clockstop_reason_list       <<- append(rxdone_clockstop_reason_list,         clockstoppedReason)
@@ -808,13 +790,13 @@ processData <- function()
           # We have not treated so we can use the difference from current date and referral
           ptRefTreated = F
           ref_rx_days <- difftime(Sys.Date(), ref_date, units = "days")
-          
+
           if (!is.na(clockstoppedDaysPreDTT)) {
-            ref_rx_days <- ref_rx_days + clockstoppedDaysPreDTT  # Remember clockstoppedDaysPreDTT is -ve
+            ref_rx_days <- ref_rx_days + clockstoppedDaysPreDTT  # Remember clockstoppedDaysPreDTT and clockstoppedDaysPostDTT are -ve
           }
-          
+
           if (!is.na(clockstoppedDaysPostDTT)) {
-            ref_rx_days <- ref_rx_days + clockstoppedDaysPostDTT  # Remember clockstoppedDaysPostDTT is -ve
+            ref_rx_days <- ref_rx_days + clockstoppedDaysPostDTT  # Remember clockstoppedDaysPreDTT and clockstoppedDaysPostDTT are -ve
           }
           
           # Add to the treatment waiting table
@@ -854,62 +836,71 @@ processData <- function()
           notForRxButRxdCount <<- notForRxButRxdCount+1
           addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), date=ref_rx_date, error=paste("Referral info states patient is not for treatment but yet this referral has a treatment date - ignored from treatment data.", sep = ""))
         }
-      }
-    } # FIX 4: This correctly ends the for loop for each referral for this patient
-    
-    # Now we can do the survival & local tumour progression analysis as we have been through ALL referrals...
-    # We only care about recording survival & local tumour progression if we have treated the patient
-    if (!is.na(date_of_first_rx))
-    {
-      # If we don't have a date for when they are last alive, we can at least assume they were alive on the day we first treated them
-      if (is.na(last_alive_date))
-      {
-        last_alive_date <- date_of_first_rx
-      }
+      } # This ends the for loop for each referral for this patient ...
       
-      # Set the survival status
-      # Censored observations are subjects who either die of causes other than the disease of interest or are lost to follow-up
-      # https://thriv.github.io/biodatasci2018/r-survival.html
-      if (deceased == 1)
+      # Now we can do the survival & local tumour progression anlaysis as we have been through all referrals...
+      # We only care about recording survival & local tumour progression if we have treated the patient
+      if (!is.na(date_of_first_rx))
       {
-        survival_overall_status <- 2
-        if (deceased_related == 0)
+        # If we don't have a date for when they are last alive, we can at least assume they were alive on the the day we first treated them
+        if (is.na(last_alive_date))
         {
-          survival_cancer_specific_status <- 0   # Censored as died of something else
+          last_alive_date <- date_of_first_rx
+        }
+        
+        # Set the survival status
+        # Censored observations are subjects who either die of causes other than the disease of interest or are lost to follow-up
+        # https://thriv.github.io/biodatasci2018/r-survival.html
+        if (deceased == 1)
+        {
+          survival_overall_status <- 2
+          if (deceased_related == 0)
+          {
+            survival_cancer_specific_status <- 0   # Censored as died of something else
+          }
+          else
+          {
+            survival_cancer_specific_status <- 1   # Dead due to cancer at the time of death - these are the only ones which count on Kaplin-Meyer
+            # Note the use of 0/1 rather than 1/2 - if we use 1/2 and there are no cancer deaths then the package thinks they are ALL CR-deaths!
+          }
+          if (!is.na(deceased_date))
+          {
+            survival_days <- as.numeric(difftime(deceased_date, date_of_first_rx, units = "days"), units = "days")
+          }
+          else
+          {
+            # If deceased but no valid deceased date, log it and use current date as deceased date as best guess
+            survival_days <- as.numeric(difftime(deceased_date, Sys.Date(), units = "days"), units = "days")
+            addDataIntegrityError(ptID, date=deceased_date, error=paste("Patient is deceased but date of death not specified or valid, thus defaulting to today.", sep = ""))
+          }
         }
         else
         {
-          survival_cancer_specific_status <- 1   # Dead due to cancer at the time of death - these are the only ones which count on Kaplan-Meyer
-          # Note the use of 0/1 rather than 1/2 - if we use 1/2 and there are no cancer deaths then the package thinks they are ALL CR-deaths!
-        }
-        if (!is.na(deceased_date))
-        {
-          survival_days <- as.numeric(difftime(deceased_date, date_of_first_rx, units = "days"), units = "days")
-        }
-        else
-        {
-          # If deceased but no valid deceased date, log it and use current date as deceased date as best guess
-          survival_days <- as.numeric(difftime(Sys.Date(), date_of_first_rx, units = "days"), units = "days")
-          addDataIntegrityError(ptID, date=deceased_date, error=paste("Patient is deceased but date of death not specified or valid, thus defaulting to today.", sep = ""))
+          # The patient is still alive ...
+          survival_cancer_specific_status <- 0
+          survival_overall_status <- 1   # Censored after the point of last clinical or imaging follow-up, there is no other option for status it is dead or censored
+          if (!is.na(last_alive_date))
+          {
+            survival_days <- as.numeric(difftime(last_alive_date, date_of_first_rx, units = "days"), units = "days")
+          }
+          else
+          {
+            # If there is no record of death but we don't have any follow-up we should assume alive I don't think...
+            survival_days <- NA
+          }
         }
       }
       else
       {
-        # The patient is still alive ...
-        survival_cancer_specific_status <- 0
-        survival_overall_status <- 1   # Censored after the point of last clinical or imaging follow-up, there is no other option for status it is dead or censored
-        if (!is.na(last_alive_date))
-        {
-          survival_days <- as.numeric(difftime(last_alive_date, date_of_first_rx, units = "days"), units = "days")
-        }
-        else
-        {
-          # If there is no record of death but we don't have any follow-up we should assume alive I don't think...
-          survival_days <- NA
-        }
+        survival_days <- NA
       }
       
       # If you have cancer... 'Dead or alive, you are coming with me...'
+      ltpf_os_survival_days   <- NA
+      ltpf_os_survival_status <- NA
+      ltpf_cs_survival_days   <- NA
+      ltpf_cs_survival_status <- NA
+      ltp_days  <- NA
       if (!is.na(diagnosis_type) && diagnosis_type != "B")
       {
         # Get the local tumour progression days i.e. if there is local tumour progression, how long did it take after first treatment?
@@ -929,6 +920,18 @@ processData <- function()
         }
         
         # Set the local tumour progression-free survival days and status
+        # I.e. work out how long they have lived without any knowledge of local tumour progression
+        # i.e. last known alive date if not recurred, or local tumour progression date if recurred
+        #
+        # For LTPFS curves the event is usually defined as local tumour progression (tumour coming back at the original site).
+        # Death without local tumour progression is usually treated as a censoring event, not as a local tumour progression i.e. if a patient dies 
+        # without documented LTP -> their data line is censored at their death date.
+        # If a patient has LTP (whether or not they later die) -> that's counted as an event and the curve steps down.
+        # So on the LTPFS KM drops in curve = LTP, censoring = deaths without recurrnce or end of follow-up.
+        # BUT sometimes studies define LTPFS differently i.e. including death from any cause as an event (i.e. LTPF-OS)
+        # Here we work about both and the user can choose what KM they want
+  
+        # If they have locally recurred...
         if (!is.na(date_of_first_ltp))
         {
           ltpf_os_survival_days   <- ltp_days
@@ -936,8 +939,10 @@ processData <- function()
           ltpf_cs_survival_days   <- ltp_days
           ltpf_cs_survival_status <- 2   # Recurred, treated like death
         }
+        # If they haven't locally recurred but are now deceased...
         else if (deceased == 1)
         {
+          # Presume they can't die before they recur, but if they have kick out a warning...
           if (!is.na(ltp_days) && survival_days < ltp_days)
           {
             addDataIntegrityError(ptID, date=date_of_first_ltp, error = paste("Patient appears to have died before local tumour progression date.", sep = ""))
@@ -946,7 +951,7 @@ processData <- function()
           ltpf_os_survival_days <- survival_days
           ltpf_os_survival_status <- 2     # Dead, treated like local tumour progression
           ltpf_cs_survival_days <- survival_days
-          if (deceased_related == 0)
+          if (deceased_related == 0)      # Here the LFS (cancer specific) survival status depends on if they had cancer
           {
             ltpf_cs_survival_status <- 1   # Dead but not of cancer cause, censor this
           }
@@ -955,6 +960,7 @@ processData <- function()
             ltpf_cs_survival_status <- 2   # Dead of cancer cause, treated same as local tumour progression (it counts)
           }
         }
+        # They haven't recurred nor are they deceased, they are just lost to follow-up
         else
         {
           ltpf_os_survival_days <- survival_days
@@ -964,22 +970,32 @@ processData <- function()
         }
       }
       
-      logger(paste("     Survival summary: first-rx=", date_of_first_rx,
-                   " survival-days=", survival_days,
+      logger(paste("     Ref=", iRef, "/", pt_ref_count, 
+                   " (", organForRx, ") treated=", ptRefTreated, " ref-date=", ref_date, " rx-date=", ref_rx_date,
+                   " dtt-days=", ref_dtt_days, " rx-days=", ref_rx_days, 
+                   dplyr::if_else(!is.na(ref_rx_date), "", "(*)", missing = ""),
+                   " survival-1st-rx=", survival_days,
                    dplyr::if_else(deceased == 1, " (deceased)", " (alive)", missing = " (alive)"),
                    sep = ""))
-      
-      # Now we have been through all the referrals update the survival data...
-      age_at_first_rx <- NA
+    }
+    #else {
+    #  logger(paste("     Ref=", iRef, "/", pt_ref_count,
+    #               " (", organForRx, ") is not currently selected for Rx, skipping...", sep = ""))
+    #}
+    
+    # Now we have been through all the referrals update the survival data...
+    age_at_first_rx <- NA
+    if (!is.na(date_of_first_rx))
+    {
       if (!is.na(birth_year))
-      {
-        age_at_first_rx <- as.integer(format(asDateWithOrigin(date_of_first_rx), "%Y")) - birth_year
+        {
+          age_at_first_rx <- as.integer(format(asDateWithOrigin(date_of_first_rx), "%Y")) - birth_year
       }
       survival_pt_list              <<- append(survival_pt_list, ptID)
       survival_sex_list             <<- append(survival_sex_list, sex)
       survival_age_list             <<- append(survival_age_list, age_at_first_rx)
       survival_organ_list           <<- append(survival_organ_list, survival_organ)
-      survival_max_tumour_size_list <<- append(survival_max_tumour_size_list, survival_max_tumour_size)  # FIX 1: correct variable name and value
+      survival_max_tumour_size_list <<- append(survival_max_tumour_size_list, maxTumourSize)
       survival_diagnosis_type_list  <<- append(survival_diagnosis_type_list, diagnosis_type)
       survival_diagnosis_1o_list    <<- append(survival_diagnosis_1o_list,   diagnosis_1o)
       survival_diagnosis_2o_list    <<- append(survival_diagnosis_2o_list,   diagnosis_2o)

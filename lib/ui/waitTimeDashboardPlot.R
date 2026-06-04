@@ -125,13 +125,13 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
 
 
   output$plotWaitTimesDashboardRefToDTT <- renderPlotly({
-    p <- doWaitPlot(
+    p <- suppressWarnings(doWaitPlot(
       "RefToDTT",
       input$waitTimesDashboardPlotTypeRadio,
       waitTimesTimes(),
       input$waitTimesDashboardPlotDurationRadio,
       input$waitTimesDashboardPlotGroupRadio
-    )
+    ))
 
     height <- detectedHeight(input, "plotWaitTimesDashboardRefToDTT")
 
@@ -141,13 +141,13 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
   })
 
   output$plotWaitTimesDashboardRefToRx <- renderPlotly({
-    p <- doWaitPlot(
+    p <- suppressWarnings(doWaitPlot(
       "RefToRx",
       input$waitTimesDashboardPlotTypeRadio,
       waitTimesTimes(),
       input$waitTimesDashboardPlotDurationRadio,
       input$waitTimesDashboardPlotGroupRadio
-    )
+    ))
 
     height <- detectedHeight(input, "plotWaitTimesDashboardRefToRx")
 
@@ -157,13 +157,13 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
   })
 
   output$plotWaitTimesDashboardDTTToRx <- renderPlotly({
-    p <- doWaitPlot(
+    p <- suppressWarnings(doWaitPlot(
       "DTTToRx",
       input$waitTimesDashboardPlotTypeRadio,
       waitTimesTimes(),
       input$waitTimesDashboardPlotDurationRadio,
       input$waitTimesDashboardPlotGroupRadio
-    )
+    ))
 
     output$informationalWaitTimePlot <- renderText({
       informationalText()

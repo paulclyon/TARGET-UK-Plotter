@@ -4,6 +4,13 @@ processMonthlyRxWaitingList <- function(startDate, endDate, organs) {
 
   rxWaitData.filtered <- rxWaitData %>% filter(Organs %in% organs)
   rxDoneData.filtered <- rxDoneData %>% filter(Organs %in% organs)
+  
+  # Guard: if no data for these organs, leave monthlyRxWaitData as-is and return (this is needed for first rendering when data frame is still empty)
+  if (nrow(rxWaitData.filtered) == 0 && nrow(rxDoneData.filtered) == 0) {
+    removeNotification(id)
+    return(invisible(NULL))
+  }
+  
   firstRefDate <- min(c(rxWaitData.filtered$RefDate, rxDoneData.filtered$RefDate), na.rm = T)
   lastRefDate <- max(c(rxWaitData.filtered$RefDate, rxDoneData.filtered$RefDate), na.rm = T)
 

@@ -139,8 +139,9 @@ cleanBase <- function(data) {
   d
 }
 
-rxDoneClean <- cleanBase(rxDoneData)
 rxWaitClean <- cleanBase(rxWaitData)
+rxDoneClean <- cleanBase(rxDoneData) |>
+  filter(!(Ref_DTT == 0 & DTT_Rx == 0)) # This is a special fix to exclude for those cases which don't have a referral date, resulting in these zero entries
 
 # List of per-year data frames
 rxDoneByYear <- lapply(yearWindows, function(w) {

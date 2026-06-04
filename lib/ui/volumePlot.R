@@ -77,7 +77,7 @@ volumePlotServer <- function(input, output, session, api, tariff, plots) {
 
     # We need to call this as if the duration radiobutton changes, it otherwise doesn't trigger a replot
     p <- makeTreatmentVolumePlot(filteredRxDoneData, input$volumePlotDurationRadio)
-    p <- p %+% subset(filteredRxDoneData)
+    p <- p + subset(filteredRxDoneData)
 
     # Work out the tariff
     tariff$theTotalTariff <<- calculateTotalTariff(filteredRxDoneData)
