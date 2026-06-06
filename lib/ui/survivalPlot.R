@@ -3,6 +3,32 @@ survivalPlotTab <- function() {
     tabPanel(
       "SurvivalPlot",
       column(
+        width = 2,
+        div(
+          column(
+            width = 2,
+            div(
+              style =  "background-color: lightgrey;
+                          border: 2px solid blue;
+                          border-radius: 5px;
+                          padding: 10px;
+                          margin: 5px;
+                          height: 320px;
+                          writing-mode: vertical-rl;
+                          text-orientation: mixed;
+                          transform: rotate(180deg);
+                          overflow-wrap: break-word;
+                          display: flex;
+                          align-items: center;
+                          justify-content: center;
+                          text-align: center;
+                ",
+              textOutput("informationalSurvivalPlot")
+            )
+          )
+        )
+      ),
+      column(
         width = 3,
         dateInput(
           "survivalStartDate",
@@ -32,25 +58,33 @@ survivalPlotTab <- function() {
           step  = 1,
           ticks = TRUE
         ),
-        checkboxInput("survivalAllow2Rx","Allow 2xRx before LTP", value=TRUE)
-      ),
-      column(
-        width = 3,
-        radioButtons(
-          "survivalLTPFSRadio",
-          "Survival Plot Type",
-          c("Overall Survival (OS)" = 0, "Cancer Specific Survival (CSS)" = 1, "Local Tumour Progression-Free OS" = 2, "Local Tumour Progression-Free CSS" = 3)
+        conditionalPanel(
+          condition = "input.survivalLTPFSRadio == '2' || input.survivalLTPFSRadio == '3'",
+          checkboxInput("survivalAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
         )
       ),
       column(
-        width = 2,
+        width = 3,
         selectInput("survivalSelectedOrgans","Target Organ", choices = organFactors, selected = organFactors[1]),
         selectInput("survivalSelectedDiagnosisType", "Diagnosis Type", choices = diagnosis_type_Factors),
+        radioButtons(
+          "survivalLTPFSRadio",
+          "Survival Plot Type",
+          c("OS" = 0, "CSS" = 1, "LTP-Free OS" = 2, "LTP-Free CSS" = 3),
+          inline = TRUE
+        ),
         checkboxGroupInput(
           "survivalSelectedGenders",
           "Genders",
-          choices = genderFactors,
-          selected = genderFactors
+          choices = if (!is.null(genderFactors) &&
+                        length(genderFactors) > 0 &&
+                        !all(is.na(genderFactors))) {
+            setNames(genderFactors, substr(as.character(genderFactors), 1, 1))
+          } else {
+            character(0)
+          },
+          selected = genderFactors,
+          inline = TRUE
         )
       ),
       column(
@@ -112,15 +146,27 @@ survivalPlotServer <- function(input, output, session, api, plots)
   })
   
   observe({
-    updateCheckboxGroupInput(session, "survivalSelectedGenders", "Genders",
-                             choices = api$genderFactors,
-                             selected = api$genderFactors
-    )
+    gf <- api$genderFactors
+    if (!is.null(gf) && length(gf) > 0 && !all(is.na(gf))) {
+      updateCheckboxGroupInput(
+        session, "survivalSelectedGenders",
+        choices = setNames(gf, substr(as.character(gf), 1, 1)),
+        selected = gf,
+        inline = TRUE
+      )
+    } else {
+      updateCheckboxGroupInput(
+        session, "survivalSelectedGenders",
+        choices = character(0),
+        selected = character(0),
+        inline = TRUE
+      )
+    }
   })
   
   # Update tumour size slider range dynamically based on actual data
   observe({
-    sizes <- as.numeric(api$cancerData$survival_max_tumour_size)  # adjust column name to match your data frame
+    sizes <- as.numeric(api$cancerPerPatientData$survival_max_tumour_size)  # adjust column name to match your data frame
     sizes <- sizes[!is.na(sizes)]
     if (length(sizes) > 0) {
       dataMin <- floor(min(sizes))
@@ -150,6 +196,18 @@ survivalPlotServer <- function(input, output, session, api, plots)
       input$survivalTumourSizeRange[2]    # maxTumourSize
     )
   })
+  
+  output$informationalSurvivalPlot <- renderText({ informationalText() })
+  
+  informationalText <- reactive({
+    headerText <- "Informational:\n"
+    switch(input$survivalLTPFSRadio,
+           "0" = paste(headerText,"Overall Survival Plot"),
+           "1" = paste(headerText,"Cancer Specific Survival Plot"),
+           "2" = paste(headerText,"Local Tumour Progression-free Overall Survival Plot"),
+           "3" = paste(headerText,"Local Tumour Progression-free Cancer Specific Survival Plot"))
+  }
+  )
   
   height <- reactive(detectedHeight(input, "plotSurvivalCurve"))
   output$plotSurvivalCurve <- renderPlot({

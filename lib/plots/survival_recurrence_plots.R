@@ -1,14 +1,14 @@
-makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, survivalType, ignoreFrstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
+makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, survivalType, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
   end <- as.Date(strEnd, format = "%d/%m/%Y")
   
-  #if (!is.data.frame(cancerData) || nrow(cancerData) == 0) {
+  #if (!is.data.frame(cancerPerPatientData) || nrow(cancerPerPatientData) == 0) {
   #  return(ggplot()) # Any empty plot
   #}
   
-  filteredSurvivalData <<- cancerData |>
+  filteredSurvivalData <<- cancerPerPatientData |>
     filter(between(FirstRxDate, start, end)) |>
     filter(Gender %in% selectedGenders)
   
@@ -46,13 +46,13 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
   }
   
   # This is the bit where we think about the number of Rx (ablations) before we call LR
-  # So if NoRxBeforeFrstLTP is just 1, we dont count it as real LR if ignoreFrstLTP is TRUE
+  # So if NoRxBeforeFirstLTP is just 1, we dont count it as real LR if ignoreFirstLTP is TRUE
   # A way to do this is to change the StatusLTPF/LTPFOS/LTPFCSS column status to 1 for all those recurring after just 1 Rx, if not deceased, as follows
-  if (ignoreFrstLTP == TRUE)
-  {
-    filteredSurvivalData$StatusLTPF[filteredSurvivalData$NoRxBeforeFrstLTP==1] <- 1
-    filteredSurvivalData$StatusLTPFOS[filteredSurvivalData$NoRxBeforeFrstLTP==1 & filteredSurvivalData$Deceased == 0] <- 1
-    filteredSurvivalData$StatusLTPFCSS[filteredSurvivalData$NoRxBeforeFrstLTP==1 & filteredSurvivalData$Deceased == 0] <- 1
+  if (isTRUE(ignoreFirstLTP)) {
+    idx <- filteredSurvivalData$NoRxBeforeFirstLTP == 1 & !is.na(filteredSurvivalData$NoRxBeforeFirstLTP)
+    filteredSurvivalData$StatusLTPF[idx] <- 1
+    filteredSurvivalData$StatusLTPFOS[idx & filteredSurvivalData$Deceased == 0] <- 1
+    filteredSurvivalData$StatusLTPFCSS[idx & filteredSurvivalData$Deceased == 0] <- 1
   }
   
   # Get rid of anything which doesn't have the necessary recurrence data, so that we know if its going to be an empty fit before we fit it
@@ -117,17 +117,18 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
   survivalPlot
 }
 
-makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, ignoreFrstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
+# This can do both per-patient and per-tumour LTP analysis
+makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL, ltpAnalysisUnit = "patient")
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
   end <- as.Date(strEnd, format = "%d/%m/%Y")
   
-  if (!is.data.frame(cancerData) || nrow(cancerData) <= 0) {
+  if (!is.data.frame(cancerPerPatientData) || nrow(cancerPerPatientData) <= 0) {
     return(ggplot())
   }
   
-  filteredSurvivalData <<- cancerData |>
+  filteredSurvivalData <<- cancerPerPatientData |>
     filter(between(FirstRxDate, start, end)) |>
     filter(Gender %in% selectedGenders)
   
@@ -167,32 +168,130 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
   }
   
   # This is the bit where we think about the number of Rx (ablations) before we call LR
-  # So if NoRxBeforeFrstLTP is just 1, we dont count it as real LR if ignoreFrstLTP is TRUE
+  # So if NoRxBeforeFirstLTP is just 1, we dont count it as real LR if ignoreFirstLTP is TRUE
   # A way to do this is to change the StatusLTPF column status to 1 for all those recurring after just 1 Rx, as follows
-  if (ignoreFrstLTP == TRUE)
+  if (isTRUE(ignoreFirstLTP)) {
+    idx <- filteredSurvivalData$NoRxBeforeFirstLTP == 1 & !is.na(filteredSurvivalData$NoRxBeforeFirstLTP)
+    filteredSurvivalData$StatusLTPF[idx] <- 1
+    filteredSurvivalData$StatusLTPFOS[idx] <- 1
+    filteredSurvivalData$StatusLTPFCSS[idx] <- 1
+  }
+  
+  # Switch between per-patient and per-lesion LTP analysis
+  # Per-patient: time-to-LTP measured from date of first Rx across all referrals (current approach)
+  # Per-lesion:  time-to-LTP measured from the Rx date of the specific referral where LTP occurred,
+  #              requires ltp.list to have been populated in the EDC imaging follow-up matrix
+  if (ltpAnalysisUnit == "patient")
   {
-    filteredSurvivalData$StatusLTPF[filteredSurvivalData$NoRxBeforeFrstLTP==1] <- 1
+    # Per-patient analysis (existing behaviour)
+    
+    # Get rid of anything which doesn't have the necessary recurrence data, so that we know if its going to be an empty fit before we fit it
+    filteredSurvivalData <- filteredSurvivalData |>
+      filter(!is.na(TimeLTPF), !is.na(StatusLTPF))
+    
+    # If no rows to plot, let the user know there is no data
+    if (nrow(filteredSurvivalData) == 0) {
+      return(ggplot()+
+               annotate("text", x = 0.5, y = 0.5,
+                        label = "No data available for selected filters",
+                        size = 6, hjust = 0.5) +
+               theme_void()
+      )
+    }
+    
+    # Censoring = 1=censored, 2=recurred (almost treat as if death) - 
+    # The sample is censored in that you only know that the individual survived up to the loss to followup,
+    # but you don't know anything about survival after that. I used to have 0=alive, but this isn't recognised
+    # See https://thriv.github.io/biodatasci2018/r-survival.html
+    # StatusLTPF == 2 evaluates to FALSE for all censored rows (value=1) and TRUE for event rows (value=2), regardless of whether any events are present
+    recurrenceFit <- ggsurvfit::survfit2(Surv(TimeLTPF, StatusLTPF == 2) ~ Organ,
+                                         data = filteredSurvivalData)
+    titleStr      <- "Local Tumour Progression Free Analysis (Per Patient)"
   }
-  
-  # Get rid of anything which doesn't have the necessary recurrence data, so that we know if its going to be an empty fit before we fit it
-  filteredSurvivalData <- filteredSurvivalData |>
-    filter(!is.na(TimeLTPF), !is.na(StatusLTPF))
-  
-  # If no rows to plot, let the user know there is no data
-  if (nrow(filteredSurvivalData) == 0) {
-    return(ggplot()+
-             annotate("text", x = 0.5, y = 0.5,
-                      label = "No data available for selected filters",
-                      size = 6, hjust = 0.5) +
-             theme_void()
-    )
+  else
+  {
+    # Per-lesion analysis
+    # cancerPerLesionData is pre-built in postProcessData() and contains all malignant referral episodes
+    # with TimeLTPEpisode and StatusLTPEpisode pre-computed, ready for Kaplan-Meier fitting
+    # Episodes with a confirmed LTP event (ltp.list populated) have StatusLTPEpisode=2
+    # Episodes without a confirmed LTP event are censored at last imaging date with StatusLTPEpisode=1
+    if (!is.data.frame(cancerPerLesionData) || nrow(cancerPerLesionData) == 0)
+    {
+      return(ggplot() +
+               annotate("text", x = 0.5, y = 0.5,
+                        label = "No per-lesion data available.\nPlease reload data.",
+                        size = 5, hjust = 0.5) +
+               theme_void()
+      )
+    }
+    
+    # Apply filters to per-lesion data matching those applied to per-patient data above
+    filteredPerLesionData <- cancerPerLesionData[
+      cancerPerLesionData$RxDate >= start & cancerPerLesionData$RxDate <= end, ]
+    filteredPerLesionData <- filteredPerLesionData[
+      filteredPerLesionData$Gender %in% selectedGenders, ]
+    
+    if (selectedOrgans != "All")
+      filteredPerLesionData <- filteredPerLesionData[filteredPerLesionData$Organs %in% selectedOrgans, ]
+    
+    if (selectedDiagnosisType == "All")
+    {
+      if (!"All" %in% selectedSubtypes)
+        filteredPerLesionData <- filteredPerLesionData[filteredPerLesionData$Organs %in% selectedSubtypes, ]
+    }
+    else if (selectedDiagnosisType == "1o & 2o")
+    {
+      filteredPerLesionData <- filteredPerLesionData[
+        filteredPerLesionData$Diagnosis1o %in% selectedSubtypes |
+          filteredPerLesionData$Diagnosis2o %in% selectedSubtypes, ]
+    }
+    else
+    {
+      filteredPerLesionData <- switch(substring(selectedDiagnosisType, 1, 1),
+                                      "P" = filteredPerLesionData[filteredPerLesionData$Diagnosis1o %in% selectedSubtypes, ],
+                                      "S" = filteredPerLesionData[filteredPerLesionData$Diagnosis2o %in% selectedSubtypes, ],
+                                      "U" = filteredPerLesionData[filteredPerLesionData$DiagnosisUn %in% selectedSubtypes, ],
+                                      filteredPerLesionData
+      )
+    }
+    
+    # Filter by tumour size if specified — episodes with no recorded size are kept
+    if (!is.null(minTumourSize) && !is.null(maxTumourSize))
+      filteredPerLesionData <- filteredPerLesionData[
+        is.na(filteredPerLesionData$MaxTumourSize) |
+          (filteredPerLesionData$MaxTumourSize >= minTumourSize &
+             filteredPerLesionData$MaxTumourSize <= maxTumourSize), ]
+    
+    # Get rid of anything which doesn't have the necessary recurrence data
+    filteredPerLesionData <- filteredPerLesionData[
+      !is.na(filteredPerLesionData$TimeLTPEpisode) &
+        !is.na(filteredPerLesionData$StatusLTPEpisode), ]
+    
+    # If no rows to plot, let the user know there is no data
+    if (nrow(filteredPerLesionData) == 0)
+    {
+      return(ggplot() +
+               annotate("text", x = 0.5, y = 0.5,
+                        label = "No data available for selected filters",
+                        size = 6, hjust = 0.5) +
+               theme_void()
+      )
+    }
+    
+    logger(paste("FIXME perLesion: nrow=", nrow(filteredPerLesionData),
+                 " events=", sum(filteredPerLesionData$StatusLTPEpisode == 2, na.rm=TRUE),
+                 " censored=", sum(filteredPerLesionData$StatusLTPEpisode == 1, na.rm=TRUE)))
+    
+    # Censoring = 1=censored, 2=recurred (almost treat as if death) - 
+    # The sample is censored in that you only know that the individual survived up to the loss to followup,
+    # but you don't know anything about survival after that. I used to have 0=alive, but this isn't recognised
+    # See https://thriv.github.io/biodatasci2018/r-survival.html
+    # StatusLTPEpisode == 2 evaluates to FALSE for all censored rows (value=1) and TRUE for event rows (value=2), regardless of whether any events are present
+    recurrenceFit <- ggsurvfit::survfit2(
+      Surv(TimeLTPEpisode, StatusLTPEpisode == 2) ~ Organs,
+      data = filteredPerLesionData)
+    titleStr      <- "Local Tumour Progression Free Analysis (Per Lesion)"
   }
-  
-  # Censoring = 1=censored, 2=recurred (almost treat as if death) - 
-  # The sample is censored in that you only know that the individual survived up to the loss to followup,
-  # but you don't know anything about survival after that. I used to have 0=alive, but this isn't recognised
-  # See https://thriv.github.io/biodatasci2018/r-survival.html
-  recurrenceFit         <- ggsurvfit::survfit2(Surv(TimeLTPF, StatusLTPF)~Organ, data = filteredSurvivalData)
   
   # Original method but don't know how to change risk table to just e.g. 5 follow-up years
   #recurrencePlot       <- ggsurvplot(recurrenceFit,
@@ -209,7 +308,7 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
     add_risktable(times=c(0:maxYearsFollowup), size=5) +
     #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
     scale_ggsurvfit() + coord_cartesian(xlim = c(0, maxYearsFollowup)) +
-    labs(title = "Local Tumour Progression Free Analysis", y = "Probability", x = "Time (Years)")
+    labs(title = titleStr, y = "Probability", x = "Time (Years)")
   
   recurrencePlot
 }

@@ -1,18 +1,18 @@
-cancerTab <- function() {
+cancerPerLesionTab <- function() {
   list(
     fluidRow(box(
       width = 12,
       column(
         width = 5,
-        selectInput("cancerTabSelectedOrgans","Target Organ", choices = organFactors, selected = organFactors[1]),
-        selectInput("cancerTabSelectedDiagnosisType", "Diagnosis Type", 
+        selectInput("cancerPerLesionTabSelectedOrgans","Target Organ", choices = organFactors, selected = organFactors[1]),
+        selectInput("cancerPerLesionTabSelectedDiagnosisType", "Diagnosis Type", 
                     choices = c("All", "Primary", "Secondary", "1o & 2o", "Unknown")),
-        selectInput("cancerTabSelectedModality", "Modality", choices = c("All"))
+        selectInput("cancerPerLesionTabSelectedModality", "Modality", choices = c("All"))
         ),
       column(
         width = 5,
         checkboxGroupInput(
-          "cancerTabSelectedSubtypes", "Subtypes",
+          "cancerPerLesionTabSelectedSubtypes", "Subtypes",
           choices = diagnosisSubtypeFactors,
           selected = diagnosisSubtypeFactors
         )
@@ -21,27 +21,27 @@ cancerTab <- function() {
         width = 2,
         div(
           style = "border:1px solid #ddd;border-radius:8px;padding:2px;background:#f9f9f9;display:flex;flex-direction:column;gap:12px;",
-          actionButton("buttonPasteCancerTabData",   "> Clip", width = "100%"),
-          actionButton("buttonSaveCancerTabData",    "> File", width = "100%"),
-          actionButton("buttonRefrehCancerTabData", "Refresh", width = "100%")
+          actionButton("buttonPasteCancerPerLesionTabData",   "> Clip", width = "100%"),
+          actionButton("buttonSaveCancerPerLesionTabData",    "> File", width = "100%"),
+          actionButton("buttonRefreshCancerPerLesionTabData", "Refresh", width = "100%")
         )
       )
     )),
     fluidRow(box(
       width = 12,
-      DT::dataTableOutput("tableCancer"), style = "overflow-y: scroll;overflow-x: scroll;"
+      DT::dataTableOutput("tableCancerPerLesion"), style = "overflow-y: scroll;overflow-x: scroll;"
     ))
   )
 }
 
-cancerTableServer <- function(input, output, session, isDocker, api)
+cancerPerLesionTableServer <- function(input, output, session, isDocker, api)
 {
   refreshTrigger <- reactiveVal(0)
   
   subtypeChoices <- reactive({
-    req(input$cancerTabSelectedDiagnosisType)
+    req(input$cancerPerLesionTabSelectedDiagnosisType)
     switch(
-      input$cancerTabSelectedDiagnosisType,
+      input$cancerPerLesionTabSelectedDiagnosisType,
       "All"       = c("All"),
       "Primary"   = api$diagnosis_1o_Factors,
       "Secondary" = api$diagnosis_2o_Factors,
@@ -50,21 +50,21 @@ cancerTableServer <- function(input, output, session, isDocker, api)
     )
   })
   
-  cancerDataFiltered <- reactive({
+  cancerPerLesionDataFiltered <- reactive({
     refreshTrigger()
-    data <- cancerData
+    data <- cancerPerLesionData
     if (is.null(data) || !is.data.frame(data)) return(data.frame())
     
-    if (!is.null(input$cancerTabSelectedOrgans) && input$cancerTabSelectedOrgans != "All")
-      data <- data[data$Organ %in% input$cancerTabSelectedOrgans, ]
+    if (!is.null(input$cancerPerLesionTabSelectedOrgans) && input$cancerPerLesionTabSelectedOrgans != "All")
+      data <- data[data$Organ %in% input$cancerPerLesionTabSelectedOrgans, ]
     
     if (!is.null(input$benignTabSelectedModality) && input$benignTabSelectedModality != "All")
       data <- data[grepl(input$benignTabSelectedModality, data$RxModalities, fixed = TRUE), ]
     
-    subtypes <- input$cancerTabSelectedSubtypes
+    subtypes <- input$cancerPerLesionTabSelectedSubtypes
     if (is.null(subtypes)) subtypes <- c("All")
     
-    diagType <- input$cancerTabSelectedDiagnosisType
+    diagType <- input$cancerPerLesionTabSelectedDiagnosisType
     if (is.null(diagType)) diagType <- "All"
     
     if (diagType == "All")
@@ -93,24 +93,24 @@ cancerTableServer <- function(input, output, session, isDocker, api)
   observe({
     choices <- subtypeChoices()
     updateCheckboxGroupInput(
-      session, "cancerTabSelectedSubtypes",
+      session, "cancerPerLesionTabSelectedSubtypes",
       choices  = choices,
       selected = choices
     )
   })
   
-  observeEvent(input$cancerTabSelectedDiagnosisType, {
+  observeEvent(input$cancerPerLesionTabSelectedDiagnosisType, {
     choices <- subtypeChoices()
     updateCheckboxGroupInput(
       session,
-      "cancerTabSelectedSubtypes",
+      "cancerPerLesionTabSelectedSubtypes",
       choices = choices,
       selected = choices
     )
   }, ignoreInit = FALSE)
   
   observe({
-    updateSelectInput(session, "cancerTabSelectedOrgans", "Target Organ",
+    updateSelectInput(session, "cancerPerLesionTabSelectedOrgans", "Target Organ",
                       choices = api$organFactors,
                       selected = api$organFactors[1]
     )
@@ -119,7 +119,7 @@ cancerTableServer <- function(input, output, session, isDocker, api)
   observe({
     req(api$diagnosis_type_Factors)
     updateSelectInput(
-      session, "cancerTabSelectedDiagnosisType",
+      session, "cancerPerLesionTabSelectedDiagnosisType",
       choices = c("All", "Primary", "Secondary", "1o & 2o", "Unknown"),
       selected = api$diagnosis_type_Factors[1]
     )
@@ -127,12 +127,12 @@ cancerTableServer <- function(input, output, session, isDocker, api)
   
   observe({
     req(api$modalityFactors)
-    updateSelectInput(session, "cancerTabSelectedModality", "Modality",
+    updateSelectInput(session, "cancerPerLesionTabSelectedModality", "Modality",
                       choices = c("All", api$modalityFactors),
                       selected = "All")
   })
   
-  observeEvent(input$buttonPasteCancerTabData, {
+  observeEvent(input$buttonPasteCancerPerLesionTabData, {
     if (isTRUE(isDocker)) {
       shinyCatch(
         {
@@ -141,7 +141,7 @@ cancerTableServer <- function(input, output, session, isDocker, api)
         prefix = ""
       )
     } else {
-      copyDataToClipboard(cancerDataFiltered())
+      copyDataToClipboard(cancerPerLesionDataFiltered())
       shinyCatch(
         {
           message("Copied data to the clipboard, please paste into app such as Microsoft Excel on a secure computer (patient IDs included).")
@@ -151,7 +151,7 @@ cancerTableServer <- function(input, output, session, isDocker, api)
     }
   })
   
-  observeEvent(input$buttonSaveCancerTabData, {
+  observeEvent(input$buttonSaveCancerPerLesionTabData, {
     if (isTRUE(isDocker)) {
       shinyCatch(
         {
@@ -176,14 +176,14 @@ cancerTableServer <- function(input, output, session, isDocker, api)
         }
         shinyCatch(
           {
-            message(paste("Attempting to export cancer data to file", exportFile))
+            message(paste("Attempting to export cancerPerLesion data to file", exportFile))
           },
           prefix = ""
         )
-        write.csv(cancerDataFiltered(), exportFile, row.names = TRUE)
+        write.csv(cancerPerLesionDataFiltered(), exportFile, row.names = TRUE)
         shinyCatch(
           {
-            message(paste("Exported cancer data to file", exportFile))
+            message(paste("Exported cancerPerLesion data to file", exportFile))
           },
           prefix = ""
         )
@@ -198,12 +198,12 @@ cancerTableServer <- function(input, output, session, isDocker, api)
     }
   })
   
-  observeEvent(input$buttonRefreshCancerTabData, {
+  observeEvent(input$buttonRefreshCancerPerLesionTabData, {
     refreshTrigger(refreshTrigger() + 1)
   })
   
-  output$tableCancer <- DT::renderDataTable({
+  output$tableCancerPerLesion <- DT::renderDataTable({
     refreshTrigger()
-    DT::datatable(cancerDataFiltered())
+    DT::datatable(cancerPerLesionDataFiltered())
   })
 }

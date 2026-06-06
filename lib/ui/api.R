@@ -112,8 +112,12 @@ connectAPIEvent <- function(input, api) {
 disconnectAPIEvent <- function(api)
 {
   disconnectCastorAPI()
-  api$connected <- F
-  api$loaded <- F
+  initialiseGlobals()   # <- clear all data
+  api$connected <- FALSE
+  api$loaded <- FALSE
+  api$organFactors <- NULL
+  api$modalityFactors <- NULL
+  api$genderFactors <- NULL
   shinyjs::hide("studyDropdownGroup")
   shinyjs::hide("disconnectAPI")
   shinyjs::hide("reloadData")

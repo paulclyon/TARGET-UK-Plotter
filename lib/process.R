@@ -212,8 +212,8 @@ processData <- function()
     if (!is.na(indication) & indication == "Malignant")
       #if (is.na(indication) | indication == "Malignant") # FIXME this is temporary until we define the malignant ones in imaging FU in EDC
     {
-      #FIXME: Matrix flipping!
-      if (newRecurrenceMatrix ==T)
+      #FIXME: Matrix flipping! The _1 is just like a v2
+      if (newRecurrenceMatrix == T)
       {
         imagingJSON <- getDataEntry("fu_image_matrix_malignant_1", i, stopIfNotFound = TRUE)
       }
@@ -221,7 +221,7 @@ processData <- function()
       {
         imagingJSON <- getDataEntry("fu_image_matrix_malignant", i, stopIfNotFound = TRUE)
       }
-      
+
       # Go row by row in the imaging follow-up matrix...
       if (!is.na(imagingJSON) && str_length(imagingJSON) > 0)
       {
@@ -236,14 +236,15 @@ processData <- function()
         imaging.df <- imaging.df[apply(imaging.df, 1, function(row) any(row != "")), ] # Strip out any empty trailing rows
         
         # For each row in the matrix, check if there is any local tumour progression, if so grab the first date of local tumour progression
-        for (j in 1:nrow(imaging.df))
+        for (j in seq_len(nrow(imaging.df))) # This is safer as if nrow=0, without seq_len the loop will run twice first with j=1 then j=0 !
         {
           # Get the date of the imaging
-          if (!is.na(imaging.df$imaging.date[j]) && isConvertibleToDate(imaging.df$imaging.date[j]))
+          img_date <- imaging.df$imaging.date[j]
+          if (!is.na(img_date) && isTRUE(isConvertibleToDate(img_date)))
           {
             # Get the last imaging follow-up date
-            thisImagingDate <- convertToDate(imaging.df$imaging.date[j])
-            logger(paste0("FIXME imaging date",imaging.df$imaging.date[j],thisImagingDate))
+            thisImagingDate <- convertToDate(img_date)
+            logger(paste0("FIXME imaging date",img_date,thisImagingDate))
             if (is.na(date_of_last_imaging_fu) || date_of_last_imaging_fu < thisImagingDate) # This OR || is correct as TRUE & NA = NA, not TRUE
             {
               date_of_last_imaging_fu <- thisImagingDate
@@ -262,6 +263,8 @@ processData <- function()
             #   1: 1st RD/LTP
             #   2: 2nd RD/LTP
             #   3: >2nd RD/LTP
+            #
+            # Note specifically this is a per-patient LTP analysis, rather than per-lesion analysis
             thisLTP <- imaging.df$ltp[j]
             if (newRecurrenceMatrix ==T) # FIXME this is a fix for the new table only
             {
@@ -300,13 +303,65 @@ processData <- function()
                   no_rx_before_first_ltp <- thisRecurrenceAfterRxNo
                 }
               }
+              
+              # Per-lesion LTP linkage via ltp.list field
+              # ltp.list contains the referral and lesion number(s) where LTP occurred
+              # in the format 'Rx.Tumour' e.g. '3.1' or '3.1, 4.3'
+              # This is only processed if ltp is TRUE - if ltp is FALSE, ltp.list is ignored
+              # (and a data integrity warning is raised if ltp.list has content when ltp is FALSE - see below)
+              if ("ltp.list" %in% colnames(imaging.df))
+              {
+                thisLTPLesionIDs <- imaging.df$ltp.list[j]
+                if (!is.null(thisLTPLesionIDs) && !is.na(thisLTPLesionIDs) && trimws(thisLTPLesionIDs) != "")
+                {
+                  # ltp.list has content — attempt to parse
+                  parsedLTPLesions <- parseltpListString(thisLTPLesionIDs)
+                  
+                  if (nrow(parsedLTPLesions) > 0)
+                  {
+                    # Valid parse — store per-lesion linkage for per-lesion analysis
+                    for (k in 1:nrow(parsedLTPLesions))
+                    {
+                      ltp_perlesion_ptid_list     <<- append(ltp_perlesion_ptid_list,    ptID)
+                      ltp_perlesion_refno_list    <<- append(ltp_perlesion_refno_list,   parsedLTPLesions$ref_no[k])
+                      ltp_perlesion_lesionno_list <<- append(ltp_perlesion_lesionno_list,parsedLTPLesions$lesion_no[k])
+                      ltp_perlesion_date_list     <<- append(ltp_perlesion_date_list,    thisImagingDate)
+                    }
+                  }
+                  else
+                  {
+                    # parseLTPLesionIDs returned empty — content was unparseable
+                    # LTP event still counts for per-patient analysis but lesion linkage is lost
+                    addDataIntegrityError(ptID, date=thisImagingDate,
+                                          error=paste("LTP is TRUE but ltp.list value '", thisLTPLesionIDs,
+                                                      "' could not be parsed - expected format e.g. '3.1' or '3.1, 4.3'. ",
+                                                      "LTP event retained for per-patient analysis only.", sep=""))
+                  }
+                }
+                # else: ltp.list is empty/NA — LTP confirmed but no lesion linkage specified, silently accepted
+                # Per-patient analysis is unaffected, per-lesion analysis will not include this event
+              }
+            }
+            else
+            {
+              # ltp is FALSE (no LTP) — ltp.list should be empty, warn if not
+              if ("ltp.list" %in% colnames(imaging.df))
+              {
+                thisLTPLesionIDs <- imaging.df$ltp.list[j]
+                if (!is.null(thisLTPLesionIDs) && !is.na(thisLTPLesionIDs) && trimws(thisLTPLesionIDs) != "")
+                {
+                  addDataIntegrityError(ptID, date=thisImagingDate,
+                                        error=paste("ltp.list has content '", thisLTPLesionIDs,
+                                                    "' but ltp is FALSE on row ", j, " - ltp.list value ignored.", sep=""))
+                }
+              }
             }
           }
           else
           {
-            if (imaging.df$imaging.date[j] != "")
+            if (!is.na(img_date))
             {
-              addDataIntegrityError(ptID, date=imaging.df$imaging.date[j], error=paste(i, "/", patientCount, " Pt=", ptID, " patient's imaging follow-up date (",imaging.df$imaging.date[j],") is not valid date on row ",j, sep = ""))
+              addDataIntegrityError(ptID, date=img_date, error=paste(i, "/", patientCount, " Pt=", ptID, " patient's imaging follow-up date (",img_date,") is not valid date on row ",j, sep = ""))
             }
           }
         }
@@ -1017,4 +1072,42 @@ processData <- function()
   
   # Do the post-processing
   postProcessData()
+}
+
+# Parse 'Lesion(s) with new RD/LTP (Rx.Tumour e.g. 3.1, 4.3)' field
+# Input:  string like "3.1", "3.1, 4.3", "", or NA
+# Output: data frame with columns ref_no (integer), lesion_no (integer)
+#         Empty data frame if no LTP lesions specified
+#
+parseltpListString <- function(ltpListStr)
+{
+  emptyResult <- data.frame(ref_no = integer(0), lesion_no = integer(0))
+  
+  if (is.null(ltpListStr) || is.na(ltpListStr) || trimws(ltpListStr) == "")
+  {
+    return(emptyResult)
+  }
+  
+  tokens <- trimws(unlist(strsplit(ltpListStr, ",")))
+  tokens <- tokens[tokens != ""]
+  
+  results <- lapply(tokens, function(token)
+  {
+    if (grepl("^[0-9]+\\.[0-9]+$", token))
+    {
+      parts <- strsplit(token, "\\.")[[1]]
+      data.frame(
+        ref_no    = as.integer(parts[1]),
+        lesion_no = as.integer(parts[2])
+      )
+    }
+    else
+    {
+      logger(paste("WARNING: parseltpListString() could not parse token '", token, 
+                   "' in '", ltpListStr, "' - expected format e.g. '3.1' or '3.1, 4.3'", sep = ""))
+      emptyResult
+    }
+  })
+  
+  do.call(rbind, results)
 }

@@ -1,14 +1,13 @@
 # initialiseGlobals() sets all of the default values
 initialiseGlobals <- function()
 {
-  # This is the order of the clock stop columns
-  clockStopColNames              <<- c("date.stopped","date.restart","reason","free.text")
+  clockStopColNames              <<- c("date.stopped","date.restart","reason","free.text")   # Order of the clock stop columns
   rxTableColNames                <<- c("rx.organ","lesion.size","max.depth","closest.serosa","punctures","no.applicators.or.postitions","modality","max.power","min.power","rx.time","new.or.rec","free.text")
   aeTableColNames                <<- c("PtID","Organ","Complication","DateofOnset","DateofResolution","Grade","Description","Intervention","InterventionDate","AdditionalHopsitalDays","PostDischarge","Duration")
   dataIntegrityColNames          <<- c("PtID","RefID","Date","Organ(s)","Error")
   loggerColNames                 <<- c("TimeStamp","IsError","Message")
   
-  newRecurrenceMatrix <<- T
+  newRecurrenceMatrix <<- F
   if (newRecurrenceMatrix == T)
   {
     # FIXME : new table
@@ -90,6 +89,10 @@ initialiseGlobals <- function()
   ltpf_os_survival_status_list   <<- c() # Local Tumour Progression-free overall survival status
   ltpf_cs_survival_days_list     <<- c() # Local Tumour Progression-free cancer specific survival days
   ltpf_cs_survival_status_list   <<- c() # Local Tumour Progression-free cancer specific survival status
+  ltp_perlesion_ptid_list        <<- c()
+  ltp_perlesion_refno_list       <<- c()
+  ltp_perlesion_lesionno_list    <<- c()
+  ltp_perlesion_date_list        <<- c()
   last_imaging_follow_up_list    <<- c()
   operator1                      <<- NA
   operator2                      <<- NA
@@ -130,7 +133,8 @@ initialiseGlobals <- function()
   operatorPlot                   <<- ggplot()
   patientData                    <<- NA
   studyData                      <<- NA
-  cancerData                     <<- NA
+  cancerPerPatientData           <<- NA
+  cancerPerLesionData            <<- NA
   benignData                     <<- NA
   aeData                         <<- NA
   survivalPlotSex                <<- ggplot()

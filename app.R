@@ -97,10 +97,11 @@ ui <- dashboardPage(
         id = "tablesID",
         tabName = "tables",
         icon = icon("table"),
-        menuSubItem("Pathway Table",         tabName = "rxPathwayTab"),
-        menuSubItem("Adverse Events Table",  tabName = "aeTab"),
-        menuSubItem("Cancer Table",          tabName = "cancerTab"),
-        menuSubItem("Benign Table",          tabName = "benignTab")
+        menuSubItem("Pathway Table",        tabName = "rxPathwayTab"),
+        menuSubItem("Adverse Events Table", tabName = "aeTab"),
+        menuSubItem("Cancer Patient Table", tabName = "cancerPerPatientTab"),
+        menuSubItem("Cancer Lesion Table",  tabName = "cancerPerLesionTab"),
+        menuSubItem("Benign Table",         tabName = "benignTab")
       ), id = "tablesMenuItem")),
       hidden(tagAppendAttributes(menuItem(
         "Data Validation",
@@ -179,7 +180,8 @@ ui <- dashboardPage(
       tabItem("referralTciCalendar", referralTciCalendarTab()),
       tabItem("rxPathwayTab", pathwayTab()),
       tabItem("aeTab", aeTab()),
-      tabItem("cancerTab", cancerTab()),
+      tabItem("cancerPerPatientTab", cancerPerPatientTab()),
+      tabItem("cancerPerLesionTab", cancerPerLesionTab()),
       tabItem("benignTab", benignTab()),
       tabItem("dataIntegrityTab", dataIntegrityTab()),
       tabItem("loggerTab", loggerTab()),
@@ -296,7 +298,8 @@ server <- function(input, output, session) {
   aeTableServer(input, output, session, isDocker, api)
   recurrencePlotServer(input, output, session, api, plots)
   survivalPlotServer(input, output, session, api, plots)
-  cancerTableServer(input, output, session, isDocker, api)
+  cancerPerPatientTableServer(input, output, session, isDocker, api)
+  cancerPerLesionTableServer(input, output, session, isDocker, api)
   benignTableServer(input, output, session, isDocker, api)
   dataIntegrityTableServer(input, output, session, isDocker)
   loggerTableServer(input, output, session, isDocker)

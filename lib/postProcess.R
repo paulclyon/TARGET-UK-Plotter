@@ -2,10 +2,10 @@
 postProcessData <- function()
 {
   # The as.Dates() work around is needed to set Dates as the column types otherwise if the first element in the column is NA, it is represented as just the number which is still the date but unredable to the human
-  # This is important as this makes them all a Dates object which displays nicely in the tables - you can check the types of the data frame easily with str(cancerData)
+  # This is important as this makes them all a Dates object which displays nicely in the tables - you can check the types of the data frame easily with str(cancerPerPatientData)
   if (!is.null(rxdone_pt_list))
   {
-
+    
     # Replacing any NA operator with 'unspecified'
     rxdone_operator1_list     <<- rxdone_operator1_list %>% replace_na("unspecified")
     rxdone_operator2_list     <<- rxdone_operator2_list %>% replace_na("unspecified")
@@ -83,7 +83,7 @@ postProcessData <- function()
   
   # Similar for Genders
   genderFactors <<- levels(factor(rxdone_sex_list))
-
+  
   # Similarly for operators
   operator1Factors       <<- c("ALL",levels(factor(rxdone_operator1_list)))
   operator2Factors       <<- c("ALL",levels(factor(rxdone_operator2_list)))
@@ -102,11 +102,12 @@ postProcessData <- function()
   # Censoring status is 1=censored (could still be alive but we don't know), 2=dead
   if (length(survival_pt_list)==0)
   {
-    cancerData <<- NA
+    cancerPerPatientData <<- NA
     survivalFitSex <<- NA
     survivalFitOrgan <<- NA
     survivalPlotOrgan <<- NA
     survivalPlotSex <<- NA
+    cancerPerLesionData <<- NA
   }
   else
   {
@@ -143,10 +144,103 @@ postProcessData <- function()
       LostToFUDate                 = asDateWithOrigin(survival_lost_to_fu_date)
     )
     # Now clean up the data into individual cancer and benign tables
-    cancerData <<- allData[!is.na(allData$DiagnosisType) & allData$DiagnosisType != "B", ]
-    cancerData <<- cancerData[, !colnames(cancerData) %in% c("DiagnosisBn")]
+    cancerPerPatientData <<- allData[!is.na(allData$DiagnosisType) & allData$DiagnosisType != "B", ]
+    cancerPerPatientData <<- cancerPerPatientData[, !colnames(cancerPerPatientData) %in% c("DiagnosisBn")]
     benignData <<- allData[!is.na(allData$DiagnosisType) & allData$DiagnosisType == "B", ]
     benignData <<- benignData[, !colnames(benignData) %in% c("Diagnosis1o", "Diagnosis2o", "NoRxBeforeFirstLTP", "TimeLTPF", "StatusLTPF", "TimeLTPFOS", "StatusLTPFOS", "TimeLTPFCSS", "StatusLTPFCSS")]
+    
+    # Build the per-lesion dataset for per-lesion LTP Kaplan-Meier analysis
+    # Unlike cancerPerPatientData which is one row per patient, this is one row per referral episode
+    # i.e. each treated malignant referral is an independent analytical unit with its own LTP clock
+    # Base dataset is all malignant referral episodes from rxDoneData
+    # LTP events are joined from ltp_perlesion lists where ltp.list has been populated in the EDC
+    # Episodes without a matched LTP event are censored at the patient's last imaging follow-up date
+    # This mirrors how landmark ablation studies e.g. COLLISION analyse LTP - per treated lesion
+    if (is.data.frame(rxDoneData) && nrow(rxDoneData) > 0)
+    {
+      # Start with all treated referral episodes and extract the columns we need
+      # rxDoneData$ID is in the format 'PtID-RefNo' e.g. '001-3'
+      rxEpisodes       <- rxDoneData[, c("ID", "RxDate", "Organs", "DiagnosisType",
+                                         "Diagnosis1o", "Diagnosis2o", "DiagnosisUn",
+                                         "MaxTumourSize", "Modality", "Gender")]
+      rxEpisodes$PtID  <- sub("-[0-9]+$", "", rxEpisodes$ID)        # Extract patient ID
+      rxEpisodes$RefNo <- as.integer(sub(".*-", "", rxEpisodes$ID))  # Extract referral number
+      
+      # Remove benign episodes — per-lesion LTP analysis is for malignant only
+      rxEpisodes <- rxEpisodes[!is.na(rxEpisodes$DiagnosisType) & rxEpisodes$DiagnosisType != "B", ]
+      
+      # Build the per-lesion LTP event table from parsed ltp.list entries
+      # Only populated where the ablationist has confirmed which specific lesion(s) had RD/LTP
+      if (length(ltp_perlesion_ptid_list) > 0)
+      {
+        ltpPerLesion <- data.frame(
+          PtID     = ltp_perlesion_ptid_list,
+          RefNo    = as.integer(ltp_perlesion_refno_list),
+          LesionNo = as.integer(ltp_perlesion_lesionno_list),
+          LTPDate  = asDateWithOrigin(ltp_perlesion_date_list)
+        )
+      }
+      else
+      {
+        # No ltp.list entries yet — empty event table, all episodes will be censored
+        # This is expected until ltp.list is populated in the EDC imaging follow-up matrix
+        ltpPerLesion <- data.frame(
+          PtID     = character(0),
+          RefNo    = integer(0),
+          LesionNo = integer(0),
+          LTPDate  = as.Date(character(0))
+        )
+      }
+      
+      # Join LTP events onto all referral episodes
+      # all.x = TRUE keeps all episodes; LTPDate will be NA for episodes without a linked LTP event i.e. censored
+      cancerPerLesionData <<- merge(
+        rxEpisodes,
+        ltpPerLesion,
+        by = c("PtID", "RefNo"),
+        all.x = TRUE
+      )
+      
+      # Join last imaging follow-up date from cancerPerPatientData for censoring episodes without LTP
+      lastImaging <- cancerPerPatientData[, c("ID", "LastImagingDate")]
+      cancerPerLesionData <<- merge(
+        cancerPerLesionData,
+        lastImaging,
+        by.x = "PtID",
+        by.y = "ID",
+        all.x = TRUE
+      )
+      
+      # Calculate time-to-LTP in years from the Rx date of that specific referral episode
+      # Where LTP occurred use LTPDate
+      # Where no LTP, censor at LastImagingDate if available
+      # Where neither is available (no imaging follow-up yet), censor at RxDate i.e. time = 0
+      # — these patients are known to have been treated but have no follow-up data yet,
+      #   they are retained in the denominator rather than silently excluded
+      cancerPerLesionData$TimeLTPEpisode <<- as.numeric(ifelse(
+        !is.na(cancerPerLesionData$LTPDate),
+        as.numeric(difftime(cancerPerLesionData$LTPDate,        cancerPerLesionData$RxDate, units = "days"), units = "days"),
+        ifelse(
+          !is.na(cancerPerLesionData$LastImagingDate),
+          as.numeric(difftime(cancerPerLesionData$LastImagingDate, cancerPerLesionData$RxDate, units = "days"), units = "days"),
+          0  # No follow-up yet — censor at time of treatment
+        )
+      )) / 365.25
+      
+      # Status: 2 = LTP event, 1 = censored (no LTP confirmed at this episode)
+      cancerPerLesionData$StatusLTPEpisode <<- ifelse(!is.na(cancerPerLesionData$LTPDate), 2, 1)
+      
+      # Only remove rows where time is negative (data integrity issue e.g. LTPDate before RxDate)
+      # Rows with TimeLTPEpisode = 0 are retained — these are censored at time of treatment
+      cancerPerLesionData <<- cancerPerLesionData[
+        !is.na(cancerPerLesionData$TimeLTPEpisode) & cancerPerLesionData$TimeLTPEpisode >= 0, ]
+      
+      logger(paste("FIXME: perLesion rows after filter=", nrow(cancerPerLesionData)))
+    }
+    else
+    {
+      cancerPerLesionData <<- data.frame()
+    }
   }
 }
 
