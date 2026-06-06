@@ -232,7 +232,6 @@ processData <- function()
           (stopifnot("Recurrence matrix has unexpected number of columns - has the Castor schema changed?" = 
                        ncol(imaging.df) == length(recurrenceColNames)))
         colnames(imaging.df) <- recurrenceColNames
-        logger(paste("FIXME: raw ltp value=", imaging.df$ltp[j], " class=", class(imaging.df$ltp[j])))
         imaging.df <- imaging.df[apply(imaging.df, 1, function(row) any(row != "")), ] # Strip out any empty trailing rows
         
         # For each row in the matrix, check if there is any local tumour progression, if so grab the first date of local tumour progression
@@ -244,7 +243,6 @@ processData <- function()
           {
             # Get the last imaging follow-up date
             thisImagingDate <- convertToDate(img_date)
-            logger(paste0("FIXME imaging date",img_date,thisImagingDate))
             if (is.na(date_of_last_imaging_fu) || date_of_last_imaging_fu < thisImagingDate) # This OR || is correct as TRUE & NA = NA, not TRUE
             {
               date_of_last_imaging_fu <- thisImagingDate
@@ -276,8 +274,7 @@ processData <- function()
                                 thisLTP  # default: return as-is for unknown codes
               )
             }
-            logger(paste("FIXME ltp= : ",thisLTP))
-            
+
             # if (thisLTP == "Y" || thisLTP == "YA" || thisLTP == "YNA")
             if (substring(thisLTP, 1, 1) != "N") # Good catch all for local tumour progression, also respecting historical coding "N"
             {
@@ -371,13 +368,10 @@ processData <- function()
         if (ltp == 1)
         {
           ltp_status <- 2  # This is cf. death due to cancer i.e. counts on the Kaplin-Meyer
-          logger(paste("FIXME: LTP event pt", ptID, "deceased=", deceased))
-          
         }
         else
         {
           ltp_status <- 1
-          if (deceased == 1) logger(paste("FIXME: deceased but censored on LTP curve pt", ptID))
         }
       }
     }
@@ -912,6 +906,25 @@ processData <- function()
       }
     } # FIX 4: This correctly ends the for loop for each referral for this patient
     
+    # Add a data integrity catch for each entry where the last imaging date is before the first treatment date, as this doesn't make sense
+    if (!is.na(date_of_first_rx) &&
+        !is.na(date_of_last_imaging_fu) &&
+        date_of_last_imaging_fu < date_of_first_rx)
+    {
+      addDataIntegrityError(
+        ptID,
+        date = date_of_last_imaging_fu,
+        error = paste(
+          "Last imaging follow-up date (",
+          date_of_last_imaging_fu,
+          ") is before first treatment date (",
+          date_of_first_rx,
+          ").",
+          sep = ""
+        )
+      )
+    }
+  
     # Now we can do the survival & local tumour progression analysis as we have been through ALL referrals...
     # We only care about recording survival & local tumour progression if we have treated the patient
     if (!is.na(date_of_first_rx))

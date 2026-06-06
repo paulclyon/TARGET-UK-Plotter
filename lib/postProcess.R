@@ -234,8 +234,6 @@ postProcessData <- function()
       # Rows with TimeLTPEpisode = 0 are retained — these are censored at time of treatment
       cancerPerLesionData <<- cancerPerLesionData[
         !is.na(cancerPerLesionData$TimeLTPEpisode) & cancerPerLesionData$TimeLTPEpisode >= 0, ]
-      
-      logger(paste("FIXME: perLesion rows after filter=", nrow(cancerPerLesionData)))
     }
     else
     {

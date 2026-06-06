@@ -57,10 +57,6 @@ survivalPlotTab <- function() {
           value = c(0, 100),
           step  = 1,
           ticks = TRUE
-        ),
-        conditionalPanel(
-          condition = "input.survivalLTPFSRadio == '2' || input.survivalLTPFSRadio == '3'",
-          checkboxInput("survivalAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
         )
       ),
       column(
@@ -73,6 +69,13 @@ survivalPlotTab <- function() {
           c("OS" = 0, "CSS" = 1, "LTP-Free OS" = 2, "LTP-Free CSS" = 3),
           inline = TRUE
         ),
+        conditionalPanel(
+          condition = "input.survivalLTPFSRadio == '2' || input.survivalLTPFSRadio == '3'",
+          checkboxInput("survivalAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
+        )
+      ),
+      column(
+        width = 4,
         checkboxGroupInput(
           "survivalSelectedGenders",
           "Genders",
@@ -85,10 +88,7 @@ survivalPlotTab <- function() {
           },
           selected = genderFactors,
           inline = TRUE
-        )
-      ),
-      column(
-        width = 4,
+        ),
         checkboxGroupInput(
           "survivalSelectedSubtypes", "Subtypes",
           choices = diagnosisSubtypeFactors,

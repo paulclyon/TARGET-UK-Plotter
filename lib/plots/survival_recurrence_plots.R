@@ -80,22 +80,30 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
   # Switch on the radiobutton for Survival Type
   if (survivalType == 0)  # This is plain old overall survival
   {
-    survivalFit        <- ggsurvfit::survfit2(Surv(TimeSurvival, StatusOverallSurvival)~Organ, data = filteredSurvivalData) 
+    survivalFit        <- ggsurvfit::survfit2(Surv(TimeSurvival, StatusOverallSurvival)~Organ, 
+                                              data = filteredSurvivalData,
+                                              start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
     titleStr           <- "Overall Survival"
   }
   else if (survivalType == 1) # This is cancer specific survival
   {
-    survivalFit        <- ggsurvfit::survfit2(Surv(TimeSurvival, StatusCancerSpecificSurvival)~Organ, data = filteredSurvivalData)
+    survivalFit        <- ggsurvfit::survfit2(Surv(TimeSurvival, StatusCancerSpecificSurvival)~Organ,
+                                              data = filteredSurvivalData,
+                                              start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
     titleStr           <- "Cancer Specific Survival"
   }
   else if (survivalType == 2)  # This is LTPF overall survival
   {
-    survivalFit        <- ggsurvfit::survfit2(Surv(TimeLTPFOS, StatusLTPFOS)~Organ, data = filteredSurvivalData)
+    survivalFit        <- ggsurvfit::survfit2(Surv(TimeLTPFOS, StatusLTPFOS)~Organ,
+                                              data = filteredSurvivalData,
+                                              start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
     titleStr           <- "Overall Local Tumour Progression-Free Overall Survival"
   }
   else if (survivalType == 3)  # This is LTPF cancer specific survival
   {
-    survivalFit        <- ggsurvfit::survfit2(Surv(TimeLTPFCSS, StatusLTPFCSS)~Organ, data = filteredSurvivalData)
+    survivalFit        <- ggsurvfit::survfit2(Surv(TimeLTPFCSS, StatusLTPFCSS)~Organ,
+                                              data = filteredSurvivalData,
+                                              start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
     titleStr           <- "Overall Local Tumour Progression-Free Cancer Specific Survival"
   }
   # Original method but don't know how to change risk table to just e.g. 5 follow-up years
@@ -205,7 +213,8 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
     # See https://thriv.github.io/biodatasci2018/r-survival.html
     # StatusLTPF == 2 evaluates to FALSE for all censored rows (value=1) and TRUE for event rows (value=2), regardless of whether any events are present
     recurrenceFit <- ggsurvfit::survfit2(Surv(TimeLTPF, StatusLTPF == 2) ~ Organ,
-                                         data = filteredSurvivalData)
+                                         data = filteredSurvivalData,
+                                         start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
     titleStr      <- "Local Tumour Progression Free Analysis (Per Patient)"
   }
   else
@@ -289,7 +298,8 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
     # StatusLTPEpisode == 2 evaluates to FALSE for all censored rows (value=1) and TRUE for event rows (value=2), regardless of whether any events are present
     recurrenceFit <- ggsurvfit::survfit2(
       Surv(TimeLTPEpisode, StatusLTPEpisode == 2) ~ Organs,
-      data = filteredPerLesionData)
+           data = filteredPerLesionData,
+           start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
     titleStr      <- "Local Tumour Progression Free Analysis (Per Lesion)"
   }
   
