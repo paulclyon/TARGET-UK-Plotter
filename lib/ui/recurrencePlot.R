@@ -32,7 +32,11 @@ recurrencePlotTab <- function() {
         width = 3,
         dateInput("recurrenceStartDate", "Start Date", format = "dd/mm/yyyy", value = Sys.Date() - 365*10),
         dateInput("recurrenceEndDate", "End Date", format = "dd/mm/yyyy", value = Sys.Date()),
-        numericInput("maxYearsFollowup", "Max Years Follow-up", value = 5, min = 1, max = 20),
+        div(
+          style = "display:flex; gap:10px;",
+          numericInput("minMonthsFollowup", "MinFU(m)", value = 3, min = 1, max = 24, width = "60px"),
+          numericInput("maxYearsFollowup", "MaxFU(y)", value = 5, min = 1, max = 20, width = "60px")
+        ),
         radioButtons(
           "recurrenceLTPAnalysisUnit",
           "LTP Analysis Per",
@@ -178,6 +182,7 @@ recurrencePlotServer <- function(input, output, session, api, plots)
     makeRecurrencePlot(
       input$recurrenceStartDate,
       input$recurrenceEndDate,
+      input$minMonthsFollowup,
       input$maxYearsFollowup,
       input$recurrenceSelectedOrgans,
       input$recurrenceSelectedDiagnosisType,

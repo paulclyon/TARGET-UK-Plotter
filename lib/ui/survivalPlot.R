@@ -42,12 +42,10 @@ survivalPlotTab <- function() {
           format = "dd/mm/yyyy",
           value = Sys.Date()
         ),
-        numericInput(
-          "maxYearsFollowup",
-          "Max Years Follow-up",
-          value = 5, 
-          min = 1, 
-          max = 20
+        div(
+          style = "display:flex; gap:10px;",
+          numericInput("minMonthsFollowup", "MinFU(m)", value = 3, min = 1, max = 24, width = "60px"),
+          numericInput("maxYearsFollowup", "MaxFU(y)", value = 5, min = 1, max = 20, width = "60px")
         ),
         sliderInput(
           "survivalTumourSizeRange",
@@ -185,6 +183,7 @@ survivalPlotServer <- function(input, output, session, api, plots)
     makeSurvivalPlot(
       input$survivalStartDate,
       input$survivalEndDate,
+      input$minMonthsFollowup,
       input$maxYearsFollowup,
       input$survivalSelectedOrgans,
       input$survivalSelectedDiagnosisType,

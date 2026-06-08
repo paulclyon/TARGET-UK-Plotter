@@ -1,4 +1,4 @@
-makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, survivalType, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
+makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 100, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, survivalType, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -115,10 +115,11 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
   #survivalPlot
   
   # Newwer method, which requires survfit2 wrapper rather than survfit, and allows maxYears on plot + table
+  minYearsFollowup <- minMonthsFollowup / 12
   survivalPlot <- survivalFit |>
     ggsurvfit(linewidth = 1) +
     add_confidence_interval() + add_censor_mark() +
-    add_risktable(times=c(0:maxYearsFollowup), size=5) +
+    add_risktable(times = seq(minYearsFollowup, maxYearsFollowup, by = 1), size = 5) +
     #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
     scale_ggsurvfit() + coord_cartesian(xlim = c(0, maxYearsFollowup)) +
     labs(title = titleStr, y = "Probability", x = "Time (Years)")
@@ -126,7 +127,7 @@ makeSurvivalPlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans,
 }
 
 # This can do both per-patient and per-tumour LTP analysis
-makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL, ltpAnalysisUnit = "patient")
+makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 100, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL, ltpAnalysisUnit = "patient")
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -312,12 +313,15 @@ makeRecurrencePlot <- function(strStart, strEnd, maxYearsFollowup, selectedOrgan
   #recurrencePlot
   
   # Newwer method, which requires survfit2 wrapper rather than survfit, and allows maxYears on plot + table
+  minYearsFollowup <- minMonthsFollowup / 12
   recurrencePlot <- recurrenceFit |>
     ggsurvfit(linewidth = 1) +
-    add_confidence_interval() + add_censor_mark() +
-    add_risktable(times=c(0:maxYearsFollowup), size=5) +
-    #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
-    scale_ggsurvfit() + coord_cartesian(xlim = c(0, maxYearsFollowup)) +
+    add_confidence_interval() +
+    add_censor_mark() +
+    add_risktable(times = seq(minYearsFollowup, maxYearsFollowup, by = 1), size = 5) +
+    #  #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
+    scale_ggsurvfit() +
+    coord_cartesian(xlim = c(minYearsFollowup, maxYearsFollowup)) +
     labs(title = titleStr, y = "Probability", x = "Time (Years)")
   
   recurrencePlot
