@@ -4,11 +4,11 @@ recurrencePlotTab <- function() {
       "RecurrencePlot",
       column(
         width = 2,
-          div(
-            column(
-              width = 2,
-              div(
-                style =  "background-color: lightgrey;
+        div(
+          column(
+            width = 2,
+            div(
+              style =  "background-color: lightgrey;
                           border: 2px solid blue;
                           border-radius: 5px;
                           padding: 10px;
@@ -23,7 +23,7 @@ recurrencePlotTab <- function() {
                           justify-content: center;
                           text-align: center;
                 ",
-                textOutput("informationalRecurrencePlot")
+              textOutput("informationalRecurrencePlot")
             )
           )
         )
@@ -104,7 +104,9 @@ recurrencePlotServer <- function(input, output, session, api, plots)
 {
   subtypeChoices <- reactive({
     req(input$recurrenceSelectedDiagnosisType)
-    switch(
+    req(input$recurrenceSelectedOrgans)
+    
+    all_choices <- switch(
       input$recurrenceSelectedDiagnosisType,
       "All"       = c("All"),
       "Primary"   = api$diagnosis_1o_Factors,
@@ -113,15 +115,28 @@ recurrencePlotServer <- function(input, output, session, api, plots)
       "Unknown"   = api$diagnosis_un_Factors,
       c("All")
     )
+    
+    all_choices
   })
   
-  observeEvent(input$recurrenceSelectedDiagnosisType, {
+  selectedSubtypes <- reactive({
+    req(input$recurrenceSelectedOrgans)
     choices <- subtypeChoices()
+    organ <- tolower(input$recurrenceSelectedOrgans)
+    if (organ %in% c("liver", "kidney", "lung"))
+    {
+      prefixed <- choices[grepl(paste0("^", organ, ":"), tolower(choices))]
+      if (length(prefixed) > 0) return(prefixed)
+    }
+    choices  # all selected by default for other organs
+  })
+  
+  observeEvent(list(input$recurrenceSelectedDiagnosisType, input$recurrenceSelectedOrgans), {
     updateCheckboxGroupInput(
       session,
       "recurrenceSelectedSubtypes",
-      choices = choices,
-      selected = choices
+      choices  = subtypeChoices(),
+      selected = selectedSubtypes()
     )
   }, ignoreInit = FALSE)
   
@@ -194,7 +209,7 @@ recurrencePlotServer <- function(input, output, session, api, plots)
       input$recurrenceLTPAnalysisUnit      # per-patient or per-lesion
     )
   })
-
+  
   output$informationalRecurrencePlot <- renderText({ informationalText() })
   
   informationalText <- reactive({
@@ -203,11 +218,11 @@ recurrencePlotServer <- function(input, output, session, api, plots)
            "patient" = paste(headerText,"This is a per-patient analysis i.e. time-to-LTP is measured from first ablation even if LTP occurs after a subsequent ablation."),
            "episode" = paste(headerText,"This is a per-lesion analysis i.e. time-to-LTP is measured across all tumours from each ablation.")
     )
-    }
+  }
   )
   
   height <- reactive(detectedHeight(input, "plotRecurrenceCurve"))
-
+  
   output$plotRecurrenceCurve <- renderPlot({
     # See this for dynmaic survival curves in shiny
     #    https://stackoverflow.com/questions/61273513/issue-with-r-shiny-app-interactive-survival-plots

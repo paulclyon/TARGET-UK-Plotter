@@ -70,10 +70,7 @@ survivalPlotTab <- function() {
         conditionalPanel(
           condition = "input.survivalLTPFSRadio == '2' || input.survivalLTPFSRadio == '3'",
           checkboxInput("survivalAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
-        )
-      ),
-      column(
-        width = 4,
+        ),
         checkboxGroupInput(
           "survivalSelectedGenders",
           "Genders",
@@ -86,7 +83,10 @@ survivalPlotTab <- function() {
           },
           selected = genderFactors,
           inline = TRUE
-        ),
+        )
+      ),
+      column(
+        width = 4,
         checkboxGroupInput(
           "survivalSelectedSubtypes", "Subtypes",
           choices = diagnosisSubtypeFactors,
@@ -94,7 +94,6 @@ survivalPlotTab <- function() {
         )
       )
     ),
-    
     fluidRow(box(
       width = 12,
       plotOutput("plotSurvivalCurve")
@@ -113,18 +112,35 @@ survivalPlotServer <- function(input, output, session, api, plots)
       "All"       = c("All"),
       "Primary"   = api$diagnosis_1o_Factors,
       "Secondary" = api$diagnosis_2o_Factors,
-      "Benign"    = api$diagnosis_bn_Factors,
-      api$diagnosisSubtypeFactors
+      "1o & 2o"   = unique(c(api$diagnosis_1o_Factors, api$diagnosis_2o_Factors)),
+      "Unknown"   = api$diagnosis_un_Factors,
+      c("All")
     )
   })
   
-  observeEvent(input$survivalSelectedDiagnosisType, {
+  selectedSubtypes <- reactive({
     choices <- subtypeChoices()
+    
+    if (identical(choices, "All") || (length(choices) == 1 && choices[1] == "All")) {
+      return("All")
+    }
+    
+    organ <- tolower(trimws(input$survivalSelectedOrgans))
+    
+    if (organ %in% c("kidney", "liver", "lung")) {
+      prefixed <- choices[grepl(paste0("^", organ, "\\s*:"), tolower(choices))]
+      if (length(prefixed) > 0) return(prefixed)
+    }
+    
+    choices
+  })
+  
+  observeEvent(list(input$survivalSelectedDiagnosisType, input$survivalSelectedOrgans), {
     updateCheckboxGroupInput(
       session,
       "survivalSelectedSubtypes",
-      choices = choices,
-      selected = choices
+      choices  = subtypeChoices(),
+      selected = selectedSubtypes()
     )
   }, ignoreInit = FALSE)
   

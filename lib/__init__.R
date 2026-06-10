@@ -86,19 +86,40 @@ if (tinytex::check_installed("framed") == FALSE) {
 }
 
 # logger function if stderr = TRUE then it goes to stderr, otherwise stdout, may want to update this to use the ShinyApp
-logger <- function(msg, stderr = FALSE) {
-  if (Sys.getenv("DEBUG_MODE") == T) {
-    if (!is.na(stderr) && stderr != T) {
-      write(toString(msg), stdout())
+logger <- function(msg, stderr = FALSE, logOnlyAsDebug = FALSE)
+{
+  debugMode <- isTRUE(as.logical(Sys.getenv("DEBUG_MODE")))
+  
+  if (!logOnlyAsDebug || debugMode)
+  {
+    if (isTRUE(stderr)) {
+      write(paste(msg, collapse = "|"), stderr())
     } else {
-      write(toString(msg), stderr())
+      write(paste(msg, collapse = "|"), stdout())
     }
   }
-  if (!exists('logger.df')) {
+  
+  if (!exists("logger.df")) {
     logger.df <<- data.frame()
   }
-  logger.df <<- rbind(logger.df,data.frame(TimeStamp=format(Sys.time(), "%a %b %d %X %Y"), IsError=stderr, Message=paste0(msg, collapse="|")))
-  return()
+  
+  logger.df <<- rbind(
+    logger.df,
+    data.frame(
+      TimeStamp = format(Sys.time(), "%a %b %d %X %Y"),
+      IsError   = stderr,
+      Message   = paste(msg, collapse = "|")
+    )
+  )
+  
+  invisible(NULL)
+}
+
+# Add data integrity to the data integrity table and log it
+addDataIntegrityError <- function(ptID = NA, refID = NA, date = NA, organs = NA, errorStr = NA)
+{
+  logger(paste(" >>> Data integrity issue Pt=",ptID," Ref=",refID," Date=",date," (",organs,") >>>\n",errorStr, sep=""), FALSE)
+  dataIntegrity.df <<- rbind(dataIntegrity.df,data.frame(PtID=ptID, RefID=refID, Date=date, Organs=organs, Error=errorStr))
 }
 
 # Check we have the latest Castor library, if old then force update it!

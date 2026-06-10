@@ -159,14 +159,5 @@ reloadStudyData <- function(studyName)
   target_study_name <- studies[["name"]][studyIndex]
   #patientData      <<- pullPatientData(targetStudyID)
   studyData        <<- pullStudyData(targetStudyID)
-  
-  logger(paste("FIXME: fu_image_matrix_malignant colnames check:", 
-               any(grepl("fu_image_matrix", colnames(studyData$Study)))))
-  logger(paste("FIXME: matching columns:", 
-               paste(colnames(studyData$Study)[grepl("fu_image_matrix", colnames(studyData$Study))], collapse=", ")))
-  logger(paste("FIXME: patients with non-NA malignant:", 
-               sum(!is.na(studyData$Study[["fu_image_matrix_malignant"]]))))
-  logger(paste("FIXME: patients with non-NA malignant_1:", 
-               sum(!is.na(studyData$Study[["fu_image_matrix_malignant_1"]]))))
 }
 

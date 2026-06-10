@@ -100,11 +100,11 @@ processData <- function()
     pt_rx_count  <- as.integer(getDataEntry("pt_rx_count", i))
     
     if (is.na(pt_ref_count)) {
-      logger(paste("     Ref Count=NA, skipping from analysis...", sep = ""))
+      logger(paste("     Ref Count=NA, skipping from analysis...", sep = ""), logOnlyAsDebug = TRUE)
       next
     }
     if (pt_ref_count == 0) {
-      logger(paste(i, "/", patientCount, " Pt=", ptID, " Ref Count=0 ,skipping from analysis...", sep = ""))
+      logger(paste(i, "/", patientCount, " Pt=", ptID, " Ref Count=0 ,skipping from analysis...", sep = ""), logOnlyAsDebug = TRUE)
       next
     }
     
@@ -330,8 +330,8 @@ processData <- function()
                     # parseLTPLesionIDs returned empty — content was unparseable
                     # LTP event still counts for per-patient analysis but lesion linkage is lost
                     addDataIntegrityError(ptID, date=thisImagingDate,
-                                          error=paste("LTP is TRUE but ltp.list value '", thisLTPLesionIDs,
-                                                      "' could not be parsed - expected format e.g. '3.1' or '3.1, 4.3'. ",
+                                          error=paste("LTP = TRUE but ltp.list '", thisLTPLesionIDs,
+                                                      "' could not be parsed - expected format e.g. '1.1,2.3'. ",
                                                       "LTP event retained for per-patient analysis only.", sep=""))
                   }
                 }
@@ -348,8 +348,8 @@ processData <- function()
                 if (!is.null(thisLTPLesionIDs) && !is.na(thisLTPLesionIDs) && trimws(thisLTPLesionIDs) != "")
                 {
                   addDataIntegrityError(ptID, date=thisImagingDate,
-                                        error=paste("ltp.list has content '", thisLTPLesionIDs,
-                                                    "' but ltp is FALSE on row ", j, " - ltp.list value ignored.", sep=""))
+                                        error=paste("ltp.list = '", thisLTPLesionIDs,
+                                                    "' but ltp FALSE on row ", j, " - value ignored.", sep=""))
                 }
               }
             }
@@ -896,10 +896,10 @@ processData <- function()
       else 
       {
         # Patient is not for treatment, if they have a treatment date specified this is a data integrity issue to log - they are still ignored from treatment data...
-        logger(paste('Converting to date',getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i)))
         ref_rx_date <- convertToDate(getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i))
         if (!is.na(ref_rx_date))
         {
+          logger(paste('Converting to date',getDataEntry(paste("anaes_date_", as.integer(iRef), sep = ""), i)), TRUE)
           notForRxButRxdCount <<- notForRxButRxdCount+1
           addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), date=ref_rx_date, error=paste("Referral info states patient is not for treatment but yet this referral has a treatment date - ignored from treatment data.", sep = ""))
         }
@@ -1032,10 +1032,13 @@ processData <- function()
         }
       }
       
-      logger(paste("     Survival summary: first-rx=", date_of_first_rx,
+      if (Sys.getenv("DEBUG_MODE") == T)
+      {
+        logger(paste("     Survival summary: first-rx=", date_of_first_rx,
                    " survival-days=", survival_days,
                    dplyr::if_else(deceased == 1, " (deceased)", " (alive)", missing = " (alive)"),
                    sep = ""))
+      }
       
       # Now we have been through all the referrals update the survival data...
       age_at_first_rx <- NA
@@ -1117,7 +1120,7 @@ parseltpListString <- function(ltpListStr)
     else
     {
       logger(paste("WARNING: parseltpListString() could not parse token '", token, 
-                   "' in '", ltpListStr, "' - expected format e.g. '3.1' or '3.1, 4.3'", sep = ""))
+                   "' in '", ltpListStr, "' - expected format e.g. '3.1' or '3.1, 4.3'", sep = ""), logOnlyAsDebug = TRUE)
       emptyResult
     }
   })

@@ -7,7 +7,7 @@ initialiseGlobals <- function()
   dataIntegrityColNames          <<- c("PtID","RefID","Date","Organ(s)","Error")
   loggerColNames                 <<- c("TimeStamp","IsError","Message")
   
-  newRecurrenceMatrix <<- F
+  newRecurrenceMatrix <<- T
   if (newRecurrenceMatrix == T)
   {
     # FIXME : new table
@@ -162,7 +162,7 @@ initialiseGlobals <- function()
   
   logger("System information:")
   logger(Sys.info())
-  if (Sys.getenv("DEBUG_MODE") == T) logger(paste("Working Directory: ",getwd()))
+  if (Sys.getenv("DEBUG_MODE") == TRUE) logger(paste("Working Directory: ",getwd()))
   shinyVersion <- Sys.getenv("SHINY_SERVER_VERSION")
   if (!is.na(shinyVersion) && shinyVersion != "")
   {
