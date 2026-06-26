@@ -1,5 +1,17 @@
-survivalPlotTab <- function() {
+survivalPlotTab <- function()
+{
+  
   fluidRow(
+    tags$head(
+      tags$style(HTML("
+        #survvialPlot .form-group { margin-bottom: 2px; }
+        #survvialPlot .control-label { margin-bottom: 1px; }
+        #survvialPlot .shiny-input-container { margin-bottom: 2px; }
+        #survvialPlot .irs { margin-bottom: 0px; }
+        #survvialPlot .radio { margin-bottom: 0px; }
+        #survvialPlot .checkbox { margin-bottom: 0px; }
+      "))
+    ),
     tabPanel(
       "SurvivalPlot",
       column(
@@ -61,6 +73,12 @@ survivalPlotTab <- function() {
         width = 3,
         selectInput("survivalSelectedOrgans","Target Organ", choices = organFactors, selected = organFactors[1]),
         selectInput("survivalSelectedDiagnosisType", "Diagnosis Type", choices = diagnosis_type_Factors),
+        selectInput(
+          "survivalSelectedModality",
+          "Modality",
+          choices = c("All"),
+          selected = "All"
+        ),
         radioButtons(
           "survivalLTPFSRadio",
           "Survival Plot Type",
@@ -70,7 +88,10 @@ survivalPlotTab <- function() {
         conditionalPanel(
           condition = "input.survivalLTPFSRadio == '2' || input.survivalLTPFSRadio == '3'",
           checkboxInput("survivalAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
-        ),
+        )
+      ),
+      column(
+        width = 4,
         checkboxGroupInput(
           "survivalSelectedGenders",
           "Genders",
@@ -83,10 +104,7 @@ survivalPlotTab <- function() {
           },
           selected = genderFactors,
           inline = TRUE
-        )
-      ),
-      column(
-        width = 4,
+        ),
         checkboxGroupInput(
           "survivalSelectedSubtypes", "Subtypes",
           choices = diagnosisSubtypeFactors,
@@ -106,8 +124,9 @@ survivalPlotServer <- function(input, output, session, api, plots)
 {
   subtypeChoices <- reactive({
     req(input$survivalSelectedDiagnosisType)
+    req(input$survivalSelectedOrgans)
     
-    switch(
+    all_choices <- switch(
       input$survivalSelectedDiagnosisType,
       "All"       = c("All"),
       "Primary"   = api$diagnosis_1o_Factors,
@@ -116,23 +135,18 @@ survivalPlotServer <- function(input, output, session, api, plots)
       "Unknown"   = api$diagnosis_un_Factors,
       c("All")
     )
-  })
-  
-  selectedSubtypes <- reactive({
-    choices <- subtypeChoices()
-    
-    if (identical(choices, "All") || (length(choices) == 1 && choices[1] == "All")) {
-      return("All")
-    }
     
     organ <- tolower(trimws(input$survivalSelectedOrgans))
-    
-    if (organ %in% c("kidney", "liver", "lung")) {
-      prefixed <- choices[grepl(paste0("^", organ, "\\s*:"), tolower(choices))]
+    if (organ %in% c("liver", "kidney", "lung")) {
+      prefixed <- all_choices[grepl(paste0("^", organ, "\\s*:"), tolower(all_choices))]
       if (length(prefixed) > 0) return(prefixed)
     }
     
-    choices
+    all_choices
+  })
+  
+  selectedSubtypes <- reactive({
+    subtypeChoices()
   })
   
   observeEvent(list(input$survivalSelectedDiagnosisType, input$survivalSelectedOrgans), {
@@ -195,6 +209,18 @@ survivalPlotServer <- function(input, output, session, api, plots)
     }
   })
   
+  modalityInitialised <- reactiveVal(FALSE)
+  observe({
+    if (modalityInitialised()) return()
+    req(api$modalityFactors)  # or however modality choices are exposed via api
+    updateSelectInput(
+      session, "survivalSelectedModality",
+      choices  = c("All", api$modalityFactors),
+      selected = "All"
+    )
+    modalityInitialised(TRUE)
+  })
+  
   finalSurvivalPlotInput <- reactive({
     makeSurvivalPlot(
       input$survivalStartDate,
@@ -205,6 +231,7 @@ survivalPlotServer <- function(input, output, session, api, plots)
       input$survivalSelectedDiagnosisType,
       input$survivalSelectedSubtypes,
       input$survivalSelectedGenders,
+      input$survivalSelectedModality,
       input$survivalLTPFSRadio,
       input$survivalAllow2Rx,
       input$survivalTumourSizeRange[1],   # minTumourSize

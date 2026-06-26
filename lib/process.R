@@ -25,7 +25,7 @@ processData <- function()
     ptIDInteger = strtoi(ptID)
     if (!is.na(ptIDInteger) && ptIDInteger == 0)
     {
-      logger(paste("\n", i, "/", patientCount, " Pt=", ptID, " is being skipped from analysis as dummy patient...", sep = ""))
+      logger(paste(i, "/", patientCount, " Pt=", ptID, " skipped from analysis as dummy patient...", sep = ""))
       next
     }
     else
@@ -179,7 +179,7 @@ processData <- function()
       for (j in 1:nrow(clinicalfu.df))
       {
         # Get the date of the clinical follow-up
-        if (!is.na(clinicalfu.df$followup.date[j]) && isConvertibleToDate(clinicalfu.df$followup.date[j]))
+        if (!is.na(clinicalfu.df$followup.date[j]) && isTRUE(isConvertibleToDate(clinicalfu.df$followup.date[j])))
         {
           # Get the last imaging follow-up date
           thisClinicalFUDate <- convertToDate(clinicalfu.df$followup.date[j])
@@ -320,7 +320,7 @@ processData <- function()
                     for (k in 1:nrow(parsedLTPLesions))
                     {
                       ltp_perlesion_ptid_list     <<- append(ltp_perlesion_ptid_list,    ptID)
-                      ltp_perlesion_refno_list    <<- append(ltp_perlesion_refno_list,   parsedLTPLesions$ref_no[k])
+                      ltp_perlesion_rxno_list    <<- append(ltp_perlesion_rxno_list,   parsedLTPLesions$rx_no[k])
                       ltp_perlesion_lesionno_list <<- append(ltp_perlesion_lesionno_list,parsedLTPLesions$lesion_no[k])
                       ltp_perlesion_date_list     <<- append(ltp_perlesion_date_list,    thisImagingDate)
                     }
@@ -1092,12 +1092,15 @@ processData <- function()
 
 # Parse 'Lesion(s) with new RD/LTP (Rx.Tumour e.g. 3.1, 4.3)' field
 # Input:  string like "3.1", "3.1, 4.3", "", or NA
-# Output: data frame with columns ref_no (integer), lesion_no (integer)
+# Output: data frame with columns rx_no (integer), lesion_no (integer)
 #         Empty data frame if no LTP lesions specified
 #
 parseltpListString <- function(ltpListStr)
 {
-  emptyResult <- data.frame(ref_no = integer(0), lesion_no = integer(0))
+  emptyResult <- data.frame(
+    rx_no = integer(0),
+    lesion_no = integer(0)
+  )
   
   if (is.null(ltpListStr) || is.na(ltpListStr) || trimws(ltpListStr) == "")
   {
@@ -1113,17 +1116,29 @@ parseltpListString <- function(ltpListStr)
     {
       parts <- strsplit(token, "\\.")[[1]]
       data.frame(
-        ref_no    = as.integer(parts[1]),
+        rx_no = as.integer(parts[1]),
         lesion_no = as.integer(parts[2])
       )
     }
     else
     {
-      logger(paste("WARNING: parseltpListString() could not parse token '", token, 
-                   "' in '", ltpListStr, "' - expected format e.g. '3.1' or '3.1, 4.3'", sep = ""), logOnlyAsDebug = TRUE)
-      emptyResult
+      logger(
+        paste(
+          "WARNING: parseltpListString() could not parse token '", token,
+          "' in '", ltpListStr, "' - expected format e.g. '3.1' or '3.1, 4.3'",
+          sep = ""
+        ),
+        logOnlyAsDebug = TRUE
+      )
+      NULL
     }
   })
+  
+  results <- results[!vapply(results, is.null, logical(1))]
+  if (length(results) == 0)
+  {
+    return(emptyResult)
+  }
   
   do.call(rbind, results)
 }

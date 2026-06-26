@@ -90,7 +90,7 @@ initialiseGlobals <- function()
   ltpf_cs_survival_days_list     <<- c() # Local Tumour Progression-free cancer specific survival days
   ltpf_cs_survival_status_list   <<- c() # Local Tumour Progression-free cancer specific survival status
   ltp_perlesion_ptid_list        <<- c()
-  ltp_perlesion_refno_list       <<- c()
+  ltp_perlesion_rxno_list        <<- c()
   ltp_perlesion_lesionno_list    <<- c()
   ltp_perlesion_date_list        <<- c()
   last_imaging_follow_up_list    <<- c()

@@ -31,7 +31,7 @@ postProcessData <- function()
       Diagnosis2o   = rxdone_diagnosis_2o_list,
       DiagnosisBn.  = rxdone_diagnosis_bn_list,
       DiagnosisUn   = rxdone_diagnosis_un_list,
-      Modality      = rxdone_modality_list,
+      RxModality    = rxdone_modality_list,
       Tariff        = rxdone_tariff_list,
       Operator1     = rxdone_operator1_list,
       Operator2     = rxdone_operator2_list,
@@ -159,12 +159,12 @@ postProcessData <- function()
     if (is.data.frame(rxDoneData) && nrow(rxDoneData) > 0)
     {
       # Start with all treated referral episodes and extract the columns we need
-      # rxDoneData$ID is in the format 'PtID-RefNo' e.g. '001-3'
+      # rxDoneData$ID is in the format 'PtID-RxNo' e.g. '001-3'
       rxEpisodes       <- rxDoneData[, c("ID", "RxDate", "Organs", "DiagnosisType",
                                          "Diagnosis1o", "Diagnosis2o", "DiagnosisUn",
-                                         "MaxTumourSize", "Modality", "Gender")]
+                                         "MaxTumourSize", "RxModality", "Gender")]
       rxEpisodes$PtID  <- sub("-[0-9]+$", "", rxEpisodes$ID)        # Extract patient ID
-      rxEpisodes$RefNo <- as.integer(sub(".*-", "", rxEpisodes$ID))  # Extract referral number
+      rxEpisodes$RxNo <- as.integer(sub(".*-", "", rxEpisodes$ID))  # Extract referral number
       
       # Remove benign episodes — per-lesion LTP analysis is for malignant only
       rxEpisodes <- rxEpisodes[!is.na(rxEpisodes$DiagnosisType) & rxEpisodes$DiagnosisType != "B", ]
@@ -175,7 +175,7 @@ postProcessData <- function()
       {
         ltpPerLesion <- data.frame(
           PtID     = ltp_perlesion_ptid_list,
-          RefNo    = as.integer(ltp_perlesion_refno_list),
+          RxNo     = as.integer(ltp_perlesion_rxno_list),
           LesionNo = as.integer(ltp_perlesion_lesionno_list),
           LTPDate  = asDateWithOrigin(ltp_perlesion_date_list)
         )
@@ -186,7 +186,7 @@ postProcessData <- function()
         # This is expected until ltp.list is populated in the EDC imaging follow-up matrix
         ltpPerLesion <- data.frame(
           PtID     = character(0),
-          RefNo    = integer(0),
+          RxNo      = integer(0),
           LesionNo = integer(0),
           LTPDate  = as.Date(character(0))
         )
@@ -197,7 +197,7 @@ postProcessData <- function()
       cancerPerLesionData <<- merge(
         rxEpisodes,
         ltpPerLesion,
-        by = c("PtID", "RefNo"),
+        by = c("PtID", "RxNo"),
         all.x = TRUE
       )
       

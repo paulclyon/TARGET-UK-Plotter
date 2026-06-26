@@ -58,8 +58,8 @@ cancerPerPatientTableServer <- function(input, output, session, isDocker, api)
     if (!is.null(input$cancerPerPatientTabSelectedOrgans) && input$cancerPerPatientTabSelectedOrgans != "All")
       data <- data[data$Organ %in% input$cancerPerPatientTabSelectedOrgans, ]
     
-    if (!is.null(input$benignTabSelectedModality) && input$benignTabSelectedModality != "All")
-      data <- data[grepl(input$benignTabSelectedModality, data$RxModalities, fixed = TRUE), ]
+    if (!is.null(input$cancerPerPatientTabSelectedModality) && input$cancerPerPatientTabSelectedModality != "All")
+      data <- data[grepl(input$cancerPerPatientTabSelectedModality, data$RxModalities, fixed = TRUE), ]
     
     subtypes <- input$cancerPerPatientTabSelectedSubtypes
     if (is.null(subtypes)) subtypes <- c("All")

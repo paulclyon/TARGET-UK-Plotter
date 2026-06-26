@@ -118,7 +118,7 @@ logger <- function(msg, stderr = FALSE, logOnlyAsDebug = FALSE)
 # Add data integrity to the data integrity table and log it
 addDataIntegrityError <- function(ptID = NA, refID = NA, date = NA, organs = NA, errorStr = NA)
 {
-  logger(paste(" >>> Data integrity issue Pt=",ptID," Ref=",refID," Date=",date," (",organs,") >>>\n",errorStr, sep=""), FALSE)
+  logger(paste(" > Data integrity issue Pt=",ptID," Ref=",refID," Date=",date," (",organs,")\n > ",errorStr, sep=""), FALSE)
   dataIntegrity.df <<- rbind(dataIntegrity.df,data.frame(PtID=ptID, RefID=refID, Date=date, Organs=organs, Error=errorStr))
 }
 

@@ -1,5 +1,17 @@
-recurrencePlotTab <- function() {
+recurrencePlotTab <- function()
+{
+  
   fluidRow(
+    tags$head(
+      tags$style(HTML("
+        #recurrencePlot .form-group { margin-bottom: 2px; }
+        #recurrencePlot .control-label { margin-bottom: 1px; }
+        #recurrencePlot .shiny-input-container { margin-bottom: 2px; }
+        #recurrencePlot .irs { margin-bottom: 0px; }
+        #recurrencePlot .radio { margin-bottom: 0px; }
+        #recurrencePlot .checkbox { margin-bottom: 0px; }
+      "))
+    ),
     tabPanel(
       "RecurrencePlot",
       column(
@@ -65,6 +77,20 @@ recurrencePlotTab <- function() {
           "Diagnosis Type",
           choices = c(diagnosis_type_Factors[diagnosis_type_Factors != "Benign"], "1o & 2o")
         ),
+        selectInput(
+          "recurrenceSelectedModality",
+          "Modality",
+          choices = c("All"),
+          selected = "All"
+        ),
+        sliderInput(
+          "recurrenceTumourSizeRange",
+          "Tumour Size (mm)",
+          min = 0, max = 100, value = c(0, 100), step = 1, ticks = TRUE
+        )
+      ),
+      column(
+        width = 4,
         checkboxGroupInput(
           "recurrenceSelectedGenders",
           "Genders",
@@ -78,14 +104,6 @@ recurrencePlotTab <- function() {
           selected = genderFactors,
           inline = TRUE
         ),
-        sliderInput(
-          "recurrenceTumourSizeRange",
-          "Tumour Size (mm)",
-          min = 0, max = 100, value = c(0, 100), step = 1, ticks = TRUE
-        )
-      ),
-      column(
-        width = 4,
         checkboxGroupInput(
           "recurrenceSelectedSubtypes", "Subtypes",
           choices = diagnosisSubtypeFactors,
@@ -116,19 +134,15 @@ recurrencePlotServer <- function(input, output, session, api, plots)
       c("All")
     )
     
-    all_choices
-  })
-  
-  selectedSubtypes <- reactive({
-    req(input$recurrenceSelectedOrgans)
-    choices <- subtypeChoices()
     organ <- tolower(input$recurrenceSelectedOrgans)
-    if (organ %in% c("liver", "kidney", "lung"))
-    {
-      prefixed <- choices[grepl(paste0("^", organ, ":"), tolower(choices))]
+    if (organ %in% c("liver", "kidney", "lung")) {
+      prefixed <- all_choices[grepl(paste0("^", organ, ":"), tolower(all_choices))]
       if (length(prefixed) > 0) return(prefixed)
     }
-    choices  # all selected by default for other organs
+    all_choices})
+  
+  selectedSubtypes <- reactive({
+    subtypeChoices()
   })
   
   observeEvent(list(input$recurrenceSelectedDiagnosisType, input$recurrenceSelectedOrgans), {
@@ -193,6 +207,18 @@ recurrencePlotServer <- function(input, output, session, api, plots)
     }
   })
   
+  modalityInitialised <- reactiveVal(FALSE)
+  observe({
+    if (modalityInitialised()) return()
+    req(api$modalityFactors)  # or however modality choices are exposed via api
+    updateSelectInput(
+      session, "recurrenceSelectedModality",
+      choices  = c("All", api$modalityFactors),
+      selected = "All"
+    )
+    modalityInitialised(TRUE)
+  })
+  
   finalRecurrencePlotInput <- reactive({
     makeRecurrencePlot(
       input$recurrenceStartDate,
@@ -203,6 +229,7 @@ recurrencePlotServer <- function(input, output, session, api, plots)
       input$recurrenceSelectedDiagnosisType,
       input$recurrenceSelectedSubtypes,
       input$recurrenceSelectedGenders,
+      input$recurrenceSelectedModality,
       input$recurrenceAllow2Rx,
       input$recurrenceTumourSizeRange[1],  # minTumourSize
       input$recurrenceTumourSizeRange[2],  # maxTumourSize

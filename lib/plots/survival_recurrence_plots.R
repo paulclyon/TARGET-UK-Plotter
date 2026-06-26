@@ -1,4 +1,4 @@
-makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 100, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, survivalType, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
+makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 100, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, selectedModality = "All", survivalType, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -43,6 +43,12 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
   {
     filteredSurvivalData <<- filteredSurvivalData |>
       filter(is.na(MaxTumourSize) | between(MaxTumourSize, minTumourSize, maxTumourSize))
+  }
+  
+  # Filter by modality, remember in the survival table we might have 'Cryotherapy,Microwave' for eexampel
+  if (selectedModality != "All") {
+    filteredSurvivalData <<- filteredSurvivalData |>
+      filter(grepl(selectedModality, RxModalities, fixed = TRUE))
   }
   
   # This is the bit where we think about the number of Rx (ablations) before we call LR
@@ -119,15 +125,34 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
   survivalPlot <- survivalFit |>
     ggsurvfit(linewidth = 1) +
     add_confidence_interval() + add_censor_mark() +
-    add_risktable(times = seq(minYearsFollowup, maxYearsFollowup, by = 1), size = 5) +
+    add_risktable(
+      times = seq(minYearsFollowup, maxYearsFollowup, by = 1),
+      risktable_stats = c(
+        "n.risk",
+        "{round(estimate * 100, 1)}",
+        "{round(conf.low * 100, 1)}",
+        "{round(conf.high * 100, 1)}"
+      ),
+      stats_label = list(
+        "n.risk" = "At risk",
+        "{round(estimate * 100, 1)}" = "%",
+        "{round(conf.low * 100, 1)}" = "Lower 95%",
+        "{round(conf.high * 100, 1)}" = "Upper 95%"
+      ),
+      size = 5
+    ) +
     #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
     scale_ggsurvfit() + coord_cartesian(xlim = c(0, maxYearsFollowup)) +
-    labs(title = titleStr, y = "Probability", x = "Time (Years)")
+    labs(title = titleStr, y = "Probability", x = "Time (Years)") +
+    theme(
+      axis.text = element_text(size = 14),   # axis tick labels
+      axis.title = element_text(size = 16)   # axis titles
+    )
   survivalPlot
 }
 
 # This can do both per-patient and per-tumour LTP analysis
-makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 100, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL, ltpAnalysisUnit = "patient")
+makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 100, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, selectedModality = "All", ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL, ltpAnalysisUnit = "patient")
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -174,6 +199,12 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
   {
     filteredSurvivalData <<- filteredSurvivalData |>
       filter(is.na(MaxTumourSize) | between(MaxTumourSize, minTumourSize, maxTumourSize))
+  }
+  
+  # Filter by modality
+  if (selectedModality != "All") {
+    filteredSurvivalData <<- filteredSurvivalData |>
+      filter(RxModalities %in% selectedModality)
   }
   
   # This is the bit where we think about the number of Rx (ablations) before we call LR
@@ -318,11 +349,29 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     ggsurvfit(linewidth = 1) +
     add_confidence_interval() +
     add_censor_mark() +
-    add_risktable(times = seq(minYearsFollowup, maxYearsFollowup, by = 1), size = 5) +
+    add_risktable(
+      times = seq(minYearsFollowup, maxYearsFollowup, by = 1),
+      risktable_stats = c(
+        "n.risk",
+        "{round(estimate * 100, 1)}",
+        "{round(conf.low * 100, 1)}",
+        "{round(conf.high * 100, 1)}"
+      ),
+      stats_label = list(
+        "n.risk" = "At risk",
+        "{round(estimate * 100, 1)}" = "%",
+        "{round(conf.low * 100, 1)}" = "Lower 95%",
+        "{round(conf.high * 100, 1)}" = "Upper 95%"
+      ),
+      size = 5
+    ) +
     #  #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
     scale_ggsurvfit() +
     coord_cartesian(xlim = c(minYearsFollowup, maxYearsFollowup)) +
-    labs(title = titleStr, y = "Probability", x = "Time (Years)")
-  
+    labs(title = titleStr, y = "Probability", x = "Time (Years)") +
+    theme(
+      axis.text = element_text(size = 14),   # axis tick labels
+      axis.title = element_text(size = 16)   # axis titles
+    )
   recurrencePlot
 }
