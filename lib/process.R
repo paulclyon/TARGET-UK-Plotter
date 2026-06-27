@@ -693,7 +693,8 @@ processData <- function()
             # maxTumourSize computed only when rxTable.df exists
             maxTumourSize <- if (all(is.na(as.numeric(rxTable.df$lesion.size)))) NA else max(as.numeric(rxTable.df$lesion.size), na.rm = TRUE)
             
-            tumourCount = tumourCount + 1
+            # rxTable.df is already built and filtered (empty rows removed) at this point in the code i.e. this gives you the true number of lesions treated in that episode
+            tumourCount <- nrow(rxTable.df)
           }
           
           # Roll up per-referral maxTumourSize into patient-level survival_max_tumour_size
