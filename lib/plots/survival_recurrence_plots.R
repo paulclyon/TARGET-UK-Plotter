@@ -322,21 +322,19 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
         ptID  <- filteredPerLesionData$PtID[i]
         ltpDt <- filteredPerLesionData$LTPDate[i]
         
-        # Count distinct subsequent Rx episodes for this patient after this LTP date
+        # CRITICAL: use full cancerPerLesionData not filteredPerLesionData
+        # so that subsequent Rx count is not affected by size/organ filters
         laterRxCount <- length(unique(
-          filteredPerLesionData$RxNo[
-            filteredPerLesionData$PtID == ptID & 
-              !is.na(filteredPerLesionData$RxDate) &
-              filteredPerLesionData$RxDate > ltpDt
+          cancerPerLesionData$RxNo[
+            cancerPerLesionData$PtID == ptID & 
+              !is.na(cancerPerLesionData$RxDate) &
+              cancerPerLesionData$RxDate > ltpDt
           ]
         ))
         
-        # Censor only if exactly one subsequent re-treatment (i.e. first LTP was managed)
         if (laterRxCount == 1) {
           filteredPerLesionData$StatusLTPEpisode[i] <- 1
         }
-        # If 0 subsequent Rx: LTP is terminal — keep as event
-        # If 2+ subsequent Rx: recurred multiple times — keep as event
       }
     }
     
