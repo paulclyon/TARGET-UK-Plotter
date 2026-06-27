@@ -70,13 +70,13 @@ volumePlotServer <- function(input, output, session, api, tariff, plots) {
   # Note plotly vs. plot gives you the tool tip text
   output$plotVolume <- renderPlotly({
     filteredRxDoneData <- rxDoneData |>
-      filter(Organs %in% input$volumePlotOrganCheckbox) |>
-      filter(Modality %in% input$volumePlotModalityCheckbox) |>
+      filter(Organ %in% input$volumePlotOrganCheckbox) |>
+      filter(RxModality %in% input$volumePlotModalityCheckbox) |>
       filter(RxDate >= input$volumePlotStart) |>
       filter(RxDate <= input$volumePlotEnd)
 
     # We need to call this as if the duration radiobutton changes, it otherwise doesn't trigger a replot
-    p <- makeTreatmentVolumePlot(filteredRxDoneData, input$volumePlotDurationRadio)
+    p <- makeRxVolumePlot(filteredRxDoneData, input$volumePlotDurationRadio)
     p <- p + subset(filteredRxDoneData)
 
     # Work out the tariff

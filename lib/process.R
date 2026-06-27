@@ -40,6 +40,7 @@ processData <- function()
     diagnosis_2o <- NA
     diagnosis_bn <- NA
     diagnosis_un <- NA
+    ltp_count_max <- 0L
     modalityListForThisPatient <- c() # Reset this for each new patient
     
     if (!is.na(diagnosis_type) && diagnosis_type == "P")
@@ -202,7 +203,7 @@ processData <- function()
     # Decide if it is benign or malignant, if not specified there will be no imaging follow-up table
     date_of_last_imaging_fu <- NA
     date_of_first_ltp <- NA
-    no_rx_before_first_ltp <- NA
+    ltp_count_max <- NA
     ltp <- 0
     ltp_status <- NA
     
@@ -279,7 +280,7 @@ processData <- function()
             if (substring(thisLTP, 1, 1) != "N") # Good catch all for local tumour progression, also respecting historical coding "N"
             {
               # This records if it is local tumour progression after 1, 2 or >2 treatments (the definition of LTP can vary!) - the local tumour progression string is like '1LTP-U' for 1st LTP/RD - untreated
-              thisRecurrenceAfterRxNo <- substring(thisLTP,1,1)
+              thisLTPCount <- substring(thisLTP,1,1)
               
               # The date of this imaging, which has show local tumour progression
               thisRecurrenceDate <- thisImagingDate
@@ -289,7 +290,6 @@ processData <- function()
               {
                 ltp <- 1
                 date_of_first_ltp <- thisRecurrenceDate
-                no_rx_before_first_ltp <- thisRecurrenceAfterRxNo
               }
               # We have already recurred, so we just want the earliest local tumour progression date
               else
@@ -297,10 +297,13 @@ processData <- function()
                 if (thisRecurrenceDate < date_of_first_ltp)
                 {
                   date_of_first_ltp <- thisRecurrenceDate
-                  no_rx_before_first_ltp <- thisRecurrenceAfterRxNo
                 }
               }
               
+              # Update the LTP count max which is per patient
+              if (!is.na(thisLTPCount)) {
+                ltp_count_max <- max(ltp_count_max, thisLTPCount, na.rm = TRUE)
+              }              
               # Per-lesion LTP linkage via ltp.list field
               # ltp.list contains the referral and lesion number(s) where LTP occurred
               # in the format 'Rx.Tumour' e.g. '3.1' or '3.1, 4.3'
@@ -319,11 +322,11 @@ processData <- function()
                     # Valid parse — store per-lesion linkage for per-lesion analysis
                     for (k in 1:nrow(parsedLTPLesions))
                     {
-                      ltp_perlesion_ptid_list     <<- append(ltp_perlesion_ptid_list,    ptID)
-                      ltp_perlesion_rxno_list    <<- append(ltp_perlesion_rxno_list,   parsedLTPLesions$rx_no[k])
-                      ltp_perlesion_lesionno_list <<- append(ltp_perlesion_lesionno_list,parsedLTPLesions$lesion_no[k])
-                      ltp_perlesion_date_list     <<- append(ltp_perlesion_date_list,    thisImagingDate)
-                    }
+                      ltp_perlesion_ptid_list     <<- append(ltp_perlesion_ptid_list,     ptID)
+                      ltp_perlesion_rxno_list     <<- append(ltp_perlesion_rxno_list,     parsedLTPLesions$rx_no[k])
+                      ltp_perlesion_lesionno_list <<- append(ltp_perlesion_lesionno_list, parsedLTPLesions$lesion_no[k])
+                      ltp_perlesion_date_list     <<- append(ltp_perlesion_date_list,     thisImagingDate)
+                      ltp_perlesion_count_list    <<- append(ltp_perlesion_count_list,    as.integer(thisLTPCount))                    }
                   }
                   else
                   {
@@ -614,7 +617,7 @@ processData <- function()
           # If the Ref is NA then set it to the Rx date as next best guess... Otherwise it may be missed from TARGET & Audit
           if (is.na(ref_date))
           {
-            addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), date=ref_rx_date, organs=organForRx,
+            addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), date=ref_rx_date, organ=organForRx,
                                   error=paste("Patient for Rx but doesn't have a valid referral date, defaulting to Rx date.", sep = ""))
             ref_date <- ref_rx_date
           }
@@ -648,6 +651,7 @@ processData <- function()
           # FIX 2: Initialise maxTumourSize and modalityForRx before the JSON block so they are always defined
           maxTumourSize <- NA
           modalityForRx <- NA
+          tumourCount <- 0 # Keep tabs on how many tumours were treated in this episode - important for per lesion LTP analysis later
           
           if (!is.na(rxTableJSON) && str_length(rxTableJSON) > 0 )
           {
@@ -688,6 +692,8 @@ processData <- function()
             
             # maxTumourSize computed only when rxTable.df exists
             maxTumourSize <- if (all(is.na(as.numeric(rxTable.df$lesion.size)))) NA else max(as.numeric(rxTable.df$lesion.size), na.rm = TRUE)
+            
+            tumourCount = tumourCount + 1
           }
           
           # Roll up per-referral maxTumourSize into patient-level survival_max_tumour_size
@@ -832,6 +838,7 @@ processData <- function()
             rxdone_organ_list                  <<- append(rxdone_organ_list,                    organ)
             rxdone_modality_list               <<- append(rxdone_modality_list,                 modalityForRx)
             rxdone_max_tumour_size_list        <<- append(rxdone_max_tumour_size_list,          maxTumourSize)
+            rxdone_tumour_count_list           <<- append(rxdone_tumour_count_list,             tumourCount)
             rxdone_tariff_list                 <<- append(rxdone_tariff_list,                   tariffForRx)
             rxdone_refdate_list                <<- append(rxdone_refdate_list,                  ref_date)
             rxdone_dttdate_list                <<- append(rxdone_dttdate_list,                  ref_dtt_date)
@@ -1079,7 +1086,7 @@ processData <- function()
         ltp_list                     <<- append(ltp_list, ltp)
         ltp_status_list              <<- append(ltp_status_list, ltp_status)
         ltp_date_list                <<- append(ltp_date_list, date_of_first_ltp)
-        ltp_no_rx_before             <<- append(ltp_no_rx_before, no_rx_before_first_ltp)
+        ltp_count_max_list           <<- append(ltp_count_max_list, ltp_count_max)
         ltp_days_list                <<- append(ltp_days_list, ltp_days)
         last_imaging_follow_up_list  <<- append(last_imaging_follow_up_list, date_of_last_imaging_fu)
       }

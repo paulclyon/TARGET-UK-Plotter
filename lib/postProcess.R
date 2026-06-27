@@ -1,6 +1,8 @@
 # Post-process the processed data
 postProcessData <- function()
 {
+  logger("Performing post processing analysis...")
+  
   # The as.Dates() work around is needed to set Dates as the column types otherwise if the first element in the column is NA, it is represented as just the number which is still the date but unredable to the human
   # This is important as this makes them all a Dates object which displays nicely in the tables - you can check the types of the data frame easily with str(cancerPerPatientData)
   if (!is.null(rxdone_pt_list))
@@ -24,8 +26,9 @@ postProcessData <- function()
       Ref_DTT       = as.numeric(rxdone_dtt_days_list),
       DTT_Rx        = as.numeric(rxdone_dtt_rx_days_list),
       Ref_RxDone    = as.numeric(rxdone_rx_days_list),
-      Organs        = rxdone_organ_list,
+      Organ         = rxdone_organ_list,
       MaxTumourSize = as.numeric(rxdone_max_tumour_size_list),
+      TumourCount   = as.numeric(rxdone_tumour_count_list),
       DiagnosisType = rxdone_diagnosis_type_list,
       Diagnosis1o   = rxdone_diagnosis_1o_list,
       Diagnosis2o   = rxdone_diagnosis_2o_list,
@@ -60,7 +63,7 @@ postProcessData <- function()
       TciStatus = rxwait_tci_status_list,
       Ref_DTT = as.numeric(rxwait_dtt_days_list),
       DaysWaiting = as.numeric(rxwait_days_list),
-      Organs = rxwait_organ_list,
+      Organ = rxwait_organ_list,
       ClockStopDaysPreDTT = as.numeric(rxwait_clockstop_days_predtt_list),
       ClockStopDaysPostDTT = as.numeric(rxwait_clockstop_days_postdtt_list),
       ClockStopWhy = rxwait_clockstop_reason_list
@@ -132,7 +135,7 @@ postProcessData <- function()
       StatusLTPFCSS                = ltpf_cs_survival_status_list,
       LastImagingDate              = asDateWithOrigin(last_imaging_follow_up_list),
       FirstLTPDate                 = asDateWithOrigin(ltp_date_list),
-      NoRxBeforeFirstLTP           = ltp_no_rx_before,
+      LTPCountMax                  = ltp_count_max_list,
       LastKnownAlive               = asDateWithOrigin(survival_last_alive_list),
       StatusOverallSurvival        = survival_overall_status_list,    # Overall survival
       StatusCancerSpecificSurvival = survival_cancer_specific_status_list, # Cancer related survival
@@ -147,7 +150,7 @@ postProcessData <- function()
     cancerPerPatientData <<- allData[!is.na(allData$DiagnosisType) & allData$DiagnosisType != "B", ]
     cancerPerPatientData <<- cancerPerPatientData[, !colnames(cancerPerPatientData) %in% c("DiagnosisBn")]
     benignData <<- allData[!is.na(allData$DiagnosisType) & allData$DiagnosisType == "B", ]
-    benignData <<- benignData[, !colnames(benignData) %in% c("Diagnosis1o", "Diagnosis2o", "NoRxBeforeFirstLTP", "TimeLTPF", "StatusLTPF", "TimeLTPFOS", "StatusLTPFOS", "TimeLTPFCSS", "StatusLTPFCSS")]
+    benignData <<- benignData[, !colnames(benignData) %in% c("Diagnosis1o", "Diagnosis2o", "LTPCountMax", "TimeLTPF", "StatusLTPF", "TimeLTPFOS", "StatusLTPFOS", "TimeLTPFCSS", "StatusLTPFCSS")]
     
     # Build the per-lesion dataset for per-lesion LTP Kaplan-Meier analysis
     # Unlike cancerPerPatientData which is one row per patient, this is one row per referral episode
@@ -160,9 +163,9 @@ postProcessData <- function()
     {
       # Start with all treated referral episodes and extract the columns we need
       # rxDoneData$ID is in the format 'PtID-RxNo' e.g. '001-3'
-      rxEpisodes       <- rxDoneData[, c("ID", "RxDate", "Organs", "DiagnosisType",
+      rxEpisodes       <- rxDoneData[, c("ID", "RxDate", "Organ", "DiagnosisType",
                                          "Diagnosis1o", "Diagnosis2o", "DiagnosisUn",
-                                         "MaxTumourSize", "RxModality", "Gender")]
+                                         "TumourCount", "MaxTumourSize", "RxModality", "Gender")]
       rxEpisodes$PtID  <- sub("-[0-9]+$", "", rxEpisodes$ID)        # Extract patient ID
       rxEpisodes$RxNo <- as.integer(sub(".*-", "", rxEpisodes$ID))  # Extract referral number
       
@@ -177,7 +180,8 @@ postProcessData <- function()
           PtID     = ltp_perlesion_ptid_list,
           RxNo     = as.integer(ltp_perlesion_rxno_list),
           LesionNo = as.integer(ltp_perlesion_lesionno_list),
-          LTPDate  = asDateWithOrigin(ltp_perlesion_date_list)
+          LTPDate  = asDateWithOrigin(ltp_perlesion_date_list),
+          LTPCount = as.integer(ltp_perlesion_count_list)
         )
       }
       else
@@ -185,21 +189,61 @@ postProcessData <- function()
         # No ltp.list entries yet — empty event table, all episodes will be censored
         # This is expected until ltp.list is populated in the EDC imaging follow-up matrix
         ltpPerLesion <- data.frame(
-          PtID     = character(0),
+          PtID      = character(0),
           RxNo      = integer(0),
-          LesionNo = integer(0),
-          LTPDate  = as.Date(character(0))
+          LesionNo  = integer(0),
+          LTPDate   = as.Date(character(0)),
+          LTPCount = as.integer(0)
         )
+      }
+      
+      # This is a temporary holding place to help with the merge so we can expand to per-lesion episode data and then merge on three keys
+      rxLesions <- do.call(rbind, lapply(seq_len(nrow(rxEpisodes)), function(i) {
+        nTumours <- suppressWarnings(as.integer(rxEpisodes$TumourCount[i]))
+        if (is.na(nTumours) || nTumours < 1L) {
+          return(NULL)
+        }
+        data.frame(
+          rxEpisodes[i, ],
+          LesionNo  = seq_len(nTumours),
+          row.names = NULL
+        )
+      }))
+      
+      # Log a single data integrity entry per skipped episode (missing/zero TumourCount)
+      skippedEpisodes <- rxEpisodes[is.na(suppressWarnings(as.integer(rxEpisodes$TumourCount))) |
+                                      suppressWarnings(as.integer(rxEpisodes$TumourCount)) < 1L, ]
+      
+      if (nrow(skippedEpisodes) > 0) {
+        for (i in seq_len(nrow(skippedEpisodes))) {
+          addDataIntegrityError(ptID   = skippedEpisodes$PtID[i],
+                                refID  = skippedEpisodes$ID[i],
+                                date   = skippedEpisodes$RxDate[i],
+                                organ  = skippedEpisodes$Organ[i],
+                                errorStr = "Episode skipped from per-lesion LTP analysis — no TumourCount recorded in Rx table.")
+        }
       }
       
       # Join LTP events onto all referral episodes
       # all.x = TRUE keeps all episodes; LTPDate will be NA for episodes without a linked LTP event i.e. censored
       cancerPerLesionData <<- merge(
-        rxEpisodes,
+        rxLesions, # This is needed rather than rxEpisodes as we are merging on three ID fields and they need to be present in all tables
         ltpPerLesion,
-        by = c("PtID", "RxNo"),
+        by = c("PtID", "RxNo", "LesionNo"),
         all.x = TRUE
       )
+      
+      # After merging ltpPerLesion onto rxLesions, deduplicate to one row per lesion
+      # keeping the earliest LTP event (LTPCount == 1) where multiple exist
+      # This is due to parseLTPLesionIDs() generating one row per LTP event rather than one row per lesion, and we get duplicate factors on merge
+      cancerPerLesionData <<- cancerPerLesionData[
+        order(cancerPerLesionData$PtID, 
+              cancerPerLesionData$RxNo, 
+              cancerPerLesionData$LesionNo,
+              cancerPerLesionData$LTPDate,   # NA sorts last
+              na.last = TRUE), ]
+      cancerPerLesionData <<- cancerPerLesionData[
+        !duplicated(cancerPerLesionData[, c("PtID", "RxNo", "LesionNo")]), ]
       
       # Join last imaging follow-up date from cancerPerPatientData for censoring episodes without LTP
       lastImaging <- cancerPerPatientData[, c("ID", "LastImagingDate")]
@@ -219,7 +263,7 @@ postProcessData <- function()
       #   they are retained in the denominator rather than silently excluded
       cancerPerLesionData$TimeLTPEpisode <<- as.numeric(ifelse(
         !is.na(cancerPerLesionData$LTPDate),
-        as.numeric(difftime(cancerPerLesionData$LTPDate,        cancerPerLesionData$RxDate, units = "days"), units = "days"),
+        as.numeric(difftime(cancerPerLesionData$LTPDate,           cancerPerLesionData$RxDate, units = "days"), units = "days"),
         ifelse(
           !is.na(cancerPerLesionData$LastImagingDate),
           as.numeric(difftime(cancerPerLesionData$LastImagingDate, cancerPerLesionData$RxDate, units = "days"), units = "days"),

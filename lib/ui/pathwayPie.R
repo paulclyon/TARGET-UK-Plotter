@@ -13,8 +13,7 @@ pathwayPieTab <- function() {
               "Waiting Pie" = "waitingPie"
             )
           ),
-          br(),br(),
-          actionButton(inputId = "refreshRxPie", label = "Refresh Pie Chart")
+          br(),
         ),
         column(
           width = 3,
@@ -110,11 +109,6 @@ pathwayPieServer <- function(input, output, session, api, plots) {
     )
   })
 
-  observeEvent(input$refreshRxPie, {
-    plots$activePlot <- ggplot()
-  })
-  
-  
   informationalText <- reactive({
     headerText <- "Informational:\n"
     if(notForRxButRxdCount > 0)

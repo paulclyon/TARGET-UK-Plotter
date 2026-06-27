@@ -1,8 +1,8 @@
-makeTreatmentVolumePlot <- function(filteredRxDoneData, volumePlotDuration) {
+makeRxVolumePlot <- function(filteredRxDoneData, volumePlotDuration) {
   # Organ colour scale
   orgColors <- brewer.pal(length(organFactors), "Pastel1")
   names(orgColors) <- organFactors
-  orgColScale <- scale_fill_manual(name = "Organs", values = orgColors)
+  orgColScale <- scale_fill_manual(name = "Organ", values = orgColors)
 
   if (!is.null(nrow(filteredRxDoneData))) {
     if (volumePlotDuration == "year") {
@@ -15,11 +15,11 @@ makeTreatmentVolumePlot <- function(filteredRxDoneData, volumePlotDuration) {
     }
 
     volumePlot <<- ggplot(filteredRxDoneData, aes(
-      x = lubridate::floor_date(RxDate, volumePlotDuration), fill = Organs,
+      x = lubridate::floor_date(RxDate, volumePlotDuration), fill = Organ,
       text = paste(
         ID, "-", RxDate, "\n",
         paste("Operators: ", Operator1, Operator2, Operator3, "\n"),
-        paste("Rx Modality: ", Modality, " (£", Tariff, ")")
+        paste("Rx Modality: ", RxModality, " (£", Tariff, ")")
       )
     )) +
       geom_bar() +

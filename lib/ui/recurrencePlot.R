@@ -64,10 +64,7 @@ recurrencePlotTab <- function()
         # ignore LTP events where LesionNo refers to a lesion that was being ablated for the first time — i.e. where
         # there was no prior local therapy at that site. But that information isn't currently stored in cancerPerLesionData,
         # and we are not currently mixing the two tables - simplist way is to just hide it unless per patient analysis.
-        conditionalPanel(
-          condition = "input.recurrenceLTPAnalysisUnit == 'patient'",
-          checkboxInput("recurrenceAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
-        )
+        checkboxInput("recurrenceAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
       ),
       column(
         width = 3,

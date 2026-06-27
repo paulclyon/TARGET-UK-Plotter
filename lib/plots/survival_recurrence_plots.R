@@ -52,10 +52,10 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
   }
   
   # This is the bit where we think about the number of Rx (ablations) before we call LR
-  # So if NoRxBeforeFirstLTP is just 1, we dont count it as real LR if ignoreFirstLTP is TRUE
+  # So if LTPCountMax is just 1, we dont count it as real LR if ignoreFirstLTP is TRUE
   # A way to do this is to change the StatusLTPF/LTPFOS/LTPFCSS column status to 1 for all those recurring after just 1 Rx, if not deceased, as follows
   if (isTRUE(ignoreFirstLTP)) {
-    idx <- filteredSurvivalData$NoRxBeforeFirstLTP == 1 & !is.na(filteredSurvivalData$NoRxBeforeFirstLTP)
+    idx <- !is.na(filteredSurvivalData$LTPCountMax) & filteredSurvivalData$LTPCountMax == 1
     filteredSurvivalData$StatusLTPF[idx] <- 1
     filteredSurvivalData$StatusLTPFOS[idx & filteredSurvivalData$Deceased == 0] <- 1
     filteredSurvivalData$StatusLTPFCSS[idx & filteredSurvivalData$Deceased == 0] <- 1
@@ -208,10 +208,11 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
   }
   
   # This is the bit where we think about the number of Rx (ablations) before we call LR
-  # So if NoRxBeforeFirstLTP is just 1, we dont count it as real LR if ignoreFirstLTP is TRUE
+  # So if LTPCountMax is just 1, we dont count it as real LR if ignoreFirstLTP is TRUE
   # A way to do this is to change the StatusLTPF column status to 1 for all those recurring after just 1 Rx, as follows
   if (isTRUE(ignoreFirstLTP)) {
-    idx <- filteredSurvivalData$NoRxBeforeFirstLTP == 1 & !is.na(filteredSurvivalData$NoRxBeforeFirstLTP)
+    # Censor first RD/LTP only when the checkbox is enabled
+    idx <- !is.na(filteredSurvivalData$LTPCountMax) & filteredSurvivalData$LTPCountMax == 1
     filteredSurvivalData$StatusLTPF[idx] <- 1
     filteredSurvivalData$StatusLTPFOS[idx] <- 1
     filteredSurvivalData$StatusLTPFCSS[idx] <- 1
@@ -273,12 +274,12 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
       filteredPerLesionData$Gender %in% selectedGenders, ]
     
     if (selectedOrgans != "All")
-      filteredPerLesionData <- filteredPerLesionData[filteredPerLesionData$Organs %in% selectedOrgans, ]
+      filteredPerLesionData <- filteredPerLesionData[filteredPerLesionData$Organ %in% selectedOrgans, ]
     
     if (selectedDiagnosisType == "All")
     {
       if (!"All" %in% selectedSubtypes)
-        filteredPerLesionData <- filteredPerLesionData[filteredPerLesionData$Organs %in% selectedSubtypes, ]
+        filteredPerLesionData <- filteredPerLesionData[filteredPerLesionData$Organ %in% selectedSubtypes, ]
     }
     else if (selectedDiagnosisType == "1o & 2o")
     {
@@ -308,6 +309,37 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
       !is.na(filteredPerLesionData$TimeLTPEpisode) &
         !is.na(filteredPerLesionData$StatusLTPEpisode), ]
     
+    # So the LTPCount is encoded 0: No LTP, 1: 1st LTP, 2: 2nd LTP, 3: >2nd LTP
+    # Note that LTPCount is effectively like a cumulative global: i.e. allow up to 2 recurrences before calling LTP
+    # For per-lesion: censor an episode's LTP if the patient had a subsequent ablation after it
+    # i.e. the LTP was "managed" by re-treatment rather than being terminal
+    # laterRxCount == 0: no re-treatment after LTP → terminal event, keep
+    # laterRxCount == 1: one re-treatment → managed LTP, censor
+    # laterRxCount >= 2: two or more re-treatments → recurrent/terminal, keep
+    if (ignoreFirstLTP) {
+      for (i in which(!is.na(filteredPerLesionData$LTPDate) & 
+                      filteredPerLesionData$StatusLTPEpisode == 2)) {
+        ptID  <- filteredPerLesionData$PtID[i]
+        ltpDt <- filteredPerLesionData$LTPDate[i]
+        
+        # Count distinct subsequent Rx episodes for this patient after this LTP date
+        laterRxCount <- length(unique(
+          filteredPerLesionData$RxNo[
+            filteredPerLesionData$PtID == ptID & 
+              !is.na(filteredPerLesionData$RxDate) &
+              filteredPerLesionData$RxDate > ltpDt
+          ]
+        ))
+        
+        # Censor only if exactly one subsequent re-treatment (i.e. first LTP was managed)
+        if (laterRxCount == 1) {
+          filteredPerLesionData$StatusLTPEpisode[i] <- 1
+        }
+        # If 0 subsequent Rx: LTP is terminal — keep as event
+        # If 2+ subsequent Rx: recurred multiple times — keep as event
+      }
+    }
+    
     # If no rows to plot, let the user know there is no data
     if (nrow(filteredPerLesionData) == 0)
     {
@@ -319,9 +351,9 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
       )
     }
     
-    logger(paste("FIXME perLesion: nrow=", nrow(filteredPerLesionData),
-                 " events=", sum(filteredPerLesionData$StatusLTPEpisode == 2, na.rm=TRUE),
-                 " censored=", sum(filteredPerLesionData$StatusLTPEpisode == 1, na.rm=TRUE)))
+    logger(paste("LTP perLesion analysis: Total No. Filtered Lesions=", nrow(filteredPerLesionData),
+                 ", events=", sum(filteredPerLesionData$StatusLTPEpisode == 2, na.rm=TRUE),
+                 ", censored=", sum(filteredPerLesionData$StatusLTPEpisode == 1, na.rm=TRUE)), logOnlyAsDebug=TRUE)
     
     # Censoring = 1=censored, 2=recurred (almost treat as if death) - 
     # The sample is censored in that you only know that the individual survived up to the loss to followup,
@@ -329,7 +361,7 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     # See https://thriv.github.io/biodatasci2018/r-survival.html
     # StatusLTPEpisode == 2 evaluates to FALSE for all censored rows (value=1) and TRUE for event rows (value=2), regardless of whether any events are present
     recurrenceFit <- ggsurvfit::survfit2(
-      Surv(TimeLTPEpisode, StatusLTPEpisode == 2) ~ Organs,
+      Surv(TimeLTPEpisode, StatusLTPEpisode == 2) ~ Organ,
            data = filteredPerLesionData,
            start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
     titleStr      <- "Local Tumour Progression Free Analysis (Per Lesion)"

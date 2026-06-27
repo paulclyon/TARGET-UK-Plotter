@@ -108,12 +108,12 @@ yearLabels  <- sapply(yearWindows, `[[`, "label")
 nYears      <- length(yearWindows)
 
 # ---------------------------------------------------------------------------
-# Helper: overall_group -- adds an "All Organs" summary row
+# Helper: overall_group -- adds an "All Organ" summary row
 # ---------------------------------------------------------------------------
 overall_group <- function(data, col_name) {
   d1 <- data %>% mutate(summary_level = "grouped")
   d2 <- data %>% mutate(summary_level = "ungrouped") %>%
-    mutate(!!sym(col_name) := "All Organs")
+    mutate(!!sym(col_name) := "All Organ")
   rbind(d1, d2) %>%
     group_by(summary_level, !!sym(col_name)) %>%
     { subset(., select = -c(summary_level)) }
@@ -134,7 +134,7 @@ cleanBase <- function(data) {
   d <- data |>
     filter(!(ID %in% c("000-1", "00000-1", "000000-1")))
   if (!("All" %in% audit_organs)) {
-    d <- d |> filter(Organs %in% audit_organs)
+    d <- d |> filter(Organ %in% audit_organs)
   }
   d
 }
@@ -167,8 +167,8 @@ z.significantMarker <- function(p.value) {
 
 getTTestPValueFromData <- function(current_data, preceding_data, organ, column) {
   tryCatch({
-    x <- current_data   |> filter(organ == "All Organs" | Organs == organ) |> pull(!!sym(column))
-    y <- preceding_data |> filter(organ == "All Organs" | Organs == organ) |> pull(!!sym(column))
+    x <- current_data   |> filter(organ == "All Organ" | Organ == organ) |> pull(!!sym(column))
+    y <- preceding_data |> filter(organ == "All Organ" | Organ == organ) |> pull(!!sym(column))
     t.test(x, y)$p.value |> t.significantMarker()
   }, error = function(e) "")
 }
@@ -176,10 +176,10 @@ getTTestPValueFromData <- function(current_data, preceding_data, organ, column) 
 getZTestPValueFromTables <- function(current_tbl, preceding_tbl, organ, count_col, n_col = "n") {
   tryCatch({
     prop.test(
-      x = c(current_tbl[current_tbl$Organs == organ, count_col],
-            preceding_tbl[preceding_tbl$Organs == organ, count_col]),
-      n = c(current_tbl[current_tbl$Organs == organ, n_col],
-            preceding_tbl[preceding_tbl$Organs == organ, n_col])
+      x = c(current_tbl[current_tbl$Organ == organ, count_col],
+            preceding_tbl[preceding_tbl$Organ == organ, count_col]),
+      n = c(current_tbl[current_tbl$Organ == organ, n_col],
+            preceding_tbl[preceding_tbl$Organ == organ, n_col])
     )$p.value |> z.significantMarker()
   }, error = function(e) "")
 }
@@ -188,7 +188,7 @@ getZTestPValueFromTables <- function(current_tbl, preceding_tbl, organ, count_co
 # Generic multi-year table builder.
 #
 # summarise_fn : function(data_frame) -> summary tibble with columns
-#                Organs, n, mean, median, and any percentage columns
+#                Organ, n, mean, median, and any percentage columns
 # pct_cols     : character vector of percentage column names e.g. c("w10%","w21%")
 # count_cols   : corresponding raw count column names for z-test e.g. c("w10","w21")
 # raw_col      : column name in the raw data for the t-test e.g. "Ref_DTT"
@@ -198,15 +198,15 @@ buildMultiYearTable <- function(summarise_fn, pct_cols, count_cols, raw_col) {
   yr_tables <- lapply(rxDoneByYear, summarise_fn)
 
   # All organs + individual organ rows to test
-  organs_to_test <- c(audit_organs, "All Organs")
+  organs_to_test <- c(audit_organs, "All Organ")
 
   # Build comparison columns year-by-year (each vs its predecessor)
 result <- yr_tables[[1]] |>
   mutate(
-    `Organ Treated` = paste0(Organs, " (N=", n, ")"),
+    `Organ Treated` = paste0(Organ, " (N=", n, ")"),
     !!paste0("n_", yearLabels[1]) := paste0("N=", n)
   ) |>
-  select(`Organ Treated`, Organs, all_of(paste0("n_", yearLabels[1])), mean, median, all_of(pct_cols))
+  select(`Organ Treated`, Organ, all_of(paste0("n_", yearLabels[1])), mean, median, all_of(pct_cols))
 
   colnames(result)[colnames(result) == "mean"]   <- paste0("mean_",   yearLabels[1])
   colnames(result)[colnames(result) == "median"] <- paste0("median_", yearLabels[1])
@@ -239,29 +239,29 @@ result <- yr_tables[[1]] |>
       names(sig_z) <- pct_cols
 
       add <- cur_tbl |>
-        select(Organs, n, mean, median, all_of(pct_cols)) |>
+        select(Organ, n, mean, median, all_of(pct_cols)) |>
         mutate(
           !!paste0("n_",      lbl) := paste0("N=", n),
-          !!paste0("mean_",   lbl) := paste0(mean,   " (", prev_tbl$mean[match(Organs, prev_tbl$Organs)],   ")",
-                                              sapply(Organs, function(o) sig_t[o])),
-          !!paste0("median_", lbl) := paste0(median, " (", prev_tbl$median[match(Organs, prev_tbl$Organs)], ")")
+          !!paste0("mean_",   lbl) := paste0(mean,   " (", prev_tbl$mean[match(Organ, prev_tbl$Organ)],   ")",
+                                              sapply(Organ, function(o) sig_t[o])),
+          !!paste0("median_", lbl) := paste0(median, " (", prev_tbl$median[match(Organ, prev_tbl$Organ)], ")")
         )
 
       for (j in seq_along(pct_cols)) {
         pc       <- pct_cols[j]
-        prev_pct <- prev_tbl[[pc]][match(cur_tbl$Organs, prev_tbl$Organs)]
+        prev_pct <- prev_tbl[[pc]][match(cur_tbl$Organ, prev_tbl$Organ)]
         add <- add |>
           mutate(!!paste0(pc, "_", lbl) :=
                    paste0(!!sym(pc), " (", prev_pct, ")",
-                          sapply(Organs, function(o) sig_z[[pc]][o])))
+                          sapply(Organ, function(o) sig_z[[pc]][o])))
       }
 
-      add <- add |> select(Organs, starts_with("n_"), starts_with("mean_"),
+      add <- add |> select(Organ, starts_with("n_"), starts_with("mean_"),
                            starts_with("median_"), ends_with(lbl))
 
       result <- result |> left_join(
         add |> select(
-          Organs,
+          Organ,
           all_of(c(
             paste0("n_", lbl),
             paste0("mean_", lbl),
@@ -269,16 +269,16 @@ result <- yr_tables[[1]] |>
             paste0(pct_cols, "_", lbl)
           ))
         ),
-        by = "Organs"
+        by = "Organ"
       )
     } else {
       # First year -- just add N column
       result <- result |>
-        mutate(!!paste0("n_", lbl) := paste0("N=", yr_tables[[1]]$n[match(Organs, yr_tables[[1]]$Organs)]))
+        mutate(!!paste0("n_", lbl) := paste0("N=", yr_tables[[1]]$n[match(Organ, yr_tables[[1]]$Organ)]))
     }
   }
 
-  result |> filter(Organs == "All Organs" | Organs %in% audit_organs)
+  result |> filter(Organ == "All Organ" | Organ %in% audit_organs)
 }
 
 # ---------------------------------------------------------------------------
@@ -288,7 +288,7 @@ buildMultiYearBoxplot <- function(value_col, title_str, ylab_str, hlines = list(
   # Stack all years into one data frame with a Year column
   combined <- bind_rows(lapply(seq_along(yearWindows), function(i) {
     rxDoneByYear[[i]] |>
-      select(Organs, !!sym(value_col)) |>
+      select(Organ, !!sym(value_col)) |>
       mutate(
         Year = yearLabels[i],
         !!sym(value_col) := if_else(!!sym(value_col) < 0, NA_real_, !!sym(value_col))
@@ -296,7 +296,7 @@ buildMultiYearBoxplot <- function(value_col, title_str, ylab_str, hlines = list(
   }))
 
   p <- combined |>
-    ggplot(aes(x = Organs, y = !!sym(value_col), color = Year)) +
+    ggplot(aes(x = Organ, y = !!sym(value_col), color = Year)) +
     geom_boxplot(position = "dodge2")
 
   for (h in hlines) {
@@ -329,7 +329,7 @@ auditPeriodText <- paste0(
 
 **Audit Generated on:** `r format(Sys.time(), "%a %b %d %X %Y")`<br>
 **Audit Period:** `r format(audit_start_date, "%d %B %Y")` – `r format(audit_end_date, "%d %B %Y")`<br>
-**Organs included in audit:** `r paste(audit_organs)`<br>
+**Organ included in audit:** `r paste(audit_organs)`<br>
 **Years in audit:** `r paste(yearLabels, collapse = ", ")`<br>
 
 ## Ablation Referral to DTT Times
@@ -342,7 +342,7 @@ generateDTTTable <- function(doneData) {
       within10 = ifelse(Ref_DTT <= 10, 1, 0),
       within21 = ifelse(Ref_DTT <= 21, 1, 0)
     ) |>
-    overall_group("Organs") |>
+    overall_group("Organ") |>
     summarise(
       mean    = round(mean(Ref_DTT, na.rm = TRUE), 1),
       median  = round(median(Ref_DTT, na.rm = TRUE), 1),
@@ -352,15 +352,15 @@ generateDTTTable <- function(doneData) {
       "w21%"  = round(sum(within21, na.rm = TRUE) / n() * 100, 1),
       n = n()
     ) |>
-    mutate(Organs = if_else(is.na(Organs), "All Organs", Organs)) |>
+    mutate(Organ = if_else(is.na(Organ), "All Organ", Organ)) |>
     ungroup() |>
-    filter(Organs == "All Organs" | Organs %in% audit_organs)
+    filter(Organ == "All Organ" | Organ %in% audit_organs)
 }
 
 if (nYears == 1) {
   # Single year: original simple table
   generateDTTTable(rxDoneAuditData) |>
-    mutate(`Organ Treated` = paste0(Organs, " (N=", n, ")")) |>
+    mutate(`Organ Treated` = paste0(Organ, " (N=", n, ")")) |>
     select(`Organ Treated`, mean, median, `w10%`, `w21%`) |>
     kbl(col.names = c("Organ Treated", "Mean time\n(days)", "Median\n(days)",
                       "% within 10 days\n(Local std.)", "% within 21 days\n(Local std.)")) |>
@@ -425,7 +425,7 @@ generateDTTtoRxTable <- function(doneData) {
       within45 = ifelse(DTT_Rx <= 45, 1, 0),
       within60 = ifelse(DTT_Rx <= 60, 1, 0)
     ) |>
-    overall_group("Organs") |>
+    overall_group("Organ") |>
     summarise(
       mean    = round(mean(DTT_Rx, na.rm = TRUE), 1),
       median  = round(median(DTT_Rx, na.rm = TRUE), 1),
@@ -437,14 +437,14 @@ generateDTTtoRxTable <- function(doneData) {
       "w60%"  = round(sum(within60, na.rm = TRUE) / n() * 100, 1),
       n = n()
     ) |>
-    mutate(Organs = if_else(is.na(Organs), "All Organs", Organs)) |>
+    mutate(Organ = if_else(is.na(Organ), "All Organ", Organ)) |>
     ungroup() |>
-    filter(Organs == "All Organs" | Organs %in% audit_organs)
+    filter(Organ == "All Organ" | Organ %in% audit_organs)
 }
 
 if (nYears == 1) {
   generateDTTtoRxTable(rxDoneAuditData) |>
-    mutate(`Organ (n)` = paste0(Organs, " (N=", n, ")")) |>
+    mutate(`Organ (n)` = paste0(Organ, " (N=", n, ")")) |>
     select(`Organ (n)`, mean, median, `w31%`, `w45%`, `w60%`) |>
     kbl(col.names = c("Organ Treated", "Mean time\n(days)", "Median\n(days)",
                       "% within 31 days\n(Cancer std.)", "% within 45 days\n(Local std.)",
@@ -505,7 +505,7 @@ generateRefToRxTable <- function(doneData) {
   doneData |>
     mutate(Ref_RxDone = if_else(Ref_RxDone < 0, NA_real_, Ref_RxDone)) |>
     mutate(within90 = ifelse(Ref_RxDone <= 90, 1, 0)) |>
-    overall_group("Organs") |>
+    overall_group("Organ") |>
     summarise(
       mean   = round(mean(Ref_RxDone, na.rm = TRUE), 1),
       median = round(median(Ref_RxDone, na.rm = TRUE), 1),
@@ -513,14 +513,14 @@ generateRefToRxTable <- function(doneData) {
       "w90%" = round(sum(within90, na.rm = TRUE) / n() * 100, 1),
       n = n()
     ) |>
-    mutate(Organs = if_else(is.na(Organs), "All Organs", Organs)) |>
+    mutate(Organ = if_else(is.na(Organ), "All Organ", Organ)) |>
     ungroup() |>
-    filter(Organs == "All Organs" | Organs %in% audit_organs)
+    filter(Organ == "All Organ" | Organ %in% audit_organs)
 }
 
 if (nYears == 1) {
   generateRefToRxTable(rxDoneAuditData) |>
-    mutate(`Organ (n)` = paste0(Organs, " (N=", n, ")")) |>
+    mutate(`Organ (n)` = paste0(Organ, " (N=", n, ")")) |>
     select(`Organ (n)`, mean, median, `w90%`) |>
     kbl(col.names = c("Organ Treated", "Mean time\n(days)", "Median\n(days)",
                       "% within 90 days\n(Local std.)")) |>
@@ -573,7 +573,7 @@ buildMultiYearBoxplot(
 ```{r negative_clockstop}
 rxDoneAuditData |>
   filter(Ref_DTT < 0 | DTT_Rx < 0) |>
-  select(ID, Organs, Ref_DTT, DTT_Rx, ClockStopDaysPreDTT, ClockStopDaysPostDTT) |>
+  select(ID, Organ, Ref_DTT, DTT_Rx, ClockStopDaysPreDTT, ClockStopDaysPostDTT) |>
   kbl(col.names = c("ID", "Organ Treated", "Referral to DTT\n(days)", "DTT to Rx\n(days)",
                     "Clock Stop Pre DTT\n(days)", "Clock Stop Post DTT\n(days)")) |>
   kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = FALSE) |>
@@ -638,7 +638,7 @@ rxDoneAuditData |>
     )
   ) |>
   filter(clockstopped != "Not Stopped") |>
-  select(ID, Organs, ClockStopWhy) |>
+  select(ID, Organ, ClockStopWhy) |>
   kbl(col.names = c("ID", "Organ", "Reason for clock stop")) |>
   kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = FALSE) |>
   column_spec(1, width = "8em") |>
@@ -658,14 +658,14 @@ rxDoneAuditDataplot
 
 ```{r organ_pie}
 rxDoneAuditData %>%
-  group_by(Organs) %>%
+  group_by(Organ) %>%
   summarise(n = n()) %>%
   mutate(
     prop   = n / sum(.$n) * 100,
     ypos   = cumsum(prop) - 0.5 * prop,
-    Organs = paste0(Organs, " (N=", n, ")")
+    Organ = paste0(Organ, " (N=", n, ")")
   ) %>%
-  ggplot(aes(x = "", y = n, fill = Organs)) +
+  ggplot(aes(x = "", y = n, fill = Organ)) +
   geom_bar(stat = "identity", width = 1, color = "white") +
   coord_polar("y", start = 0) +
   theme_void() +
@@ -705,7 +705,7 @@ rxDoneAuditData %>%
     ClockStopDaysPreDTT  = if_else(is.na(ClockStopDaysPreDTT),  0, ClockStopDaysPreDTT),
     ClockStopDaysPostDTT = if_else(is.na(ClockStopDaysPostDTT), 0, ClockStopDaysPostDTT)
   ) %>%
-  select(ID, Organs, Ref_RxDone, ClockStopDaysPreDTT, ClockStopDaysPostDTT) %>%
+  select(ID, Organ, Ref_RxDone, ClockStopDaysPreDTT, ClockStopDaysPostDTT) %>%
   kbl(col.names = c("ID", "Organ", "Referral to Ablation time\n(days)",
                     "Clock Stop Pre DTT\n(days)", "Clock Stop Post DTT\n(days)")) %>%
   kable_styling(

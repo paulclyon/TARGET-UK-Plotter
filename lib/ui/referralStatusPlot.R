@@ -64,8 +64,8 @@ referralStatusPlotServer <- function(input, output, session, api, plots) {
   })
 
   referralStatuses <- reactive(processReferralStatusPerPeriod(
-    rxDoneData %>% filter(Organs %in% input$referralStatusPlotOrganCheckbox),
-    rxWaitData %>% filter(Organs %in% input$referralStatusPlotOrganCheckbox),
+    rxDoneData %>% filter(Organ %in% input$referralStatusPlotOrganCheckbox),
+    rxWaitData %>% filter(Organ %in% input$referralStatusPlotOrganCheckbox),
     input$referralStatusPlotStart,
     input$referralStatusPlotEnd,
     input$referralStatusPlotDurationRadio

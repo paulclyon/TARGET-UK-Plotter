@@ -28,6 +28,7 @@ initialiseGlobals <- function()
   rxdone_organ_list              <<- c()
   rxdone_modality_list           <<- c()
   rxdone_max_tumour_size_list    <<- c()
+  rxdone_tumour_count_list       <<- c()
   rxdone_sex_list                <<- c()
   rxdone_tariff_list             <<- c()
   rxdone_pt_list                 <<- c()
@@ -84,7 +85,7 @@ initialiseGlobals <- function()
   ltp_status_list                <<- c()
   ltp_date_list                  <<- c()
   ltp_days_list                  <<- c()
-  ltp_no_rx_before               <<- c()
+  ltp_count_max_list             <<- c()
   ltpf_os_survival_days_list     <<- c() # Local Tumour Progression-free overall survival days
   ltpf_os_survival_status_list   <<- c() # Local Tumour Progression-free overall survival status
   ltpf_cs_survival_days_list     <<- c() # Local Tumour Progression-free cancer specific survival days
@@ -93,6 +94,7 @@ initialiseGlobals <- function()
   ltp_perlesion_rxno_list        <<- c()
   ltp_perlesion_lesionno_list    <<- c()
   ltp_perlesion_date_list        <<- c()
+  ltp_perlesion_count_list       <<- c() # This is encoded as 0=no LTP, 1=1st, 2=2nd, 3=>2nd
   last_imaging_follow_up_list    <<- c()
   operator1                      <<- NA
   operator2                      <<- NA

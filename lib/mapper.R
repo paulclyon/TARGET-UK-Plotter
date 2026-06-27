@@ -79,7 +79,7 @@ makeReferralMap <- function(rxDoneData, inputStartDate, inputEndDate, progressBa
             longitude <- c(longitude, geo[2])
             postcode <- c(postcode, thisPostcode)
             rxdate <- c(rxdate, format(rxDoneData.filtered$RxDate, format = "%d %B, %Y"))
-            organ <- c(organ, rxDoneData.filtered$Organs)
+            organ <- c(organ, rxDoneData.filtered$Organ)
           }
         }
       }

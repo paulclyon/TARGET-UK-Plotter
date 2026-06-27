@@ -7,14 +7,14 @@ getTciData <- function(startDate, reportOrgans, includeTreated)
   firstDateOfMonth <- format(ymd(startDate),"%Y-%m-01")
   
   # Make a data table which we can use to populate the calendar
-  tciData <- subset(rxWaitData, select = c(ID, TciDate, TciStatus, Organs))
+  tciData <- subset(rxWaitData, select = c(ID, TciDate, TciStatus, Organ))
   
   # Filter to just the organs of interest and other stuff
   if (nrow(tciData)>0)
   {
     if (!("All Organs" %in% reportOrgans)) {
       tciData <-tciData |>
-        dplyr::filter(Organs %in% reportOrgans)
+        dplyr::filter(Organ %in% reportOrgans)
     }
     tciData <- dplyr::filter(tciData, !is.na(TciDate)) # Remove the nulls
     tciData <- dplyr::filter(tciData, TciDate >= firstDateOfMonth) # Remove anything before the 1st day of month
@@ -28,10 +28,10 @@ getTciData <- function(startDate, reportOrgans, includeTreated)
   # If we are to include the treated patients too...
   if (includeTreated)
   {
-    rxData <- subset(rxDoneData, select = c(ID, RxDate, Organs))
+    rxData <- subset(rxDoneData, select = c(ID, RxDate, Organ))
     if (!("All Organs" %in% reportOrgans)) {
       rxData <- rxData |>
-        dplyr::filter(Organs %in% reportOrgans)
+        dplyr::filter(Organ %in% reportOrgans)
     }
     rxData <- dplyr::filter(rxData, RxDate >= firstDateOfMonth) # Remove anything before the 1st day of month
     data.table::setnames(rxData, c("title","start","body"))

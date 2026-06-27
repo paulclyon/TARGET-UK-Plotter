@@ -1,10 +1,10 @@
 prepareOrganCountPieData <- function(filtered_df) {
   filtered_df |>
-    group_by(Organs) |>
+    group_by(Organ) |>
     summarize(Count = n()) |>
     mutate(
       Percent = (Count / sum(Count)),
-      Organ = factor(Organs),
+      Organ = factor(Organ),
       csum = rev(cumsum(rev(Count))),
       pos = Count / 2 + lead(csum, 1),
       pos = if_else(is.na(pos), Count / 2, pos)
@@ -38,7 +38,7 @@ makeRxDonePie <- function(strStart, strEnd, selectedOrgans) {
 
   filtered_df <- rxDoneData |>
     filter(between(RxDate, start, end)) |>
-    filter(Organs %in% selectedOrgans)
+    filter(Organ %in% selectedOrgans)
 
   if (!is.data.frame(filtered_df) || nrow(filtered_df) <= 0) {
     return(ggplot())
@@ -61,14 +61,14 @@ makeRxWaitPie <- function(strStart, strEnd, selectedOrgans) {
   
   filtered_df <- rxWaitData |>
     filter(between(RefDate, start, end)) |>
-    filter(Organs %in% selectedOrgans)
+    filter(Organ %in% selectedOrgans)
 
   # More complex way of doing it which I used to do but now doesn't make sense...
   #filtered_df <- rxWaitData |>
   #  full_join(rxDoneData) |>
   #  filter(is.na(RxDate) | RxDate < end) |> # Only include those that have not been treated or treated by the end date
   #  filter(RefDate < end) |> # Only include those that have been referred by the end date
-  #  filter(Organs %in% selectedOrgans)
+  #  filter(Organ %in% selectedOrgans)
 
   if (!is.data.frame(filtered_df) || nrow(filtered_df) <= 0) {
     return(ggplot())

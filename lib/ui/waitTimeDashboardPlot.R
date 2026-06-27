@@ -116,8 +116,8 @@ waitTimesDashboardPlotServer <- function(input, output, session, api, plots) {
   })
   
   waitTimesTimes <- reactive(processWaitTimesPerPeriod(
-    rxDoneData %>% filter(Organs %in% input$waitTimesDashboardPlotOrganCheckbox),
-    rxWaitData %>% filter(Organs %in% input$waitTimesDashboardPlotOrganCheckbox),
+    rxDoneData %>% filter(Organ %in% input$waitTimesDashboardPlotOrganCheckbox),
+    rxWaitData %>% filter(Organ %in% input$waitTimesDashboardPlotOrganCheckbox),
     input$waitTimesDashboardPlotStart,
     input$waitTimesDashboardPlotEnd,
     input$waitTimesDashboardPlotDurationRadio

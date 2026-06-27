@@ -2,8 +2,8 @@
 processMonthlyRxWaitingList <- function(startDate, endDate, organs) {
   id <- showNotification("Generating treatment waiting list...", type="message", duration=NULL) # Don't auto expire
 
-  rxWaitData.filtered <- rxWaitData %>% filter(Organs %in% organs)
-  rxDoneData.filtered <- rxDoneData %>% filter(Organs %in% organs)
+  rxWaitData.filtered <- rxWaitData %>% filter(Organ %in% organs)
+  rxDoneData.filtered <- rxDoneData %>% filter(Organ %in% organs)
   
   # Guard: if no data for these organs, leave monthlyRxWaitData as-is and return (this is needed for first rendering when data frame is still empty)
   if (nrow(rxWaitData.filtered) == 0 && nrow(rxDoneData.filtered) == 0) {
@@ -19,8 +19,8 @@ processMonthlyRxWaitingList <- function(startDate, endDate, organs) {
   # Combine the rxDone and rxWait data frames into allDates data frame
   allRefDates <- c(rxDoneData$RefDate, rxWaitData$RefDate)
   allRxDates <- c(rxDoneData$RxDate, rep(NA, length(rxWaitData$RefDate)))
-  allOrgans <- c(rxDoneData$Organs, rxWaitData$Organs)
-  allDates <- data.frame(refDate = allRefDates, rxDate = allRxDates, Organs = allOrgans)
+  allOrgans <- c(rxDoneData$Organ, rxWaitData$Organ)
+  allDates <- data.frame(refDate = allRefDates, rxDate = allRxDates, Organ = allOrgans)
 
   # Loose records with ref date of NA or outside the end date bound provided, if provided
   allDates <- allDates %>% filter(!is.na(refDate))
@@ -28,7 +28,7 @@ processMonthlyRxWaitingList <- function(startDate, endDate, organs) {
 
   # Filter out only the organs we are interested in
   if (length(organs) > 0) {
-    allDates <- allDates %>% filter(Organs %in% organs)
+    allDates <- allDates %>% filter(Organ %in% organs)
   }
 
   # Go through each month for which we have referral data one by one
@@ -96,7 +96,7 @@ makeRxDonePlot <- function(startDate, endDate, organs) {
   }
 
   if (length(organs) > 0) {
-    rxDoneData.filtered <- rxDoneData.filtered %>% filter(Organs %in% organs)
+    rxDoneData.filtered <- rxDoneData.filtered %>% filter(Organ %in% organs)
   }
 
   if (is.null(nrow(rxDoneData.filtered))) {
@@ -112,7 +112,7 @@ makeRxDonePlot <- function(startDate, endDate, organs) {
 }
 
 commonRxDonePlot <- function(filteredData, pointSize = 1, legend.position = "bottom") {
-  donePlot <- ggplot(filteredData, aes(x = RxDate, text = paste(ID, " (", Organs, ")\n", ClockStopWhy, sep = ""))) +
+  donePlot <- ggplot(filteredData, aes(x = RxDate, text = paste(ID, " (", Organ, ")\n", ClockStopWhy, sep = ""))) +
     geom_point(aes(y = Ref_DTT, color = "Ref to DTT"), size = pointSize) +
     geom_point(aes(y = DTT_Rx, color = "DTT to Rx"), size = pointSize) +
     geom_point(aes(y = Ref_RxDone, color = "Ref to Rx"), size = pointSize) +
@@ -149,7 +149,7 @@ makeRxWaitPlot <- function(startDate, endDate, organs) {
   }
 
   if (length(organs) > 0) {
-    rxWaitData.filtered <- rxWaitData.filtered %>% filter(Organs %in% organs)
+    rxWaitData.filtered <- rxWaitData.filtered %>% filter(Organ %in% organs)
   }
 
   if (is.null(nrow(rxWaitData.filtered))) {
@@ -164,7 +164,7 @@ makeRxWaitPlot <- function(startDate, endDate, organs) {
   rxwaitPlot <<- rxWaitData.filtered |>
     ggplot(aes(
       x = RefDate,
-      text = paste(ID, " (", Organs, ")\n", ClockStopWhy, sep = "")
+      text = paste(ID, " (", Organ, ")\n", ClockStopWhy, sep = "")
     )) +
     geom_point(aes(y = Ref_DTT, colour = "Days to DTT", alpha = 0.2), size = 1) +
     geom_point(aes(y = DaysWaiting, colour = "Days Waiting", alpha = 0.2), size = 1) +

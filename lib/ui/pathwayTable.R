@@ -106,7 +106,7 @@ pathwayTableServer <- function(input, output, session, isDocker, api) {
     if (is.null(data) || !is.data.frame(data)) return(data.frame())
     
     if (!is.null(input$pathwayTabSelectedOrgans) && input$pathwayTabSelectedOrgans != "All")
-      data <- data[data$Organs %in% input$pathwayTabSelectedOrgans, ]
+      data <- data[data$Organ %in% input$pathwayTabSelectedOrgans, ]
     
     if (!is.null(input$pathwayTabSelectedModality) && input$pathwayTabSelectedModality != "All")
       data <- data[data$Modality %in% input$pathwayTabSelectedModality, ]
@@ -118,7 +118,7 @@ pathwayTableServer <- function(input, output, session, isDocker, api) {
     
     if (diagType == "All") {
       if (!("All" %in% subtypes))
-        data <- data[data$Organs %in% subtypes, ]
+        data <- data[data$Organ %in% subtypes, ]
     } else if (diagType == "1o & 2o") {
       data <- data[data$Diagnosis1o %in% subtypes | data$Diagnosis2o %in% subtypes, ]
     } else {
