@@ -1,0 +1,118 @@
+---
+title: "TARGET-UK: Blank Report Template for Editing"
+output:
+  html_document:
+    toc: true
+    self_contained: true
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+params:
+  report_start_date: !r Sys.Date() - 365
+  report_end_date: !r Sys.Date()
+  report_organs: ["Liver", "Lung", "Kidney", "Adrenal", "Other"]
+---
+
+```{css, echo=FALSE}
+/* Screen and print shared */
+body { font-size: 14px; }
+table { 
+  font-size: 13px; 
+  width: 100% !important;
+  table-layout: auto;
+}
+th, td { 
+  padding: 4px 8px !important;
+  font-size: 13px;
+}
+img { max-width: 100% !important; height: auto !important; }
+
+/* Print-specific: force landscape and control margins */
+@media print {
+  @page { 
+    size: A4 portrait;
+    margin: 8mm 6mm 8mm 6mm;
+  }
+  body { 
+    font-size: 11px;
+    width: 198mm;
+  }
+  table {
+    font-size: 10px;
+    page-break-inside: avoid;
+    table-layout: auto;
+  }
+  th, td { padding: 2px 4px !important; font-size: 10px; }
+  img, .plot { 
+    max-width: 196mm !important; 
+    width: 196mm !important;
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+  .figure { 
+    max-width: 196mm !important;
+    page-break-inside: avoid;
+  }
+  h2 { page-break-before: auto; }
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(out.width = "100%")
+knitr::opts_chunk$set(fig.width = 10, fig.height = 5, dpi = 120)
+options(knitr.table.format = "html")
+library(dplyr)
+library(lubridate)
+library(purrr)
+library(kableExtra)
+
+report_start_date <- params$report_start_date
+report_end_date   <- params$report_end_date
+report_organs     <- params$report_organs
+
+reportStart <- as.Date(report_start_date)
+reportEnd   <- as.Date(report_end_date)
+
+
+# ---------------------------------------------------------------------------
+# Remove dummy patients and apply organ filter once, producing a clean base
+# data frame, then split into per-year slices.
+# ---------------------------------------------------------------------------
+cleanBase <- function(data) {
+  d <- data |>
+    filter(!(ID %in% c("000-1", "00000-1", "000000-1")))
+  if (!("All" %in% report_organs)) {
+    d <- d |> filter(Organ %in% report_organs)
+  }
+  d
+}
+
+rxWaitClean <- cleanBase(rxWaitData)
+rxDoneClean <- cleanBase(rxDoneData) |>
+  filter(!(Ref_DTT == 0 & DTT_Rx == 0)) # This is a special fix to exclude for those cases which don't have a referral date, resulting in these zero entries
+
+
+```
+**Report Generated on:** `r format(Sys.time(), "%a %b %d %X %Y")`<br>
+**Report Period:** `r format(report_start_date, "%d %B %Y")` – `r format(report_end_date, "%d %B %Y")`<br>
+**Organs included in report:** `r paste(report_organs)`<br>
+
+```
+
+
+
+
+## Credits
+
+```{r reportLogo, warning=FALSE}
+logo_src <- here("www", "TARGETPlotterLogo.png")
+if (file.exists(logo_src)) {
+  knitr::include_graphics(normalizePath(logo_src))
+} else {
+  cat("<!-- TARGETPlotterLogo.png logo not available -->")
+}
+```
+
+<br>
+Report Report Developers: xxx <br>
+TARGET-UK Lead: Dr. Paul Lyon, FRCR
+

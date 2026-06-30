@@ -1,9 +1,29 @@
 # initialiseGlobals() sets all of the default values
 initialiseGlobals <- function()
 {
+  Sys.setenv(CASTOR_USER_KEY = "?")
+  Sys.setenv(CASTOR_SECRET = "?")
+  Sys.setenv(CASTOR_DEFAULT_STUDY = NA)
+  Sys.setenv(CASTOR_URL = "https://uk.castoredc.com")
+  Sys.setenv(DEBUG_MODE = FALSE)
+  Sys.setenv(DATE_FORMAT = "%d-%m-%Y")
+  Sys.setenv(AUDIT_REPORT_TEMPLATE_DIR = "templates",sep="")
+  Sys.setenv(REPORT_OUTPUT_DIR = "reports",sep="")
+  Sys.setenv(REPORT_WAITING_LIST_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"report-waiting-list.rmd",sep=""))
+  Sys.setenv(REPORT_WAITING_LIST_MD = "report-waiting-list.md")
+  Sys.setenv(AUDIT_PATHWAY_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"audit-pathway.rmd",sep=""))
+  Sys.setenv(AUDIT_PATHWAY_MD = "audit-pathway.md")
+  Sys.setenv(CANCER_OUTCOMES_REPORT_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"cancer-outcomes-report.rmd",sep=""))
+  Sys.setenv(CANVER_OUTCOMES_REPORT_PATHWAY_MD = "cancer-outcomes-report.md")
+  
+  Sys.setenv(USERKEY_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"userkey.txt",sep=""))
+  Sys.setenv(SECRET_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"secret.txt",sep=""))
+  Sys.setenv(DEFAULT_STUDY_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"defaultstudy.txt",sep=""))
+  theTotalTariff <- 0
+  
   clockStopColNames              <<- c("date.stopped","date.restart","reason","free.text")   # Order of the clock stop columns
   rxTableColNames                <<- c("rx.organ","lesion.size","max.depth","closest.serosa","punctures","no.applicators.or.postitions","modality","max.power","min.power","rx.time","new.or.rec","free.text")
-  aeTableColNames                <<- c("PtID","Organ","Complication","DateofOnset","DateofResolution","Grade","Description","Intervention","InterventionDate","AdditionalHopsitalDays","PostDischarge","Duration")
+  aeTableColNames                <<- c("PtID","Organ","DiagnosisType","Diagnosis1o","Diagnosis2o","DiagnosisBn","DiagnosisUn","Complication","DateofOnset","DateofResolution","Grade","Description","Intervention","InterventionDate","AdditionalHopsitalDays","PostDischarge","Duration")
   dataIntegrityColNames          <<- c("PtID","RefID","Date","Organ(s)","Error")
   loggerColNames                 <<- c("TimeStamp","IsError","Message")
   
@@ -28,6 +48,8 @@ initialiseGlobals <- function()
   rxdone_organ_list              <<- c()
   rxdone_modality_list           <<- c()
   rxdone_max_tumour_size_list    <<- c()
+  rxdone_tumour_size_list        <<- c()
+  rxdone_tumour_size_mm          <<- c()
   rxdone_tumour_count_list       <<- c()
   rxdone_sex_list                <<- c()
   rxdone_tariff_list             <<- c()
@@ -70,7 +92,8 @@ initialiseGlobals <- function()
   survival_diagnosis_bn_list     <<- c()
   survival_diagnosis_un_list     <<- c()
   survival_first_rx_date         <<- c()
-  suvival_rx_modalities          <<- c()
+  survival_rx_modalities         <<- c()
+  survival_tumour_size_list      <<- c()
   survival_max_tumour_size_list  <<- c()
   survival_days_list             <<- c()
   survival_deceased_list         <<- c()
@@ -92,7 +115,7 @@ initialiseGlobals <- function()
   ltpf_cs_survival_status_list   <<- c() # Local Tumour Progression-free cancer specific survival status
   ltp_perlesion_ptid_list        <<- c()
   ltp_perlesion_rxno_list        <<- c()
-  ltp_perlesion_lesionno_list    <<- c()
+  ltp_perlesion_id_list          <<- c()
   ltp_perlesion_date_list        <<- c()
   ltp_perlesion_count_list       <<- c() # This is encoded as 0=no LTP, 1=1st, 2=2nd, 3=>2nd
   last_imaging_follow_up_list    <<- c()
@@ -111,6 +134,8 @@ initialiseGlobals <- function()
   anaesthetist3Factors           <<- c()
   anaesthetistAllFactors         <<- c()
   cctaeGradeFactors              <<- c()
+  organFactors                   <<- c()
+  cancerOrganFactors             <<- c()
   
   # The major dataframes
   rxDoneData                     <<- NA

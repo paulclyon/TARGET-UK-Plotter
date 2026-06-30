@@ -1,4 +1,4 @@
-makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 100, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, selectedModality = "All", survivalType, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
+makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 5, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, selectedModality = "All", survivalType, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
 {
   # Filter the dates
   start <- as.Date(strStart, format = "%d/%m/%Y")
@@ -55,10 +55,32 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
   # So if LTPCountMax is just 1, we dont count it as real LR if ignoreFirstLTP is TRUE
   # A way to do this is to change the StatusLTPF/LTPFOS/LTPFCSS column status to 1 for all those recurring after just 1 Rx, if not deceased, as follows
   if (isTRUE(ignoreFirstLTP)) {
-    idx <- !is.na(filteredSurvivalData$LTPCountMax) & filteredSurvivalData$LTPCountMax == 1
-    filteredSurvivalData$StatusLTPF[idx] <- 1
-    filteredSurvivalData$StatusLTPFOS[idx & filteredSurvivalData$Deceased == 0] <- 1
-    filteredSurvivalData$StatusLTPFCSS[idx & filteredSurvivalData$Deceased == 0] <- 1
+    for (i in which(!is.na(filteredSurvivalData$TimeLTPF) & 
+                    filteredSurvivalData$StatusLTPF == 2)) {
+      ptID   <- filteredSurvivalData$ID[i]
+      ptOrgan <- filteredSurvivalData$Organ[i]
+      
+      firstLtpDt <- min(cancerPerLesionData$LTPDate[
+        cancerPerLesionData$PtID == ptID & 
+          !is.na(cancerPerLesionData$LTPDate)], na.rm = TRUE)
+      
+      # Restrict to same organ to avoid unrelated Rx elsewhere counting as re-treatment
+      laterRxCount <- length(unique(
+        cancerPerLesionData$RxNo[
+          cancerPerLesionData$PtID == ptID & 
+            cancerPerLesionData$Organ == ptOrgan &
+            !is.na(cancerPerLesionData$RxDate) &
+            cancerPerLesionData$RxDate > firstLtpDt]
+      ))
+      
+      if (laterRxCount == 1) {
+        filteredSurvivalData$StatusLTPF[i] <- 1
+        if (filteredSurvivalData$Deceased[i] == 0) {
+          filteredSurvivalData$StatusLTPFOS[i]  <- 1
+          filteredSurvivalData$StatusLTPFCSS[i] <- 1
+        }
+      }
+    }
   }
   
   # Get rid of anything which doesn't have the necessary recurrence data, so that we know if its going to be an empty fit before we fit it
@@ -211,11 +233,32 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
   # So if LTPCountMax is just 1, we dont count it as real LR if ignoreFirstLTP is TRUE
   # A way to do this is to change the StatusLTPF column status to 1 for all those recurring after just 1 Rx, as follows
   if (isTRUE(ignoreFirstLTP)) {
-    # Censor first RD/LTP only when the checkbox is enabled
-    idx <- !is.na(filteredSurvivalData$LTPCountMax) & filteredSurvivalData$LTPCountMax == 1
-    filteredSurvivalData$StatusLTPF[idx] <- 1
-    filteredSurvivalData$StatusLTPFOS[idx] <- 1
-    filteredSurvivalData$StatusLTPFCSS[idx] <- 1
+    for (i in which(!is.na(filteredSurvivalData$TimeLTPF) & 
+                    filteredSurvivalData$StatusLTPF == 2)) {
+      ptID   <- filteredSurvivalData$ID[i]
+      ptOrgan <- filteredSurvivalData$Organ[i]
+      
+      firstLtpDt <- min(cancerPerLesionData$LTPDate[
+        cancerPerLesionData$PtID == ptID & 
+          !is.na(cancerPerLesionData$LTPDate)], na.rm = TRUE)
+      
+      # Restrict to same organ to avoid unrelated Rx elsewhere counting as re-treatment
+      laterRxCount <- length(unique(
+        cancerPerLesionData$RxNo[
+          cancerPerLesionData$PtID == ptID & 
+            cancerPerLesionData$Organ == ptOrgan &
+            !is.na(cancerPerLesionData$RxDate) &
+            cancerPerLesionData$RxDate > firstLtpDt]
+      ))
+      
+      if (laterRxCount == 1) {
+        filteredSurvivalData$StatusLTPF[i] <- 1
+        if (filteredSurvivalData$Deceased[i] == 0) {
+          filteredSurvivalData$StatusLTPFOS[i]  <- 1
+          filteredSurvivalData$StatusLTPFCSS[i] <- 1
+        }
+      }
+    }
   }
   
   # Switch between per-patient and per-lesion LTP analysis
@@ -300,9 +343,9 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     # Filter by tumour size if specified — episodes with no recorded size are kept
     if (!is.null(minTumourSize) && !is.null(maxTumourSize))
       filteredPerLesionData <- filteredPerLesionData[
-        is.na(filteredPerLesionData$MaxTumourSize) |
-          (filteredPerLesionData$MaxTumourSize >= minTumourSize &
-             filteredPerLesionData$MaxTumourSize <= maxTumourSize), ]
+        is.na(filteredPerLesionData$TumourSize) |
+          (filteredPerLesionData$TumourSize >= minTumourSize &
+             filteredPerLesionData$TumourSize <= maxTumourSize), ]
     
     # Get rid of anything which doesn't have the necessary recurrence data
     filteredPerLesionData <- filteredPerLesionData[

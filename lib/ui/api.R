@@ -18,6 +18,7 @@ apiTab <- function() {
         width = 12,
         fluidRow(
           actionButton(inputId = "connectAPI", label = "Connect to API") |> restyleButton(),
+          actionButton(inputId = "connectLoadAPI", label = "Connect & Load") |> restyleButton(),
           hidden(actionButton(inputId = "disconnectAPI", label = "Disconnect API") |> restyleButton(variant = "secondary")),
         ),
       ),
@@ -70,7 +71,25 @@ renderAPIStatus <- function(api) {
   })
 }
 
-connectAPIEvent <- function(input, api) {
+# This does both just to save the user a click
+connectLoadAPIEvent <- function(input, output, session, api) {
+  ok <- connectAPIEvent(input, api)
+  if (!isTRUE(ok)) {
+    return(invisible())
+  }
+
+  apiConnectedEvent(session, api)
+
+  selectedStudy <- Sys.getenv("CASTOR_DEFAULT_STUDY")
+  if (is.null(selectedStudy) || selectedStudy == "" || !(selectedStudy %in% studyNames)) {
+    selectedStudy <- studyNames[1]
+  }
+
+  reloadStudyEvent(selectedStudy, input, output, session, api)
+}
+  
+connectAPIEvent <- function(input, api)
+{
   shinyjs::hide("studyDropdownGroup")
   shinyjs::hide("reloadData")
   shinyjs::hide("disconnectAPI")
@@ -98,6 +117,7 @@ connectAPIEvent <- function(input, api) {
     api$connected <- T
     shinyjs::show("disconnectAPI")
     showNotification("Castor API Connected.")
+    return(TRUE)
   }
   else
   {
@@ -106,6 +126,7 @@ connectAPIEvent <- function(input, api) {
     shinyjs::hide("studyDropdownGroup")
     shinyjs::hide("reloadData")
     showNotification("Could not connect to Castor API with those settings")
+    return(FALSE)
   }
 }
 
@@ -168,10 +189,10 @@ apiConnectedEvent <- function(session, api)
   shinyjs::show("reloadData")
 }
 
-reloadStudyEvent <- function(input, output, session, api) {
-  if (length(castor_api) == 0) {
+reloadStudyEvent <- function(studyName, input, output, session, api) {
+  if (!isTRUE(api$connected)) {
     logger("Nothing to do without API Connection...")
-    return()
+    return(invisible())
   }
 
   # Create a Progress object
@@ -185,18 +206,18 @@ reloadStudyEvent <- function(input, output, session, api) {
   initialiseGlobals()
 
   progress$set(message = "Loading study data...", value = 0.4)
-  reloadStudyData(input$studyDropdown)
+  reloadStudyData(studyName)
 
   if (!ifValidTARGETStudy()) {
     api$loaded <- F
     showNotification("Study data is not valid, either not TARGET study or no patients...")
-    logger(paste("Study data '", input$studyDropdown, "' is not valid, either not TARGET study or no patients..."))
+    logger(paste("Study data '", studyName, "' is not valid, either not TARGET study or no patients..."))
     return()
   }
 
   api$loaded <- T
   showNotification("Valid TARGET study loaded...")
-  logger(paste("Valid study data for study '", input$studyDropdown, "'..."))
+  logger(paste("Valid study data for study '", studyName, "'..."))
 
   progress$set(message = "Processing study data...", value = 0.7)
   processData() # TODO: This should return values which we can then attach to the api reactive value
@@ -205,6 +226,7 @@ reloadStudyEvent <- function(input, output, session, api) {
 
   ## The first step is just move the factors to the api
   api$organFactors            <- c("All", organFactors)
+  api$cancerOrganFactors      <- sort(unique(cancerPerPatientData$Organ[!is.na(cancerPerPatientData$Organ)]))
   api$modalityFactors         <- c("All", modalityFactors)
   api$genderFactors           <- genderFactors
   api$cctaeGradeFactors       <- cctaeGradeFactors
@@ -256,16 +278,44 @@ apiServer <- function(input, output, session)
 {
   api <- reactiveValues(connected = FALSE, loaded = FALSE, organFactors = NULL, modalityFactors = NULL, genderFactors = NULL, cctaeGradeFactors = NULL)
   output$apiStatus <- renderAPIStatus(api)
-  observeEvent(input$connectAPI, disableReenable("connectAPI", connectAPIEvent, input, api))
-  observeEvent(input$disconnectAPI, disableReenable("disconnectAPI", disconnectAPIEvent, api))
+  observeEvent(input$connectAPI, {
+    shinyjs::disable("connectAPI")
+    on.exit(shinyjs::enable("connectAPI"), add = TRUE)
+    ok <- connectAPIEvent(input, api)
+    if (isTRUE(ok)) {
+      apiConnectedEvent(session, api)
+    }
+  })
+  
+  observeEvent(input$connectLoadAPI, {
+    shinyjs::disable("connectLoadAPI")
+    on.exit(shinyjs::enable("connectLoadAPI"), add = TRUE)
+    ok <- connectAPIEvent(input, api)
+    if (!isTRUE(ok)) {
+      return()
+    }
+    apiConnectedEvent(session, api)
+    selectedStudy <- Sys.getenv("CASTOR_DEFAULT_STUDY")
+    if (is.null(selectedStudy) || selectedStudy == "" || !(selectedStudy %in% studyNames)) {
+      selectedStudy <- studyNames[1]
+    }
+    reloadStudyEvent(selectedStudy, input, output, session, api)
+  })
+  
+  #observeEvent(input$disconnectAPI, disableReenable("disconnectAPI", disconnectAPIEvent, api))
 
   # Update the Load Data button
-  observe({
-    (api$connected)
-    apiConnectedEvent(session, api)
-  })
+  #observe({
+  #  (api$connected)
+  #  apiConnectedEvent(session, api)
+  #})
 
-  observeEvent(input$reloadData, disableReenable("reloadData", reloadStudyEvent, input, output, session, api))
+  observeEvent(input$reloadData, {
+    req(isTRUE(api$connected))
+    studyName <- isolate(input$studyDropdown)
+    req(!is.null(studyName), nzchar(studyName), studyName != "No API Connection")
+    reloadStudyEvent(studyName, input, output, session, api)
+  })
 
   api
 }

@@ -163,9 +163,9 @@ processData <- function()
     survival_organ <- NA # Set this now as null, and check on each referral
     date_of_last_clinical_fu <- NA
     
-    # FIX 1: Initialise patient-level max tumour size accumulator (was never updated in original)
+    # Initialise patient-level max tumour size accumulator (was never updated in original)
     survival_max_tumour_size <- NA
-    
+
     # Get clinical status / last clinical follow-up
     clinicalfuJSON <- getDataEntry("fu_clinical_matrix", i)
     last_alive_date <- NA
@@ -322,11 +322,11 @@ processData <- function()
                     # Valid parse — store per-lesion linkage for per-lesion analysis
                     for (k in 1:nrow(parsedLTPLesions))
                     {
-                      ltp_perlesion_ptid_list     <<- append(ltp_perlesion_ptid_list,     ptID)
-                      ltp_perlesion_rxno_list     <<- append(ltp_perlesion_rxno_list,     parsedLTPLesions$rx_no[k])
-                      ltp_perlesion_lesionno_list <<- append(ltp_perlesion_lesionno_list, parsedLTPLesions$lesion_no[k])
-                      ltp_perlesion_date_list     <<- append(ltp_perlesion_date_list,     thisImagingDate)
-                      ltp_perlesion_count_list    <<- append(ltp_perlesion_count_list,    as.integer(thisLTPCount))                    }
+                      ltp_perlesion_ptid_list     <<- append(ltp_perlesion_ptid_list,  ptID)
+                      ltp_perlesion_rxno_list     <<- append(ltp_perlesion_rxno_list,  parsedLTPLesions$rx_no[k])
+                      ltp_perlesion_id_list       <<- append(ltp_perlesion_id_list,    parsedLTPLesions$tumour_id[k])
+                      ltp_perlesion_date_list     <<- append(ltp_perlesion_date_list,  thisImagingDate)
+                      ltp_perlesion_count_list    <<- append(ltp_perlesion_count_list, as.integer(thisLTPCount))                    }
                   }
                   else
                   {
@@ -428,6 +428,7 @@ processData <- function()
     }
     
     # Initialise per-patient survival variables before referral loop
+    patientTumourSizes <- numeric(0)
     survival_overall_status  <- NA
     survival_cancer_specific_status <- NA
     survival_days <- NA
@@ -648,7 +649,10 @@ processData <- function()
           # Get the free text for Rx and the modality of the treatment (for cost code purposes)
           rxTableJSON <- getDataEntry(paste("rx_tumour_rx_matrix_", as.integer(iRef), sep = ""), i, T)
           
-          # FIX 2: Initialise maxTumourSize and modalityForRx before the JSON block so they are always defined
+          # Initialise tumourSize and modalityForRx before the JSON block so they are always defined
+          tumourSizes <- NA
+          tumourSizeListThisRef <- NA
+          tumourSizeListAll <- NA
           maxTumourSize <- NA
           modalityForRx <- NA
           tumourCount <- 0 # Keep tabs on how many tumours were treated in this episode - important for per lesion LTP analysis later
@@ -690,8 +694,50 @@ processData <- function()
             # This is like 'microwave,cryotherapy' but won't repeat e.g. not 'microwave,cryotherapy,cryotherapy'
             modalityListForThisPatient <- unique(append(modalityListForThisPatient, modalityForRx))
             
-            # maxTumourSize computed only when rxTable.df exists
-            maxTumourSize <- if (all(is.na(as.numeric(rxTable.df$lesion.size)))) NA else max(as.numeric(rxTable.df$lesion.size), na.rm = TRUE)
+            # Read all tumour sizes for this referral
+            tumourSizes <- suppressWarnings(as.numeric(rxTable.df$lesion.size))
+            
+            # Add these tumours to the patient accumulator
+            patientTumourSizes <- c(patientTumourSizes, tumourSizes)
+            
+            # Display string for this referral
+            tumourSizeListThisRef <- if (length(tumourSizes) == 0 || all(is.na(tumourSizes))) {
+              NA_character_
+            } else {
+              paste(tumourSizes[!is.na(tumourSizes)], collapse = ", ")
+            }
+            
+            # Maximum tumour size for this referral
+            maxTumourSize <- if (length(tumourSizes) == 0 || all(is.na(tumourSizes))) {
+              NA_real_
+            } else {
+              max(tumourSizes, na.rm = TRUE)
+            }
+            
+            #tumourSizeList <- if (all(is.na(tumourSizes))) {
+            #  NA_character_
+            #} else {
+            #  paste(tumourSizes[!is.na(tumourSizes)], collapse = ", ")
+            #}
+            
+            #maxTumourSize <- if (all(is.na(tumourSizes))) {
+            #  NA_real_
+            #} else {
+            #  max(tumourSizes, na.rm = TRUE)
+            #}
+            
+            
+            # Get maxTumourSize and store rxdone_tumour_size_list as a comma separated list, only when rxTable.df exists
+            #maxTumourSize <- if (all(is.na(as.numeric(rxTable.df$lesion.size)))) NA else max(as.numeric(rxTable.df$lesion.size), na.rm = TRUE)
+            #tumourSizes <- as.numeric(rxTable.df$lesion.size)
+            #tumourSizeList <- if (all(is.na(tumourSizes)))
+            #{
+            #  NA
+            #}
+            #else
+            #{
+            #  paste(tumourSizes[!is.na(tumourSizes)], collapse = ", ")
+            #}
             
             # rxTable.df is already built and filtered (empty rows removed) at this point in the code i.e. this gives you the true number of lesions treated in that episode
             tumourCount <- nrow(rxTable.df)
@@ -716,29 +762,45 @@ processData <- function()
             
             # Sometimes in Castor it can return tables with shorter number of columns which can then crash, unless we pad out to expected no. cols with NAs
             # earlyAETable padding
-            target_cols <- length(aeTableColNames)-3
+            n_prepend <- 7
+            n_append  <- 2
+            target_cols <- length(aeTableColNames) - n_prepend - n_append
             if (ncol(earlyAETable.df) < target_cols) {
               for (col in (ncol(earlyAETable.df) + 1):target_cols) {
                 earlyAETable.df[[as.character(col)]] <- NA
               }
             }
             
+            # Remove the empty rows
+            keep_rows <- apply(earlyAETable.df, 1, function(row) any(!is.na(row) & trimws(row) != ""))
+            earlyAETable.df <- earlyAETable.df[keep_rows, , drop = FALSE] 
+            
             # Now we can add new columns either side
-            earlyAETable.df <- earlyAETable.df[apply(earlyAETable.df, 1, function(row) any(row != "")), ] # Remove the empty rows
-            earlyAETable.df <- cbind(organForRx,earlyAETable.df)  # Pre-pend the Organ for Rx
-            earlyAETable.df <- cbind(ptID,earlyAETable.df)        # Pre-pend the Patient ID
-            earlyAETable.df <- cbind(earlyAETable.df,0)           # Append the post-discharge field i.e. early means before discharge
-            earlyAETable.df <- cbind(earlyAETable.df,NA)          # Append the duration field
-            colnames(earlyAETable.df) <- aeTableColNames
-            for (j in 1:nrow(earlyAETable.df))
-            {
-              if (!is.na(earlyAETable.df$Complication[j]) && earlyAETable.df$Complication[j] != "")
+            if (nrow(earlyAETable.df) > 0) {
+              earlyAETable.df <- cbind(
+                ptID,
+                organForRx,
+                diagnosis_type,
+                diagnosis_1o,
+                diagnosis_2o,
+                diagnosis_bn,
+                diagnosis_un,
+                earlyAETable.df)
+              
+              earlyAETable.df <- cbind(earlyAETable.df,PostDischarge = 0)  # Append the post-discharge field i.e. early means before discharge
+              earlyAETable.df <- cbind(earlyAETable.df,Duration = NA)      # Append the duration field
+              colnames(earlyAETable.df) <- aeTableColNames
+            
+              for (j in 1:nrow(earlyAETable.df))
               {
-                if (!is.na(convertToDate(earlyAETable.df$DateofResolution[j])) && !is.na(convertToDate(earlyAETable.df$DateofOnset[j])))
+                if (!is.na(earlyAETable.df$Complication[j]) && earlyAETable.df$Complication[j] != "")
                 {
-                  earlyAETable.df$Duration[j] <- difftime(convertToDate(earlyAETable.df$DateofResolution[j]), convertToDate(earlyAETable.df$DateofOnset[j]), units="days")
+                  if (!is.na(convertToDate(earlyAETable.df$DateofResolution[j])) && !is.na(convertToDate(earlyAETable.df$DateofOnset[j])))
+                  {
+                    earlyAETable.df$Duration[j] <- difftime(convertToDate(earlyAETable.df$DateofResolution[j]), convertToDate(earlyAETable.df$DateofOnset[j]), units="days")
+                  }
+                  aeData <<- rbind(aeData,earlyAETable.df[j,])
                 }
-                aeData <<- rbind(aeData,earlyAETable.df[j,])
               }
             }
           }
@@ -751,28 +813,43 @@ processData <- function()
             lateAETable.df <- as.data.frame(t(sapply(lateAETableMatrix, unlist)))
             
             # Sometimes in Castor it can return tables with shorter number of columns which can then crash, unless we pad out to expected no. cols with NAs
-            target_cols <- length(aeTableColNames)-3
+            n_prepend <- 7
+            n_append  <- 2
+            target_cols <- length(aeTableColNames) - n_prepend - n_append
             if (ncol(lateAETable.df) < target_cols) {
               for (col in (ncol(lateAETable.df) + 1):target_cols) {
                 lateAETable.df[[as.character(col)]] <- NA
               }
             }
             
-            lateAETable.df <- lateAETable.df[apply(lateAETable.df, 1, function(row) any(row != "")), ]  # Remove the empty rows
-            lateAETable.df <- cbind(organForRx,lateAETable.df)  # Pre-pend the Organ for Rx
-            lateAETable.df <- cbind(ptID,lateAETable.df)        # Pre-pend the Patient ID
-            lateAETable.df <- cbind(lateAETable.df,1)           # Append the post-discharge field i.e. late means after discharge
-            lateAETable.df <- cbind(lateAETable.df,NA)          # Append the duration field
-            colnames(lateAETable.df) <- aeTableColNames
-            for (j in 1:nrow(lateAETable.df))
-            {
-              if (!is.na(lateAETable.df$Complication[j]) && lateAETable.df$Complication[j] != "")
+            # Remove the empty rows
+            keep_rows <- apply(lateAETable.df, 1, function(row) any(!is.na(row) & trimws(row) != ""))
+            lateAETable.df <- lateAETable.df[keep_rows, , drop = FALSE] 
+            
+            if (nrow(lateAETable.df) > 0) {
+              lateAETable.df <- cbind(
+                ptID,
+                organForRx,
+                diagnosis_type,
+                diagnosis_1o,
+                diagnosis_2o,
+                diagnosis_bn,
+                diagnosis_un,
+                lateAETable.df)
+              lateAETable.df <- cbind(lateAETable.df,PostDischarge = 1)  # Append the post-discharge field i.e. late means after discharge
+              lateAETable.df <- cbind(lateAETable.df,Duration = NA)      # Append the duration field
+              colnames(lateAETable.df) <- aeTableColNames
+            
+              for (j in 1:nrow(lateAETable.df))
               {
-                if (!is.na(convertToDate(lateAETable.df$DateofResolution[j])) && !is.na(convertToDate(lateAETable.df$DateofOnset[j])))
+                if (!is.na(lateAETable.df$Complication[j]) && lateAETable.df$Complication[j] != "")
                 {
-                  lateAETable.df$Duration[j] <- difftime(convertToDate(lateAETable.df$DateofResolution[j]), convertToDate(lateAETable.df$DateofOnset[j]), unit="days")
+                  if (!is.na(convertToDate(lateAETable.df$DateofResolution[j])) && !is.na(convertToDate(lateAETable.df$DateofOnset[j])))
+                  {
+                    lateAETable.df$Duration[j] <- difftime(convertToDate(lateAETable.df$DateofResolution[j]), convertToDate(lateAETable.df$DateofOnset[j]), unit="days")
+                  }
+                  aeData <<- rbind(aeData,lateAETable.df[j,])
                 }
-                aeData <<- rbind(aeData,lateAETable.df[j,])
               }
             }
           }
@@ -838,6 +915,8 @@ processData <- function()
             rxdone_diagnosis_un_list           <<- append(rxdone_diagnosis_un_list,             diagnosis_un)   # Unknown
             rxdone_organ_list                  <<- append(rxdone_organ_list,                    organ)
             rxdone_modality_list               <<- append(rxdone_modality_list,                 modalityForRx)
+            rxdone_tumour_size_list            <<- append(rxdone_tumour_size_list,              tumourSizeListThisRef) # This is a string list
+            rxdone_tumour_size_mm              <<- append(rxdone_tumour_size_mm,                list(tumourSizes))     # This is a numeric list
             rxdone_max_tumour_size_list        <<- append(rxdone_max_tumour_size_list,          maxTumourSize)
             rxdone_tumour_count_list           <<- append(rxdone_tumour_count_list,             tumourCount)
             rxdone_tariff_list                 <<- append(rxdone_tariff_list,                   tariffForRx)
@@ -912,7 +991,21 @@ processData <- function()
           addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), date=ref_rx_date, error=paste("Referral info states patient is not for treatment but yet this referral has a treatment date - ignored from treatment data.", sep = ""))
         }
       }
-    } # FIX 4: This correctly ends the for loop for each referral for this patient
+    } ########################## Ends the very long for loop for each referral for this patient
+    
+    # This is a long list of all tumour sizes for all referrals
+    tumourSizeListAll <- if (all(is.na(patientTumourSizes))) {
+      NA_character_
+    } else {
+      paste(patientTumourSizes[!is.na(patientTumourSizes)], collapse = ", ")
+    }
+    
+    # And the maximum tumour size of all tumours treated on all referrals
+    survival_max_tumour_size <- if (all(is.na(patientTumourSizes))) {
+      NA_real_
+    } else {
+      max(patientTumourSizes, na.rm = TRUE)
+    }
     
     # Add a data integrity catch for each entry where the last imaging date is before the first treatment date, as this doesn't make sense
     if (!is.na(date_of_first_rx) &&
@@ -1058,14 +1151,15 @@ processData <- function()
       survival_sex_list             <<- append(survival_sex_list, sex)
       survival_age_list             <<- append(survival_age_list, age_at_first_rx)
       survival_organ_list           <<- append(survival_organ_list, survival_organ)
-      survival_max_tumour_size_list <<- append(survival_max_tumour_size_list, survival_max_tumour_size)  # FIX 1: correct variable name and value
+      survival_max_tumour_size_list <<- append(survival_max_tumour_size_list, survival_max_tumour_size)
+      survival_tumour_size_list     <<- append(survival_tumour_size_list, tumourSizeListAll)
       survival_diagnosis_type_list  <<- append(survival_diagnosis_type_list, diagnosis_type)
-      survival_diagnosis_1o_list    <<- append(survival_diagnosis_1o_list,   diagnosis_1o)
-      survival_diagnosis_2o_list    <<- append(survival_diagnosis_2o_list,   diagnosis_2o)
-      survival_diagnosis_bn_list    <<- append(survival_diagnosis_bn_list,   diagnosis_bn)
-      survival_diagnosis_un_list    <<- append(survival_diagnosis_un_list,   diagnosis_un)
+      survival_diagnosis_1o_list    <<- append(survival_diagnosis_1o_list, diagnosis_1o)
+      survival_diagnosis_2o_list    <<- append(survival_diagnosis_2o_list, diagnosis_2o)
+      survival_diagnosis_bn_list    <<- append(survival_diagnosis_bn_list, diagnosis_bn)
+      survival_diagnosis_un_list    <<- append(survival_diagnosis_un_list, diagnosis_un)
       survival_first_rx_date        <<- append(survival_first_rx_date, date_of_first_rx)
-      suvival_rx_modalities         <<- append(suvival_rx_modalities, paste(modalityListForThisPatient, collapse="," )) # This is a list of all the modalities the patient has been treated with
+      survival_rx_modalities        <<- append(survival_rx_modalities, paste(modalityListForThisPatient, collapse = ",")) # This is a list of all the modalities the patient has been treated with
       survival_deceased_list        <<- append(survival_deceased_list, as.integer(deceased))
       survival_deceased_date        <<- append(survival_deceased_date, deceased_date)
       survival_last_alive_list      <<- append(survival_last_alive_list, last_alive_date)
@@ -1100,14 +1194,14 @@ processData <- function()
 
 # Parse 'Lesion(s) with new RD/LTP (Rx.Tumour e.g. 3.1, 4.3)' field
 # Input:  string like "3.1", "3.1, 4.3", "", or NA
-# Output: data frame with columns rx_no (integer), lesion_no (integer)
+# Output: data frame with columns rx_no (integer), tumour_id (integer)
 #         Empty data frame if no LTP lesions specified
 #
 parseltpListString <- function(ltpListStr)
 {
   emptyResult <- data.frame(
     rx_no = integer(0),
-    lesion_no = integer(0)
+    tumour_id = integer(0)
   )
   
   if (is.null(ltpListStr) || is.na(ltpListStr) || trimws(ltpListStr) == "")
@@ -1125,7 +1219,7 @@ parseltpListString <- function(ltpListStr)
       parts <- strsplit(token, "\\.")[[1]]
       data.frame(
         rx_no = as.integer(parts[1]),
-        lesion_no = as.integer(parts[2])
+        tumour_id = as.integer(parts[2])
       )
     }
     else

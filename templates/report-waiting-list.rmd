@@ -48,7 +48,7 @@ rxWaitReportData <- rxWaitData |>
   filter((ID != "000-1" & ID != "00000-1" & ID != "000000-1"))
 
 # Filter to just the organs of interest
-if (!("All Organ" %in% report_organs)) {
+if (!("All Organs" %in% report_organs)) {
   rxWaitReportData <- rxWaitReportData |>
     dplyr::filter(Organ %in% report_organs)
 }
@@ -103,7 +103,7 @@ generatedTime <- format(Sys.time(), "%a %b %d %X %Y")
 
 <!-- PCL: I had to do an ugly global variable hack to get report_start_date and report_end_date visible from this file, but it works-->
 
-Organ included: `r paste(report_organs)`<br>
+Organs included: `r paste(report_organs)`<br>
 
 ## Referral Details (`r paste(format(report_start_date,"%b %Y"),'-',format(report_end_date,"%b %Y"))`)
 
@@ -278,7 +278,7 @@ if (isChromeInstalled())
 
 ## Monthy Wait List (`r paste(format(report_start_date,"%b %Y"),'-',format(report_end_date,"%b %Y"))`)
 
-Organ included: `r paste(report_organs)`<br>
+Organs included: `r paste(report_organs)`<br>
 
 ```{r waitingListPlot, echo = FALSE, warning = FALSE}
 makeWaitingListPlot(report_start_date, report_end_date, report_organs)

@@ -1,0 +1,613 @@
+---
+title: "TARGET-UK: Cancer Outcomes Report"
+output:
+  html_document:
+    toc: true
+    self_contained: true
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+params:
+  report_start_date: !r Sys.Date() - 365
+  report_end_date: !r Sys.Date()
+  report_organs: "All"
+  report_diagnosis_type: "All"
+  report_subtypes: ["All"]
+  report_genders: ["Female", "Male", "Unknown"]
+  report_modality: "All"
+  report_ignore_first_ltp: TRUE
+  report_min_months_followup: 3
+  report_max_years_followup: 5
+---
+
+```{css, echo=FALSE}
+body { font-size: 14px; }
+table {
+  font-size: 13px;
+  width: 100% !important;
+  table-layout: auto;
+}
+th, td {
+  padding: 4px 8px !important;
+  font-size: 13px;
+}
+img { max-width: 100% !important; height: auto !important; }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 6mm 8mm 6mm;
+  }
+  body {
+    font-size: 11px;
+    width: 198mm;
+  }
+  table {
+    font-size: 10px;
+    page-break-inside: avoid;
+    table-layout: auto;
+  }
+  th, td { padding: 2px 4px !important; font-size: 10px; }
+  img, .plot {
+    max-width: 196mm !important;
+    width: 196mm !important;
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+  .figure {
+    max-width: 196mm !important;
+    page-break-inside: avoid;
+  }
+  h2 { page-break-before: auto; }
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(out.width = "100%")
+knitr::opts_chunk$set(fig.width = 10, fig.height = 5, dpi = 120)
+options(knitr.table.format = "html")
+
+library(dplyr)
+library(ggplot2)
+library(survival)
+library(ggsurvfit)
+library(scales)
+library(kableExtra)
+
+report_start_date <- params$report_start_date
+report_end_date   <- params$report_end_date
+report_organs     <- params$report_organs
+report_diagnosis_type <- params$report_diagnosis_type
+report_subtypes   <- params$report_subtypes
+report_genders    <- params$report_genders
+report_modality   <- params$report_modality
+report_ignore_first_ltp <- isTRUE(params$report_ignore_first_ltp)
+report_max_years_followup <- as.numeric(params$report_max_years_followup)[1]
+report_min_months_followup <- as.numeric(params$report_min_months_followup)[1]
+
+reportStart <- as.Date(report_start_date)
+reportEnd   <- as.Date(report_end_date)
+
+if (!exists("makeSurvivalPlot", mode = "function")) {
+  stop("makeSurvivalPlot() is not available in the report environment. Source the app plotting methods before rendering this Rmd.")
+}
+if (!exists("makeRecurrencePlot", mode = "function")) {
+  stop("makeRecurrencePlot() is not available in the report environment. Source the app plotting methods before rendering this Rmd.")
+}
+
+normalise_organs <- function(x) {
+  if (is.null(x) || length(x) == 0 || anyNA(x)) return("All")
+  if (length(x) == 1 && identical(x, "All")) return("All")
+  x
+}
+
+report_organs <- normalise_organs(report_organs)
+
+filter_patient_rows <- function(df) {
+  if (!is.data.frame(df) || nrow(df) == 0) return(df)
+  
+  d <- df |>
+    filter(!is.na(FirstRxDate)) |>
+    filter(FirstRxDate >= reportStart, FirstRxDate <= reportEnd)
+    
+  if (!identical(report_organs, "All")) {
+    d <- d |> filter(Organ %in% report_organs)
+  }
+
+  if (!identical(report_diagnosis_type, "All")) {
+    switch(substring(report_diagnosis_type, 1, 1),
+      "P" = { d <- d |> filter(Diagnosis1o %in% report_subtypes) },
+      "S" = { d <- d |> filter(Diagnosis2o %in% report_subtypes) },
+      "B" = { d <- d |> filter(DiagnosisBn %in% report_subtypes) },
+      "U" = { d <- d |> filter(DiagnosisUn %in% report_subtypes) }
+    )
+  }
+
+  if (!identical(report_modality, "All")) {
+    d <- d |> filter(grepl(report_modality, RxModalities, fixed = TRUE))
+  }
+
+  d
+}
+
+filter_lesion_rows <- function(df) {
+  if (!is.data.frame(df) || nrow(df) == 0) return(df)
+
+  d <- df |>
+    filter(!is.na(RxDate)) |>
+    filter(RxDate >= reportStart, RxDate <= reportEnd)
+
+  if (!identical(report_organs, "All")) {
+    d <- d |> filter(Organ %in% report_organs)
+  }
+
+  if (!identical(report_diagnosis_type, "All")) {
+    switch(substring(report_diagnosis_type, 1, 1),
+      "P" = { d <- d |> filter(Diagnosis1o %in% report_subtypes) },
+      "S" = { d <- d |> filter(Diagnosis2o %in% report_subtypes) },
+      "B" = { d <- d |> filter(DiagnosisBn %in% report_subtypes) },
+      "U" = { d <- d |> filter(DiagnosisUn %in% report_subtypes) }
+    )
+  }
+
+  if (!identical(report_modality, "All")) {
+    d <- d |> filter(grepl(report_modality, RxModality, fixed = TRUE))
+  }
+
+  d
+}
+
+filter_ae_rows <- function(df) {
+  if (!is.data.frame(df) || nrow(df) == 0) return(df)
+
+  d <- df
+
+  if ("DateofOnset" %in% names(d)) {
+    d$DateofOnset <- suppressWarnings(as.Date(d$DateofOnset, tryFormats = c("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y")))
+  }
+  if ("DateofResolution" %in% names(d)) {
+    d$DateofResolution <- suppressWarnings(as.Date(d$DateofResolution, tryFormats = c("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y")))
+  }
+
+  if ("DateofOnset" %in% names(d) || "DateofResolution" %in% names(d)) {
+    onset_ok <- if ("DateofOnset" %in% names(d)) !is.na(d$DateofOnset) &
+      d$DateofOnset >= reportStart & d$DateofOnset <= reportEnd else rep(FALSE, nrow(d))
+    res_ok <- if ("DateofResolution" %in% names(d)) !is.na(d$DateofResolution) &
+      d$DateofResolution >= reportStart & d$DateofResolution <= reportEnd else rep(FALSE, nrow(d))
+    d <- d[onset_ok | res_ok, , drop = FALSE]
+  }
+
+  if (nrow(d) == 0) return(d)
+
+  if (!identical(report_organs, "All") && "Organ" %in% names(d)) {
+    d <- d |> filter(Organ %in% report_organs)
+  }
+
+  if (!identical(report_diagnosis_type, "All")) {
+    if (report_diagnosis_type == "1o & 2o") {
+      if (all(c("Diagnosis1o", "Diagnosis2o") %in% names(d))) {
+        d <- d |> filter(Diagnosis1o %in% report_subtypes | Diagnosis2o %in% report_subtypes)
+      }
+    } else {
+      diag_col <- switch(
+        substring(report_diagnosis_type, 1, 1),
+        "P" = "Diagnosis1o",
+        "S" = "Diagnosis2o",
+        "B" = "DiagnosisBn",
+        "U" = "DiagnosisUn",
+        ""
+      )
+      if (nzchar(diag_col) && diag_col %in% names(d)) {
+        d <- d |> filter(.data[[diag_col]] %in% report_subtypes)
+      }
+    }
+  }
+
+  if ("Grade" %in% names(d)) {
+    grade_num <- suppressWarnings(as.integer(as.character(d$Grade)))
+    d <- d[!is.na(grade_num) & grade_num %in% c(3L, 4L, 5L), , drop = FALSE]
+  }
+
+  d
+}
+
+patient_data <- if (exists("cancerPerPatientData") && is.data.frame(cancerPerPatientData)) {
+  filter_patient_rows(cancerPerPatientData)
+} else {
+  data.frame()
+}
+
+lesion_data <- if (exists("cancerPerLesionData") && is.data.frame(cancerPerLesionData)) {
+  filter_lesion_rows(cancerPerLesionData)
+} else {
+  data.frame()
+}
+
+if (nrow(patient_data) > 0 && "MaxTumourSize" %in% names(patient_data)) {
+  patient_data$MaxTumourSize <- suppressWarnings(as.numeric(patient_data$MaxTumourSize))
+}
+if (nrow(lesion_data) > 0 && "TumourSize" %in% names(lesion_data)) {
+  lesion_data$TumourSize <- suppressWarnings(as.numeric(lesion_data$TumourSize))
+}
+
+cat("\n===== AE DATA COLUMN NAMES =====\n")
+print(names(aeData))
+cat("NA names:", which(is.na(names(aeData))), "\n")
+cat("Blank names:", which(names(aeData) == ""), "\n")
+
+ae_data <- if (exists("aeData") && is.data.frame(aeData)) {
+  filter_ae_rows(aeData)
+} else {
+  data.frame()
+}
+
+patient_sex_summary <- if (nrow(patient_data) > 0 && "Gender" %in% names(patient_data)) {
+  patient_data |>
+    filter(!is.na(Gender) & Gender != "") |>
+    count(Gender, name = "n") |>
+    mutate(pct = n / sum(n))
+} else {
+  tibble::tibble(Gender = character(0), n = integer(0), pct = numeric(0))
+}
+
+rxDoneReferralLevel <- if (exists("rxDoneData") && is.data.frame(rxDoneData)) {
+  d <- rxDoneData
+  bad <- is.na(names(d)) | names(d) == ""
+  if (any(bad)) names(d)[bad] <- paste0("unnamed_col_", seq_len(sum(bad)))
+  d |>
+    filter(!(ID %in% c("000-1", "00000-1", "000000-1"))) |>
+    distinct(ID, .keep_all = TRUE)
+} else {
+  data.frame()
+}
+
+meanTreatmentsPerPatient <-
+  rxDoneReferralLevel |>
+  mutate(PtID = sub("-[0-9]+$", "", ID)) |>
+  count(PtID) |>
+  summarise(mean = mean(n, na.rm = TRUE)) |>
+  pull(mean)
+
+meanTumoursPerPatient <-
+  rxDoneReferralLevel |>
+  mutate(PtID = sub("-[0-9]+$", "", ID)) |>
+  group_by(PtID) |>
+  summarise(Tumours = sum(TumourCount, na.rm = TRUE), .groups = "drop") |>
+  summarise(mean = mean(Tumours, na.rm = TRUE)) |>
+  pull(mean)
+
+tumour_summary <- if (nrow(lesion_data) > 0 && "TumourSize" %in% names(lesion_data)) {
+  lesion_data |>
+    summarise(
+      n = sum(!is.na(TumourSize)),
+      median = median(TumourSize, na.rm = TRUE),
+      sd = sd(TumourSize, na.rm = TRUE),
+      mean = mean(TumourSize, na.rm = TRUE)
+    )
+} else {
+  tibble::tibble(n = 0, median = NA_real_, sd = NA_real_, mean = NA_real_)
+}
+
+followup_days <- report_max_years_followup * 365.25
+
+get_ltp_rate <- function(df, time_col, status_col) {
+  if (!is.data.frame(df) || nrow(df) == 0) return(NA_real_)
+  if (!(time_col %in% names(df)) || !(status_col %in% names(df))) return(NA_real_)
+  d <- df |> filter(!is.na(.data[[time_col]]), !is.na(.data[[status_col]]))
+  if (nrow(d) == 0) return(NA_real_)
+  fit <- survfit(Surv(d[[time_col]], d[[status_col]] == 2) ~ 1, data = d)
+  s <- summary(fit, times = followup_days, extend = TRUE)
+  if (length(s$surv) == 0) return(NA_real_)
+  s$surv[1]
+}
+
+get_os_rate <- function(df, time_col, status_col) {
+  if (!is.data.frame(df) || nrow(df) == 0) return(NA_real_)
+  if (!(time_col %in% names(df)) || !(status_col %in% names(df))) return(NA_real_)
+  d <- df |> filter(!is.na(.data[[time_col]]), !is.na(.data[[status_col]]))
+  if (nrow(d) == 0) return(NA_real_)
+  fit <- survfit(Surv(d[[time_col]], d[[status_col]]) ~ 1, data = d)
+  s <- summary(fit, times = followup_days, extend = TRUE)
+  if (length(s$surv) == 0) return(NA_real_)
+  s$surv[1]
+}
+
+apply_ltp_rule_patient <- function(df, ignore_first_ltp = FALSE) {
+  if (!is.data.frame(df) || nrow(df) == 0) return(df)
+  d <- df
+  if (isTRUE(ignore_first_ltp) && "LTPCountMax" %in% names(d)) {
+    idx <- !is.na(d$LTPCountMax) & d$LTPCountMax == 1
+    d$StatusLTPF[idx] <- 1
+  }
+  d
+}
+
+apply_ltp_rule_lesion <- function(df, ignore_first_ltp = FALSE) {
+  if (!is.data.frame(df) || nrow(df) == 0) return(df)
+  d <- df
+  if (isTRUE(ignore_first_ltp) && all(c("PtID", "LTPDate", "StatusLTPEpisode") %in% names(d))) {
+    # use the same logic as your plot code:
+    # censor episodes with only one subsequent Rx after LTP
+    for (i in which(!is.na(d$LTPDate) & d$StatusLTPEpisode == 2)) {
+      ptID <- d$PtID[i]
+      ltpDt <- d$LTPDate[i]
+
+      laterRxCount <- length(unique(
+        lesion_data$RxNo[
+          lesion_data$PtID == ptID &
+            !is.na(lesion_data$RxDate) &
+            lesion_data$RxDate > ltpDt
+        ]
+      ))
+
+      if (laterRxCount == 1) {
+        d$StatusLTPEpisode[i] <- 1
+      }
+    }
+  }
+  d
+}
+
+patient_data_ltp <- apply_ltp_rule_patient(patient_data, report_ignore_first_ltp)
+lesion_data_ltp  <- apply_ltp_rule_lesion(lesion_data, report_ignore_first_ltp)
+patient_ltp <- get_ltp_rate(patient_data_ltp, "TimeLTPF", "StatusLTPF")
+lesion_ltp  <- get_ltp_rate(lesion_data_ltp, "TimeLTPEpisode", "StatusLTPEpisode")
+patient_os  <- get_os_rate(patient_data, "TimeSurvival", "StatusOverallSurvival")
+patient_ltpf_os <- get_os_rate(patient_data, "TimeLTPFOS", "StatusLTPFOS")
+
+km_risk_title <- function(x) if (is.na(x)) "NA" else scales::percent(x, accuracy = 0.1)
+
+make_female_male_unknown_table <- function(df) {
+  if (!is.data.frame(df) || nrow(df) == 0 || !("Gender" %in% names(df))) {
+    return(tibble::tibble(Gender = character(0), n = integer(0), pct = numeric(0)))
+  }
+  df |>
+    filter(!is.na(Gender) & Gender != "") |>
+    count(Gender, name = "n") |>
+    mutate(pct = n / sum(n))
+}
+
+fmt_param <- function(x) {
+  x <- setdiff(as.character(x), "All")
+  if (length(x) == 0) "All" else paste(x, collapse = ", ")
+}
+```
+
+## Report Details
+
+| Parameter | Value |
+|:----------|:------|
+| **Report generated** | `r format(Sys.time(), "%a %d %B %Y %H:%M")` |
+| **Report period** | `r format(reportStart, "%d %B %Y")` – `r format(reportEnd, "%d %B %Y")` |
+| **Organ(s)** | `r if (identical(report_organs, "All")) "All" else paste(report_organs, collapse = ", ")` |
+| **Diagnosis type** | `r fmt_param(report_diagnosis_type)` |
+| **Subtype(s)** | `r fmt_param(report_subtypes)` |
+| **Gender(s)** | `r paste(report_genders, collapse = ", ")` |
+| **Modality** | `r report_modality` |
+| **Minimum follow-up** | `r report_min_months_followup` months |
+| **Maximum follow-up** | `r report_max_years_followup` years |
+| **LTP definition** | `r if (report_ignore_first_ltp) "Allow 2xRx before LTP (ignore first LTP)" else "Standard LTP definition"` |
+
+---
+
+## Overview
+
+```{r overview-table, echo=FALSE}
+overview_tbl <- tibble::tibble(
+  Metric = c(
+    "Patients",
+    "Tumours treated",
+    "Mean treatments per referral",
+    "Mean tumours ablated per treatment",
+    "Median tumour size (mm)",
+    "SD tumour size (mm)",
+    paste0(report_max_years_followup, "-year OS"),
+    paste0(report_max_years_followup, "-year LTP-free OS"),
+    paste0(report_max_years_followup, "-year LTP (per patient)"),
+    paste0(report_max_years_followup, "-year LTP (per lesion)")
+  ),
+  Value = c(
+    nrow(patient_data),
+    nrow(lesion_data),
+    round(meanTreatmentsPerPatient, 2),
+    round(meanTumoursPerPatient, 2),
+    round(tumour_summary$median[1], 1),
+    round(tumour_summary$sd[1], 1),
+    km_risk_title(patient_os),
+    km_risk_title(patient_ltpf_os),
+    km_risk_title(patient_ltp),
+    km_risk_title(lesion_ltp)
+  )
+)
+
+kable(overview_tbl, caption = "Cancer outcomes summary") |>
+  kableExtra::kable_styling(full_width = FALSE)
+```
+
+## Tumour size and sex distribution
+
+```{r tumour-size-hist, echo=FALSE, fig.height=4.5}
+if (nrow(lesion_data) > 0 && "TumourSize" %in% names(lesion_data)) {
+  ggplot(lesion_data |> filter(!is.na(TumourSize)), aes(x = TumourSize)) +
+    geom_histogram(bins = 20) +
+    labs(
+      title = "Tumour size distribution",
+      x = "Tumour size (mm)",
+      y = "Count"
+    ) +
+    theme_minimal(base_size = 12)
+} else {
+  ggplot() +
+    annotate("text", x = 0.5, y = 0.5, label = "No tumour size data available", size = 6) +
+    theme_void()
+}
+```
+
+```{r tumour-size-summary, echo=FALSE}
+tumour_tbl <- tibble::tibble(
+  Metric = c("Count with size recorded", "Median size (mm)", "SD size (mm)", "Mean size (mm)"),
+  Value = c(
+    tumour_summary$n[1],
+    round(tumour_summary$median[1], 1),
+    round(tumour_summary$sd[1], 1),
+    round(tumour_summary$mean[1], 1)
+  )
+)
+
+kable(tumour_tbl, caption = "Tumour size summary") |>
+  kableExtra::kable_styling(full_width = FALSE)
+```
+
+```{r sex-dist-plot, echo=FALSE, fig.height=4.2}
+if (nrow(patient_sex_summary) > 0) {
+  ggplot(patient_sex_summary, aes(x = Gender, y = n)) +
+    geom_col() +
+    geom_text(aes(label = n), vjust = -0.3) +
+    labs(
+      title = "Sex distribution",
+      x = NULL,
+      y = "Patients"
+    ) +
+    theme_minimal(base_size = 12)
+} else {
+  ggplot() +
+    annotate("text", x = 0.5, y = 0.5, label = "No sex data available", size = 6) +
+    theme_void()
+}
+```
+
+```{r sex-summary-table, echo=FALSE}
+sex_tbl <- if (nrow(patient_sex_summary) > 0) {
+  patient_sex_summary |>
+    mutate(pct = scales::percent(pct, accuracy = 1))
+} else {
+  tibble::tibble(Gender = character(0), n = integer(0), pct = character(0))
+}
+
+kable(sex_tbl, caption = "Sex distribution") |>
+  kableExtra::kable_styling(full_width = FALSE)
+```
+
+
+## LTP curves at `r report_max_years_followup` years (`r if (report_ignore_first_ltp) "ignore first LTP" else "allow up to 2 Rx before LTP"`)
+
+```{r ltp-patient-plot, echo=FALSE, fig.height=4.8}
+makeRecurrencePlot(
+  strStart = format(reportStart, "%d/%m/%Y"),
+  strEnd = format(reportEnd, "%d/%m/%Y"),
+  selectedOrgans = report_organs,
+  selectedDiagnosisType = report_diagnosis_type,
+  selectedSubtypes = report_subtypes,
+  selectedGenders = report_genders,
+  selectedModality = report_modality,
+  minMonthsFollowup = report_min_months_followup,
+  maxYearsFollowup = report_max_years_followup,
+  ignoreFirstLTP = report_ignore_first_ltp,
+  ltpAnalysisUnit = "patient"
+)
+```
+
+```{r ltp-lesion-plot, echo=FALSE, fig.height=4.8}
+makeRecurrencePlot(
+  strStart = format(reportStart, "%d/%m/%Y"),
+  strEnd = format(reportEnd, "%d/%m/%Y"),
+  selectedOrgans = report_organs,
+  selectedDiagnosisType = report_diagnosis_type,
+  selectedSubtypes = report_subtypes,
+  selectedGenders = report_genders,
+  selectedModality = report_modality,
+  minMonthsFollowup = report_min_months_followup,
+  maxYearsFollowup = report_max_years_followup,
+  ignoreFirstLTP = report_ignore_first_ltp,
+  ltpAnalysisUnit = "lesion"
+)
+```
+
+## Survival curves at `r report_max_years_followup` years
+
+```{r os-plot, echo=FALSE, fig.height=4.8}
+makeSurvivalPlot(
+  strStart = format(reportStart, "%d/%m/%Y"),
+  strEnd = format(reportEnd, "%d/%m/%Y"),
+  selectedOrgans = report_organs,
+  selectedDiagnosisType = report_diagnosis_type,
+  selectedSubtypes = report_subtypes,
+  selectedGenders = report_genders,
+  selectedModality = report_modality,
+  survivalType = 0,
+  minMonthsFollowup = report_min_months_followup,
+  maxYearsFollowup = report_max_years_followup,
+  ignoreFirstLTP = report_ignore_first_ltp
+)
+```
+
+```{r ltpf-os-plot, echo=FALSE, fig.height=4.8}
+makeSurvivalPlot(
+  strStart = format(reportStart, "%d/%m/%Y"),
+  strEnd = format(reportEnd, "%d/%m/%Y"),
+  selectedOrgans = report_organs,
+  selectedDiagnosisType = report_diagnosis_type,
+  selectedSubtypes = report_subtypes,
+  selectedGenders = report_genders,
+  selectedModality = report_modality,
+  survivalType = 2,
+  minMonthsFollowup = report_min_months_followup,
+  maxYearsFollowup = report_max_years_followup,
+  ignoreFirstLTP = report_ignore_first_ltp
+)
+```
+
+## Grade 3-5 adverse events
+
+```{r grade-3-5-ae-table, echo=FALSE}
+
+if (nrow(ae_data) > 0) {
+  ae_tbl <- ae_data |>
+    mutate(
+      Grade = suppressWarnings(as.integer(as.character(Grade)))
+    ) |>
+    filter(Grade %in% c(3L, 4L, 5L))
+
+  if (nrow(ae_tbl) > 0) {
+    keep_cols <- intersect(
+      c("ID", "PtID", "Organ", "DiagnosisType", "Diagnosis1o", "Diagnosis2o", "DiagnosisBn", "DiagnosisUn",
+        "Complication", "Grade", "DateofOnset", "DateofResolution", "Duration"),
+      names(ae_tbl)
+    )
+
+    ae_tbl <- ae_tbl |>
+      select(all_of(keep_cols))
+
+    if ("DateofOnset" %in% names(ae_tbl)) {
+      ae_tbl <- ae_tbl |>
+        arrange(Grade, desc(DateofOnset))
+    } else {
+      ae_tbl <- ae_tbl |>
+        arrange(Grade)
+    }
+
+    kable(ae_tbl, caption = "Grade 3-5 adverse events") |>
+      kableExtra::kable_styling(full_width = FALSE)
+  } else {
+    cat("No grade 3-5 adverse events in the selected cohort.")
+  }
+} else {
+  cat("No adverse event data available.")
+}
+```
+
+
+
+## Credits
+
+```{r reportLogo, warning=FALSE}
+logo_src <- here("www", "TARGETPlotterLogo.png")
+if (file.exists(logo_src)) {
+  knitr::include_graphics(normalizePath(logo_src))
+} else {
+  cat("<!-- TARGETPlotterLogo.png logo not available -->")
+}
+```
+
+<br>
+Report Report Developer: Dr. Paul Lyon<br>
+TARGET-UK Lead: Dr. Paul Lyon, FRCR

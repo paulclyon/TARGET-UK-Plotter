@@ -27,7 +27,7 @@ postProcessData <- function()
       DTT_Rx        = as.numeric(rxdone_dtt_rx_days_list),
       Ref_RxDone    = as.numeric(rxdone_rx_days_list),
       Organ         = rxdone_organ_list,
-      MaxTumourSize = as.numeric(rxdone_max_tumour_size_list),
+      TumourSizes   = rxdone_tumour_size_list,
       TumourCount   = as.numeric(rxdone_tumour_count_list),
       DiagnosisType = rxdone_diagnosis_type_list,
       Diagnosis1o   = rxdone_diagnosis_1o_list,
@@ -120,8 +120,9 @@ postProcessData <- function()
       FirstRxDate                  = asDateWithOrigin(survival_first_rx_date),
       AgeOnFirstRx                 = survival_age_list,
       Organ                        = survival_organ_list,
-      MaxTumourSize                = as.numeric(survival_max_tumour_size_list),
-      RxModalities                 = suvival_rx_modalities,
+      MaxTumourSize                = survival_max_tumour_size_list,
+      TumourSizes                  = survival_tumour_size_list,
+      RxModalities                 = survival_rx_modalities,
       DiagnosisType                = survival_diagnosis_type_list,
       Diagnosis1o                  = survival_diagnosis_1o_list,
       Diagnosis2o                  = survival_diagnosis_2o_list,
@@ -165,7 +166,7 @@ postProcessData <- function()
       # rxDoneData$ID is in the format 'PtID-RxNo' e.g. '001-3'
       rxEpisodes       <- rxDoneData[, c("ID", "RxDate", "Organ", "DiagnosisType",
                                          "Diagnosis1o", "Diagnosis2o", "DiagnosisUn",
-                                         "TumourCount", "MaxTumourSize", "RxModality", "Gender")]
+                                         "TumourCount", "RxModality", "Gender")]
       rxEpisodes$PtID  <- sub("-[0-9]+$", "", rxEpisodes$ID)        # Extract patient ID
       rxEpisodes$RxNo <- as.integer(sub(".*-", "", rxEpisodes$ID))  # Extract referral number
       
@@ -203,9 +204,14 @@ postProcessData <- function()
         if (is.na(nTumours) || nTumours < 1L) {
           return(NULL)
         }
+        tumourSizes <- rxdone_tumour_size_mm[[i]]
+        if (length(tumourSizes) < nTumours) {
+          tumourSizes <- c(tumourSizes, rep(NA_real_, nTumours - length(tumourSizes)))
+        }
         data.frame(
           rxEpisodes[i, ],
           LesionNo  = seq_len(nTumours),
+          TumourSize = tumourSizes[seq_len(nTumours)],
           row.names = NULL
         )
       }))
@@ -278,6 +284,9 @@ postProcessData <- function()
       # Rows with TimeLTPEpisode = 0 are retained — these are censored at time of treatment
       cancerPerLesionData <<- cancerPerLesionData[
         !is.na(cancerPerLesionData$TimeLTPEpisode) & cancerPerLesionData$TimeLTPEpisode >= 0, ]
+      
+      # Get just the organs that have been used for cancer patients
+      cancerOrganFactors <<- sort(unique(cancerPerPatientData$Organ[!is.na(cancerPerPatientData$Organ)]))
     }
     else
     {

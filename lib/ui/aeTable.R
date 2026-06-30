@@ -9,7 +9,7 @@ aeTab <- function() {
             "aeGradesCheckbox",
             "CCTAE Grades",
             choices = cctaeGradeFactors,
-            selected = cctaeGradeFactors,
+            selected = cctaeGradeFactors[grepl("\\b(3|4|5)\\b", as.character(cctaeGradeFactors))],
             inline = TRUE
           )
         ),
@@ -17,15 +17,15 @@ aeTab <- function() {
           width = 3,
           dateInput("aeTabStartDate", "Start Date:", format = "dd/mm/yyyy", value = Sys.Date() - 365),
           dateInput("aeTabEndDate", "End Date:", format = "dd/mm/yyyy", value = Sys.Date()),
+        ),
+        column(
+          width = 5,
           selectInput("aeTabSelectedOrgans", "Target Organ", choices = organFactors),
           selectInput(
             "aeTabSelectedDiagnosisType",
             "Diagnosis Type",
             choices = c("All", "Primary", "Secondary", "1o & 2o", "Benign", "Unknown")
-          )
-        ),
-        column(
-          width = 5,
+          ),
           checkboxGroupInput(
             "aeTabSelectedSubtypes",
             "Subtypes",
@@ -58,15 +58,26 @@ aeTableServer <- function(input, output, session, isDocker, api) {
   
   subtypeChoices <- reactive({
     req(input$aeTabSelectedDiagnosisType)
-    switch(
+    req(input$aeTabSelectedOrgans)
+    
+    all_choices <- switch(
       input$aeTabSelectedDiagnosisType,
       "All"       = c("All"),
       "Primary"   = api$diagnosis_1o_Factors,
       "Secondary" = api$diagnosis_2o_Factors,
       "1o & 2o"   = c(api$diagnosis_1o_Factors, api$diagnosis_2o_Factors),
       "Benign"    = api$diagnosis_bn_Factors,
-      api$diagnosisSubtypeFactors
+      "Unknown"   = api$diagnosis_un_Factors,
+      c("All")
     )
+    
+    organ <- tolower(input$aeTabSelectedOrgans)
+    if (organ %in% c("liver", "kidney", "lung")) {
+      prefixed <- all_choices[grepl(paste0("^", organ, ":"), tolower(all_choices))]
+      if (length(prefixed) > 0) return(prefixed)
+    }
+    
+    all_choices
   })
   
   observe({
@@ -86,22 +97,12 @@ aeTableServer <- function(input, output, session, isDocker, api) {
     )
   })
   
-  observe({
-    choices <- subtypeChoices()
-    updateCheckboxGroupInput(
-      session, "aeTabSelectedSubtypes",
-      choices  = choices,
-      selected = choices
-    )
-  })
-  
-  observeEvent(input$aeTabSelectedDiagnosisType, {
-    choices <- subtypeChoices()
+  observeEvent(list(input$aeTabSelectedDiagnosisType, input$aeTabSelectedOrgans), {
     updateCheckboxGroupInput(
       session,
       "aeTabSelectedSubtypes",
-      choices = choices,
-      selected = choices
+      choices  = subtypeChoices(),
+      selected = subtypeChoices()
     )
   }, ignoreInit = FALSE)
   
@@ -172,8 +173,15 @@ aeTableServer <- function(input, output, session, isDocker, api) {
   })
   
   filterData <- function() {
-    aeData.filtered <- aeData[ , -which(is.na(names(aeData))) ]
-    aeData.filtered <- filter(aeData.filtered, Grade %in% input$aeGradesCheckbox)
+    
+    # Filter by CCTAE grade
+    bad_cols <- is.na(names(aeData)) | names(aeData) == ""
+    aeData.filtered <- aeData[, !bad_cols, drop = FALSE]
+    aeData.filtered$Grade <- as.character(aeData.filtered$Grade)
+    aeData.filtered <- dplyr::filter(
+      aeData.filtered,
+      .data$Grade %in% input$aeGradesCheckbox
+    )
     
     # Filter by organ
     if (!is.null(input$aeTabSelectedOrgans) && input$aeTabSelectedOrgans != "All")
@@ -182,22 +190,25 @@ aeTableServer <- function(input, output, session, isDocker, api) {
     # Filter by diagnosis type and subtypes
     subtypes <- input$aeTabSelectedSubtypes
     if (is.null(subtypes)) subtypes <- c("All")
+    subtypes <- tolower(subtypes)
+    
     diagType <- input$aeTabSelectedDiagnosisType
     if (is.null(diagType)) diagType <- "All"
     
     if (diagType == "All") {
-      if (!("All" %in% subtypes))
-        aeData.filtered <- aeData.filtered[aeData.filtered$Organ %in% subtypes, ]
+      if (!("all" %in% subtypes))
+        aeData.filtered <- aeData.filtered[tolower(as.character(aeData.filtered$Organ)) %in% subtypes, ]
     } else if (diagType == "1o & 2o") {
-      aeData.filtered <- aeData.filtered[aeData.filtered$Diagnosis1o %in% subtypes | aeData.filtered$Diagnosis2o %in% subtypes, ]
+      aeData.filtered <- aeData.filtered[
+        tolower(as.character(aeData.filtered$Diagnosis1o)) %in% subtypes |
+          tolower(as.character(aeData.filtered$Diagnosis2o)) %in% subtypes, ]
     } else {
       aeData.filtered <- switch(substring(diagType, 1, 1),
-                                "P" = aeData.filtered[aeData.filtered$Diagnosis1o %in% subtypes, ],
-                                "S" = aeData.filtered[aeData.filtered$Diagnosis2o %in% subtypes, ],
-                                "B" = aeData.filtered[aeData.filtered$DiagnosisBn %in% subtypes, ],
-                                "U" = aeData.filtered[aeData.filtered$DiagnosisUn %in% subtypes, ],
-                                aeData.filtered
-      )
+                                "P" = aeData.filtered[tolower(as.character(aeData.filtered$Diagnosis1o)) %in% subtypes, ],
+                                "S" = aeData.filtered[tolower(as.character(aeData.filtered$Diagnosis2o)) %in% subtypes, ],
+                                "B" = aeData.filtered[tolower(as.character(aeData.filtered$DiagnosisBn)) %in% subtypes, ],
+                                "U" = aeData.filtered[tolower(as.character(aeData.filtered$DiagnosisUn)) %in% subtypes, ],
+                                aeData.filtered)
     }
     
     # Filter by date

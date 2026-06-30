@@ -3,22 +3,6 @@ source("lib/__init__.R", .GlobalEnv)
 
 # Clear out any old global variables
 initialiseGlobals()
-Sys.setenv(CASTOR_USER_KEY = "?")
-Sys.setenv(CASTOR_SECRET = "?")
-Sys.setenv(CASTOR_DEFAULT_STUDY = NA)
-Sys.setenv(CASTOR_URL = "https://uk.castoredc.com")
-Sys.setenv(DEBUG_MODE = FALSE)
-Sys.setenv(DATE_FORMAT = "%d-%m-%Y")
-Sys.setenv(AUDIT_REPORT_TEMPLATE_DIR = "templates",sep="")
-Sys.setenv(REPORT_WAITING_LIST_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"report-waiting-list.rmd",sep=""))
-Sys.setenv(REPORT_WAITING_LIST_MD = "report-waiting-list.md")
-Sys.setenv(AUDIT_PATHWAY_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"audit-pathway.rmd",sep=""))
-Sys.setenv(AUDIT_PATHWAY_MD = "audit-pathway.md")
-Sys.setenv(REPORT_OUTPUT_DIR = "reports",sep="")
-Sys.setenv(USERKEY_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"userkey.txt",sep=""))
-Sys.setenv(SECRET_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"secret.txt",sep=""))
-Sys.setenv(DEFAULT_STUDY_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"defaultstudy.txt",sep=""))
-theTotalTariff <- 0
 
 if (file.exists(Sys.getenv("SECRET_TXT"))) {
   # Load from the secret password file if present.
@@ -119,7 +103,8 @@ ui <- dashboardPage(
         icon = icon("clipboard-list"),
         expandedName = "REPORTS & AUDIT",
         menuSubItem("Waiting List Report", tabName = "reportWaitingList"),
-        menuSubItem("Treatment Time Audit", tabName = "auditRxPathway")
+        menuSubItem("Treatment Time Audit", tabName = "auditRxPathway"),
+        menuSubItem("Cancer Outcomes Report", tabName = "cancerOutcomesReport")
       ), id = "auditMenuItem")),
       hidden(tagAppendAttributes(menuItem(
         "Summary Data",
@@ -187,6 +172,7 @@ ui <- dashboardPage(
       tabItem("loggerTab", loggerTab()),
       tabItem("reportWaitingList", reportWaitingListTab()),
       tabItem("auditRxPathway", auditRxPathwayTab()),
+      tabItem("cancerOutcomesReport", cancerOutcomesReportTab()),
       tabItem("rxPathwaySummary", pathwaySummaryTab()),
       tabItem("recurrenceSummary", "Recurrence Summary Data work in progress!"),
       tabItem("survivalSummary", survivalSummaryTab()),
@@ -311,6 +297,7 @@ server <- function(input, output, session) {
   survivalSummaryServer(input, output, session)
   reportServer(input, output, session, api, plots)
   auditServer(input, output, session, api, plots)
+  cancerOutcomesReportServer(input, output, session, api, plots)
   
   output$tableWait <- DT::renderDataTable({
     DT::datatable(rxWaitData)

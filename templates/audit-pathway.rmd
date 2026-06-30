@@ -108,12 +108,12 @@ yearLabels  <- sapply(yearWindows, `[[`, "label")
 nYears      <- length(yearWindows)
 
 # ---------------------------------------------------------------------------
-# Helper: overall_group -- adds an "All Organ" summary row
+# Helper: overall_group -- adds an "All Organs" summary row
 # ---------------------------------------------------------------------------
 overall_group <- function(data, col_name) {
   d1 <- data %>% mutate(summary_level = "grouped")
   d2 <- data %>% mutate(summary_level = "ungrouped") %>%
-    mutate(!!sym(col_name) := "All Organ")
+    mutate(!!sym(col_name) := "All Organs")
   rbind(d1, d2) %>%
     group_by(summary_level, !!sym(col_name)) %>%
     { subset(., select = -c(summary_level)) }
@@ -167,8 +167,8 @@ z.significantMarker <- function(p.value) {
 
 getTTestPValueFromData <- function(current_data, preceding_data, organ, column) {
   tryCatch({
-    x <- current_data   |> filter(organ == "All Organ" | Organ == organ) |> pull(!!sym(column))
-    y <- preceding_data |> filter(organ == "All Organ" | Organ == organ) |> pull(!!sym(column))
+    x <- current_data   |> filter(organ == "All Organs" | Organ == organ) |> pull(!!sym(column))
+    y <- preceding_data |> filter(organ == "All Organs" | Organ == organ) |> pull(!!sym(column))
     t.test(x, y)$p.value |> t.significantMarker()
   }, error = function(e) "")
 }
@@ -198,7 +198,7 @@ buildMultiYearTable <- function(summarise_fn, pct_cols, count_cols, raw_col) {
   yr_tables <- lapply(rxDoneByYear, summarise_fn)
 
   # All organs + individual organ rows to test
-  organs_to_test <- c(audit_organs, "All Organ")
+  organs_to_test <- c(audit_organs, "All Organs")
 
   # Build comparison columns year-by-year (each vs its predecessor)
 result <- yr_tables[[1]] |>
@@ -278,7 +278,7 @@ result <- yr_tables[[1]] |>
     }
   }
 
-  result |> filter(Organ == "All Organ" | Organ %in% audit_organs)
+  result |> filter(Organ == "All Organs" | Organ %in% audit_organs)
 }
 
 # ---------------------------------------------------------------------------
@@ -352,9 +352,9 @@ generateDTTTable <- function(doneData) {
       "w21%"  = round(sum(within21, na.rm = TRUE) / n() * 100, 1),
       n = n()
     ) |>
-    mutate(Organ = if_else(is.na(Organ), "All Organ", Organ)) |>
+    mutate(Organ = if_else(is.na(Organ), "All Organs", Organ)) |>
     ungroup() |>
-    filter(Organ == "All Organ" | Organ %in% audit_organs)
+    filter(Organ == "All Organs" | Organ %in% audit_organs)
 }
 
 if (nYears == 1) {
@@ -437,9 +437,9 @@ generateDTTtoRxTable <- function(doneData) {
       "w60%"  = round(sum(within60, na.rm = TRUE) / n() * 100, 1),
       n = n()
     ) |>
-    mutate(Organ = if_else(is.na(Organ), "All Organ", Organ)) |>
+    mutate(Organ = if_else(is.na(Organ), "All Organs", Organ)) |>
     ungroup() |>
-    filter(Organ == "All Organ" | Organ %in% audit_organs)
+    filter(Organ == "All Organs" | Organ %in% audit_organs)
 }
 
 if (nYears == 1) {
@@ -513,9 +513,9 @@ generateRefToRxTable <- function(doneData) {
       "w90%" = round(sum(within90, na.rm = TRUE) / n() * 100, 1),
       n = n()
     ) |>
-    mutate(Organ = if_else(is.na(Organ), "All Organ", Organ)) |>
+    mutate(Organ = if_else(is.na(Organ), "All Organs", Organ)) |>
     ungroup() |>
-    filter(Organ == "All Organ" | Organ %in% audit_organs)
+    filter(Organ == "All Organs" | Organ %in% audit_organs)
 }
 
 if (nYears == 1) {
