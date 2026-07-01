@@ -115,10 +115,10 @@ filter_patient_rows <- function(df) {
 
   if (!identical(report_diagnosis_type, "All")) {
     switch(substring(report_diagnosis_type, 1, 1),
-      "P" = { d <- d |> filter(Diagnosis1o %in% report_subtypes) },
-      "S" = { d <- d |> filter(Diagnosis2o %in% report_subtypes) },
-      "B" = { d <- d |> filter(DiagnosisBn %in% report_subtypes) },
-      "U" = { d <- d |> filter(DiagnosisUn %in% report_subtypes) }
+      "P" = { d <- d |> filter(DiagnosisType == "P", Diagnosis1o %in% report_subtypes) },
+      "S" = { d <- d |> filter(DiagnosisType == "S", Diagnosis2o %in% report_subtypes) },
+      "B" = { d <- d |> filter(DiagnosisType == "B", DiagnosisBn %in% report_subtypes) },
+      "U" = { d <- d |> filter(DiagnosisType == "U", DiagnosisUn %in% report_subtypes) }
     )
   }
 
@@ -142,10 +142,10 @@ filter_lesion_rows <- function(df) {
 
   if (!identical(report_diagnosis_type, "All")) {
     switch(substring(report_diagnosis_type, 1, 1),
-      "P" = { d <- d |> filter(Diagnosis1o %in% report_subtypes) },
-      "S" = { d <- d |> filter(Diagnosis2o %in% report_subtypes) },
-      "B" = { d <- d |> filter(DiagnosisBn %in% report_subtypes) },
-      "U" = { d <- d |> filter(DiagnosisUn %in% report_subtypes) }
+      "P" = { d <- d |> filter(DiagnosisType == "P", Diagnosis1o %in% report_subtypes) },
+      "S" = { d <- d |> filter(DiagnosisType == "S", Diagnosis2o %in% report_subtypes) },
+      "B" = { d <- d |> filter(DiagnosisType == "B", DiagnosisBn %in% report_subtypes) },
+      "U" = { d <- d |> filter(DiagnosisType == "U", DiagnosisUn %in% report_subtypes) }
     )
   }
 
@@ -289,12 +289,23 @@ tumour_summary <- if (nrow(lesion_data) > 0 && "TumourSize" %in% names(lesion_da
 
 followup_days <- report_max_years_followup * 365.25
 
+status_to_event <- function(status) {
+  x <- status[!is.na(status)]
+  if (length(x) == 0) return(logical(0))
+  ux <- sort(unique(x))
+  if (all(ux %in% c(0, 1))) return(status == 1)
+  if (all(ux %in% c(1, 2))) return(status == 2)
+  if (is.logical(status)) return(status)
+  status != 0
+}
+
+
 get_ltp_rate <- function(df, time_col, status_col) {
   if (!is.data.frame(df) || nrow(df) == 0) return(NA_real_)
   if (!(time_col %in% names(df)) || !(status_col %in% names(df))) return(NA_real_)
   d <- df |> filter(!is.na(.data[[time_col]]), !is.na(.data[[status_col]]))
   if (nrow(d) == 0) return(NA_real_)
-  fit <- survfit(Surv(d[[time_col]], d[[status_col]] == 2) ~ 1, data = d)
+  fit <- survfit(Surv(d[[time_col]], status_to_event(d[[status_col]])) ~ 1, data = d)
   s <- summary(fit, times = followup_days, extend = TRUE)
   if (length(s$surv) == 0) return(NA_real_)
   s$surv[1]
@@ -305,7 +316,7 @@ get_os_rate <- function(df, time_col, status_col) {
   if (!(time_col %in% names(df)) || !(status_col %in% names(df))) return(NA_real_)
   d <- df |> filter(!is.na(.data[[time_col]]), !is.na(.data[[status_col]]))
   if (nrow(d) == 0) return(NA_real_)
-  fit <- survfit(Surv(d[[time_col]], d[[status_col]]) ~ 1, data = d)
+  fit <- survfit(Surv(d[[time_col]], status_to_event(d[[status_col]])) ~ 1, data = d)
   s <- summary(fit, times = followup_days, extend = TRUE)
   if (length(s$surv) == 0) return(NA_real_)
   s$surv[1]

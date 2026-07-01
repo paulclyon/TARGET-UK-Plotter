@@ -62,7 +62,7 @@ options(repos=r)})
 # Install the packages
 for (pkg in c(required_base_pkgs,required_latex_pkgs)) {
   if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg, dependencies = TRUE)
+    install.packages(pkg, dependencies = c("Depends", "Imports", "LinkingTo"))
     library(pkg, character.only = TRUE)
   }
 }

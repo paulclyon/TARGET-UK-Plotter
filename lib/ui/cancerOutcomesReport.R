@@ -147,14 +147,18 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
 
   observeEvent(input$buttonRunReport, {
     currentReportParams(list(
-      report_start_date   = input$cancerReportDate1,
-      report_end_date     = input$cancerReportDate2,
-      report_organs       = input$cancerReportSelectedOrgans,
-      report_ignore_first_ltp = isTRUE(input$recurrenceAllow2Rx),
+      report_start_date          = input$cancerReportDate1,
+      report_end_date            = input$cancerReportDate2,
+      report_organs              = input$cancerReportSelectedOrgans,
+      report_diagnosis_type      = input$cancerReportSelectedDiagnosisType,
+      report_subtypes            = isolate(input$cancerReportSelectedSubtypes),
+      report_ignore_first_ltp    = isTRUE(input$recurrenceAllow2Rx),
       report_min_months_followup = input$minMonthsFollowup,
-      report_max_years_followup = input$maxYearsFollowup
+      report_max_years_followup  = input$maxYearsFollowup
     ))
-  plots$activePlot <- NA
+    
+    plots$activePlot <- NA
+  })
 
   output$summaryRefReport <- renderUI({
     # Informational message (does not affect UI)
@@ -197,7 +201,6 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
       width = "100%",
       height = "900px",
       style = "border:0;")
-    })
   })
 
   output$buttonReportToDoc <- downloadHandler(

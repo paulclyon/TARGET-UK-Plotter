@@ -180,7 +180,7 @@ postProcessData <- function()
         ltpPerLesion <- data.frame(
           PtID     = ltp_perlesion_ptid_list,
           RxNo     = as.integer(ltp_perlesion_rxno_list),
-          LesionNo = as.integer(ltp_perlesion_lesionno_list),
+          LesionNo = as.integer(ltp_perlesion_id_list),
           LTPDate  = asDateWithOrigin(ltp_perlesion_date_list),
           LTPCount = as.integer(ltp_perlesion_count_list)
         )
