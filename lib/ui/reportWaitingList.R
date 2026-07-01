@@ -153,7 +153,7 @@ reportServer <- function(input, output, session, api, plots)
   
   output$buttonReportToHTML <- downloadHandler(
     filename = function() {
-      paste0("WaitingListReport_", Sys.Date(), ".html")
+      paste0(Sys.getenv("REPORT_WAITING_LIST_FILENAME"), "-", Sys.Date(), ".html")
     },
     contentType = "text/html",
     content = function(file) {
@@ -172,7 +172,7 @@ reportServer <- function(input, output, session, api, plots)
   
   output$buttonReportToPDF <- downloadHandler(
     filename = function() {
-      paste0("WaitingListReport_", Sys.Date(), ".pdf")
+      paste0(Sys.getenv("REPORT_WAITING_LIST_FILENAME"), "-", Sys.Date(), ".pdf")
     },
     content = function(file) {
       req(rmdReportFile)

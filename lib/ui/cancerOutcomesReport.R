@@ -31,7 +31,7 @@ cancerOutcomesReportTab <- function(id = NULL) {
       ),
       column(
         width = 3,
-        checkboxInput("recurrenceAllow2Rx", "Allow 2xRx before LTP", value = TRUE),
+        checkboxInput("recurrenceAllow2Rx", "Include additional LTP plots allowing 2xRx before LTP", value = TRUE),
         selectInput(
           "cancerReportSelectedOrgans",
           "Organ",
@@ -100,7 +100,7 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
   selectedSubtypes <- reactive({
     subtypeChoices()
   })
-
+  
   observeEvent(list(input$cancerReportSelectedDiagnosisType, input$cancerReportSelectedOrgans), {
     updateCheckboxGroupInput(
       session,
@@ -118,7 +118,7 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
           showNotification(paste("Cleaning out the old HTML file '", mdReportFile, "'", sep = ""))
           file.remove(mdReportFile)
         }
-
+        
         # This does the knitting bit ready to make the HTML by running the knit function
         # This makes the MD file which is basically just HTML in a file, which we then return as includeMarkdown()
         sapply(rmdCancerOutcomesReportFile, knit, quiet = T)
@@ -132,7 +132,7 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
       }
     )
   })
-
+  
   observeEvent(api$cancerOrganFactors, {
     req(!is.null(api$cancerOrganFactors))
     req(length(api$cancerOrganFactors) > 0)
@@ -144,37 +144,45 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
       selected = "All"
     )
   })
-
-  observeEvent(input$buttonRunReport, {
-    currentReportParams(list(
+  
+  # Builds the report params list straight from the current input values.
+  # Used both when "Cancer Outcomes" is clicked, and as a fallback in the
+  # PDF/Doc download handlers so they work even if that button hasn't been
+  # clicked yet. Wrapped in isolate() so it's safe to call from a
+  # non-reactive context (e.g. inside a downloadHandler's content function).
+  buildReportParamsFromInputs <- function() {
+    isolate(list(
       report_start_date          = input$cancerReportDate1,
       report_end_date            = input$cancerReportDate2,
       report_organs              = input$cancerReportSelectedOrgans,
       report_diagnosis_type      = input$cancerReportSelectedDiagnosisType,
-      report_subtypes            = isolate(input$cancerReportSelectedSubtypes),
-      report_ignore_first_ltp    = isTRUE(input$recurrenceAllow2Rx),
+      report_subtypes            = input$cancerReportSelectedSubtypes,
+      report_include_ignore_first_ltp = isTRUE(input$recurrenceAllow2Rx),
       report_min_months_followup = input$minMonthsFollowup,
       report_max_years_followup  = input$maxYearsFollowup
     ))
+  }
+  
+  observeEvent(input$buttonRunReport, {
+    currentReportParams(buildReportParamsFromInputs())
     
     plots$activePlot <- NA
   })
-
+  
   output$summaryRefReport <- renderUI({
-    # Informational message (does not affect UI)
+    req(input$buttonRunReport > 0)
+    params <- currentReportParams()
+    req(params)
+    
     shinyCatch(
       message(paste0("Generating the report from file '", Sys.getenv("CANCER_OUTCOMES_REPORT_RMD"), "'")),
       prefix = ""
     )
-
-    # Render into a temporary dir so we don't overwrite app files
+    
     tempReportDir <- tempdir()
     tempRmd <- file.path(tempReportDir, "report.Rmd")
     file.copy(rmdCancerOutcomesReportFile, tempRmd, overwrite = TRUE)
-
-    params <- currentReportParams()
-    req(params)
-
+    
     # Render to HTML
     render_result <- tryCatch({
       rmarkdown::render(tempRmd,
@@ -188,36 +196,42 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
       showNotification(conditionMessage(e)); 
       return(NULL)
     })
-
+    
     if (is.null(render_result) || !file.exists(render_result)) {
       return(tags$div("Failed to render report - see notifications for details."))
     }
-
+    
     # Read the rendered HTML and embed in an iframe via srcdoc (avoids includeHTML warning)
     html_text <- paste(readLines(render_result, warn = FALSE), collapse = "\n")
-
+    
     tags$iframe(
       srcdoc = html_text,
       width = "100%",
       height = "900px",
       style = "border:0;")
   })
-
+  
   output$buttonReportToDoc <- downloadHandler(
-    filename = "targetuk_waiting_time_report_report.doc",
+    filename = Sys.getenv("CANCER_OUTCOMES_REPORT_PATHWAY_DOC"),
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
       tempReportDir <- tempdir()
-
+      
       tempReport <- file.path(tempReportDir, "report.Rmd")
       file.copy(rmdCancerOutcomesReportFile, tempReport, overwrite = TRUE)
-
-      # Set up parameters to pass to Rmd document
+      
+      # Set up parameters to pass to Rmd document.
+      # If "Cancer Outcomes" hasn't been clicked yet, currentReportParams()
+      # will still be NULL - fall back to building params from the current
+      # filter inputs so the download works regardless.
       params <- isolate(currentReportParams())
+      if (is.null(params)) {
+        params <- buildReportParamsFromInputs()
+      }
       req(params)
-
+      
       shinyCatch(
         message(paste(
           "Generating the report from file '", Sys.getenv("CANCER_OUTCOMES_REPORT_RMD"),
@@ -225,14 +239,14 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
         )),
         prefix = ""
       )
-
+      
       rmarkdown::render(tempReport,
-        output_format = "html_document",
-        output_dir = tempReportDir,
-        params = params,
-        envir = new.env(parent = globalenv())
+                        output_format = "html_document",
+                        output_dir = tempReportDir,
+                        params = params,
+                        envir = new.env(parent = globalenv())
       )
-
+      
       shinyCatch(
         message("Converting to docx"),
         prefix = ""
@@ -244,15 +258,21 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
       )
     }
   )
-
+  
   output$buttonReportToPDF <- downloadHandler(
-    filename = "targetuk_waiting_time_report_report.pdf",
+    filename = Sys.getenv("CANCER_OUTCOMES_REPORT_PATHWAY_PDF"),
     content = function(file) {
       tempReportDir <- tempdir()
       tempReport <- file.path(tempReportDir, "report.Rmd")
       file.copy(rmdCancerOutcomesReportFile, tempReport, overwrite = TRUE)
       
+      # If "Cancer Outcomes" hasn't been clicked yet, currentReportParams()
+      # will still be NULL - fall back to building params from the current
+      # filter inputs so the download works regardless.
       params <- isolate(currentReportParams())
+      if (is.null(params)) {
+        params <- buildReportParamsFromInputs()
+      }
       req(params)
       
       shinyCatch(message(paste0("Generating report from '", Sys.getenv("CANCER_OUTCOMES_REPORT_RMD"), "'")), prefix = "")
@@ -285,6 +305,6 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
       
       shinyCatch(message("Created targetuk_cancer_outcomes_report.pdf"), prefix = "")
     }
-  
+    
   )
 }

@@ -9,12 +9,20 @@ initialiseGlobals <- function()
   Sys.setenv(DATE_FORMAT = "%d-%m-%Y")
   Sys.setenv(AUDIT_REPORT_TEMPLATE_DIR = "templates",sep="")
   Sys.setenv(REPORT_OUTPUT_DIR = "reports",sep="")
+  
   Sys.setenv(REPORT_WAITING_LIST_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"report-waiting-list.rmd",sep=""))
   Sys.setenv(REPORT_WAITING_LIST_MD = "report-waiting-list.md")
+  Sys.setenv(REPORT_WAITING_LIST_FILENAME = "targetuk-WaitingListReport")
+
   Sys.setenv(AUDIT_PATHWAY_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"audit-pathway.rmd",sep=""))
   Sys.setenv(AUDIT_PATHWAY_MD = "audit-pathway.md")
+  Sys.setenv(AUDIT_PATHWAY_DOC = "targetuk_audit_pathway_report.doc")
+  Sys.setenv(AUDIT_PATHWAY_PDF = "targetuk_audit_pathway_report.pdf")
+  
   Sys.setenv(CANCER_OUTCOMES_REPORT_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"cancer-outcomes-report.rmd",sep=""))
-  Sys.setenv(CANVER_OUTCOMES_REPORT_PATHWAY_MD = "cancer-outcomes-report.md")
+  Sys.setenv(CANCER_OUTCOMES_REPORT_PATHWAY_MD = "cancer-outcomes-report.md")
+  Sys.setenv(CANCER_OUTCOMES_REPORT_PATHWAY_DOC = "targetuk_cancer_outcomes_report.doc")
+  Sys.setenv(CANCER_OUTCOMES_REPORT_PATHWAY_PDF = "targetuk_cancer_outcomes_report.pdf")
   
   Sys.setenv(USERKEY_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"userkey.txt",sep=""))
   Sys.setenv(SECRET_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"secret.txt",sep=""))

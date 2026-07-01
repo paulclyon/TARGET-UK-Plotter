@@ -110,29 +110,33 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
   {
     survivalFit        <- ggsurvfit::survfit2(Surv(TimeSurvival, StatusOverallSurvival)~Organ, 
                                               data = filteredSurvivalData,
-                                              start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
-    titleStr           <- "Overall Survival"
+                                              start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data integrity)
+    titleStr           <- paste0("Overall Survival (ignore first LTP=",ignoreFirstLTP,")")
+    
   }
   else if (survivalType == 1) # This is cancer specific survival
   {
     survivalFit        <- ggsurvfit::survfit2(Surv(TimeSurvival, StatusCancerSpecificSurvival)~Organ,
                                               data = filteredSurvivalData,
                                               start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
-    titleStr           <- "Cancer Specific Survival"
+    titleStr           <- paste0("Cancer Specific Survival (ignore first LTP=",ignoreFirstLTP,")")
+    
   }
   else if (survivalType == 2)  # This is LTPF overall survival
   {
     survivalFit        <- ggsurvfit::survfit2(Surv(TimeLTPFOS, StatusLTPFOS)~Organ,
                                               data = filteredSurvivalData,
                                               start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
-    titleStr           <- "Overall Local Tumour Progression-Free Overall Survival"
+    titleStr           <- paste0("LTP-Free Overall Survival (ignore first LTP=",ignoreFirstLTP,")")
+    
   }
   else if (survivalType == 3)  # This is LTPF cancer specific survival
   {
     survivalFit        <- ggsurvfit::survfit2(Surv(TimeLTPFCSS, StatusLTPFCSS)~Organ,
                                               data = filteredSurvivalData,
                                               start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
-    titleStr           <- "Overall Local Tumour Progression-Free Cancer Specific Survival"
+    titleStr           <- paste0("LTP-Free Cancer Specific Survival (ignore first LTP=",ignoreFirstLTP,")")
+    
   }
   # Original method but don't know how to change risk table to just e.g. 5 follow-up years
   #survivalPlot         <- ggsurvplot(survivalFit,
@@ -291,7 +295,7 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     recurrenceFit <- ggsurvfit::survfit2(Surv(TimeLTPF, StatusLTPF == 2) ~ Organ,
                                          data = filteredSurvivalData,
                                          start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
-    titleStr      <- "Local Tumour Progression Free Analysis (Per Patient)"
+    titleStr      <- paste0("Local Tumour Progression Free Analysis (Per Patient, ignore first LTP=",ignoreFirstLTP,")")
   }
   else
   {
@@ -405,7 +409,8 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
       Surv(TimeLTPEpisode, StatusLTPEpisode == 2) ~ Organ,
            data = filteredPerLesionData,
            start.time = 0) # The start.time avoids error messages when the last imaging date is before 1st Rx date (captured elswhere as data intergrity)
-    titleStr      <- "Local Tumour Progression Free Analysis (Per Lesion)"
+    titleStr      <- paste0("Local Tumour Progression Free Analysis (Per Lesion, ignore first LTP=",ignoreFirstLTP,")")
+    
   }
   
   # Original method but don't know how to change risk table to just e.g. 5 follow-up years

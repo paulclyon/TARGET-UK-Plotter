@@ -93,8 +93,9 @@ auditServer <- function(input, output, session, api, plots) {
       audit_end_date   = input$auditDate2,
       audit_organs     = input$organAuditCheckbox
     ))
-  plots$activePlot <- NA
-
+      plots$activePlot <- NA
+  })
+  
   output$summaryRefAudit <- renderUI({
     # Informational message (does not affect UI)
     shinyCatch(
@@ -102,45 +103,44 @@ auditServer <- function(input, output, session, api, plots) {
       prefix = ""
     )
 
-    # Render into a temporary dir so we don't overwrite app files
-    tempReportDir <- tempdir()
-    tempRmd <- file.path(tempReportDir, "report.Rmd")
-    file.copy(rmdAuditFile, tempRmd, overwrite = TRUE)
+  # Render into a temporary dir so we don't overwrite app files
+  tempReportDir <- tempdir()
+  tempRmd <- file.path(tempReportDir, "report.Rmd")
+  file.copy(rmdAuditFile, tempRmd, overwrite = TRUE)
 
-    params <- currentAuditParams()
-    req(params)
+  params <- currentAuditParams()
+  req(params)
 
-    # Render to HTML
-    render_result <- tryCatch({
-      rmarkdown::render(tempRmd,
-                        output_format = "html_document",
-                        output_dir = tempReportDir,
-                        params = params,
-                        envir = new.env(parent = globalenv()),
-                        quiet = TRUE)
-    }, error = function(e) { 
-      logger(conditionMessage(e), TRUE); 
-      showNotification(conditionMessage(e)); 
-      return(NULL)
-    })
+  # Render to HTML
+  render_result <- tryCatch({
+    rmarkdown::render(tempRmd,
+                      output_format = "html_document",
+                      output_dir = tempReportDir,
+                      params = params,
+                      envir = new.env(parent = globalenv()),
+                      quiet = TRUE)
+  }, error = function(e) { 
+    logger(conditionMessage(e), TRUE); 
+    showNotification(conditionMessage(e)); 
+    return(NULL)
+  })
 
-    if (is.null(render_result) || !file.exists(render_result)) {
-      return(tags$div("Failed to render audit - see notifications for details."))
-    }
+  if (is.null(render_result) || !file.exists(render_result)) {
+    return(tags$div("Failed to render audit - see notifications for details."))
+  }
 
-    # Read the rendered HTML and embed in an iframe via srcdoc (avoids includeHTML warning)
-    html_text <- paste(readLines(render_result, warn = FALSE), collapse = "\n")
+  # Read the rendered HTML and embed in an iframe via srcdoc (avoids includeHTML warning)
+  html_text <- paste(readLines(render_result, warn = FALSE), collapse = "\n")
 
-    tags$iframe(
-      srcdoc = html_text,
-      width = "100%",
-      height = "900px",
-      style = "border:0;")
-    })
+  tags$iframe(
+    srcdoc = html_text,
+    width = "100%",
+    height = "900px",
+    style = "border:0;")
   })
 
   output$buttonAuditToDoc <- downloadHandler(
-    filename = "targetuk_waiting_time_audit_report.doc",
+    filename = Sys.getenv("AUDIT_PATHWAY_DOC"),
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
@@ -170,19 +170,19 @@ auditServer <- function(input, output, session, api, plots) {
       )
 
       shinyCatch(
-        message("Converting to docx"),
+        message("Converting to Microsoft doc"),
         prefix = ""
       )
       pandoc::pandoc_convert(file = file.path(tempReportDir, "report.html"), from = "html", to = "docx", output = file)
       shinyCatch(
-        message("Created \"targetuk_waiting_time_audit_report.doc\""),
+        message(paste0("Created file: ",filename)),
         prefix = ""
       )
     }
   )
 
   output$buttonAuditToPDF <- downloadHandler(
-    filename = "targetuk_waiting_time_audit_report.pdf",
+    filename = Sys.getenv("AUDIT_PATHWAY_DOC"),
     content = function(file) {
       tempReportDir <- tempdir()
       tempReport <- file.path(tempReportDir, "report.Rmd")
@@ -218,8 +218,7 @@ auditServer <- function(input, output, session, api, plots) {
           preferCSSPageSize = TRUE
         )
       )
-      
-      shinyCatch(message("Created targetuk_waiting_time_audit_report.pdf"), prefix = "")
+      shinyCatch(message(paste0("Created ",file)), prefix = "")
     }
   
   )

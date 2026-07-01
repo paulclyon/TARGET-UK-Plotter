@@ -13,7 +13,7 @@ params:
   report_subtypes: ["All"]
   report_genders: ["Female", "Male", "Unknown"]
   report_modality: "All"
-  report_ignore_first_ltp: TRUE
+  report_include_ignore_first_ltp: FALSE
   report_min_months_followup: 3
   report_max_years_followup: 5
 ---
@@ -72,6 +72,8 @@ library(survival)
 library(ggsurvfit)
 library(scales)
 library(kableExtra)
+library(htmltools)
+
 
 report_start_date <- params$report_start_date
 report_end_date   <- params$report_end_date
@@ -80,7 +82,7 @@ report_diagnosis_type <- params$report_diagnosis_type
 report_subtypes   <- params$report_subtypes
 report_genders    <- params$report_genders
 report_modality   <- params$report_modality
-report_ignore_first_ltp <- isTRUE(params$report_ignore_first_ltp)
+report_include_ignore_first_ltp <- isTRUE(params$report_include_ignore_first_ltp)
 report_max_years_followup <- as.numeric(params$report_max_years_followup)[1]
 report_min_months_followup <- as.numeric(params$report_min_months_followup)[1]
 
@@ -169,10 +171,14 @@ filter_ae_rows <- function(df) {
   }
 
   if ("DateofOnset" %in% names(d) || "DateofResolution" %in% names(d)) {
-    onset_ok <- if ("DateofOnset" %in% names(d)) !is.na(d$DateofOnset) &
-      d$DateofOnset >= reportStart & d$DateofOnset <= reportEnd else rep(FALSE, nrow(d))
-    res_ok <- if ("DateofResolution" %in% names(d)) !is.na(d$DateofResolution) &
-      d$DateofResolution >= reportStart & d$DateofResolution <= reportEnd else rep(FALSE, nrow(d))
+    onset_ok <- if ("DateofOnset" %in% names(d)) {
+      !is.na(d$DateofOnset) & d$DateofOnset >= reportStart & d$DateofOnset <= reportEnd
+    } else rep(FALSE, nrow(d))
+
+    res_ok <- if ("DateofResolution" %in% names(d)) {
+      !is.na(d$DateofResolution) & d$DateofResolution >= reportStart & d$DateofResolution <= reportEnd
+    } else rep(FALSE, nrow(d))
+
     d <- d[onset_ok | res_ok, , drop = FALSE]
   }
 
@@ -182,29 +188,19 @@ filter_ae_rows <- function(df) {
     d <- d |> filter(Organ %in% report_organs)
   }
 
-  if (!identical(report_diagnosis_type, "All")) {
-    if (report_diagnosis_type == "1o & 2o") {
-      if (all(c("Diagnosis1o", "Diagnosis2o") %in% names(d))) {
-        d <- d |> filter(Diagnosis1o %in% report_subtypes | Diagnosis2o %in% report_subtypes)
-      }
-    } else {
-      diag_col <- switch(
-        substring(report_diagnosis_type, 1, 1),
-        "P" = "Diagnosis1o",
-        "S" = "Diagnosis2o",
-        "B" = "DiagnosisBn",
-        "U" = "DiagnosisUn",
-        ""
-      )
-      if (nzchar(diag_col) && diag_col %in% names(d)) {
-        d <- d |> filter(.data[[diag_col]] %in% report_subtypes)
-      }
-    }
-  }
+  # Keep diagnosis filtering out of AE logic unless you are sure those fields are populated consistently.
+  # If you really want it, apply it only as a secondary filter.
 
   if ("Grade" %in% names(d)) {
-    grade_num <- suppressWarnings(as.integer(as.character(d$Grade)))
-    d <- d[!is.na(grade_num) & grade_num %in% c(3L, 4L, 5L), , drop = FALSE]
+    d <- d |>
+      mutate(
+        GradeRaw = as.character(Grade),
+        GradeNum = suppressWarnings(as.integer(GradeRaw)),
+        GradeDisplay = dplyr::case_when(
+          is.na(GradeRaw) | trimws(GradeRaw) == "" ~ "Unspecified",
+          TRUE ~ GradeRaw
+        )
+      )
   }
 
   d
@@ -229,6 +225,17 @@ if (nrow(lesion_data) > 0 && "TumourSize" %in% names(lesion_data)) {
   lesion_data$TumourSize <- suppressWarnings(as.numeric(lesion_data$TumourSize))
 }
 
+# TimeSurvival and TimeLTPFOS are stored in years at source, unlike
+# TimeLTPF/TimeLTPEpisode which are already in days. Convert to days here,
+# once, so every downstream consumer (get_os_rate(), followup_days) is
+# working on a consistent time scale.
+if (nrow(patient_data) > 0 && "TimeSurvival" %in% names(patient_data)) {
+  patient_data$TimeSurvival <- suppressWarnings(as.numeric(patient_data$TimeSurvival)) * 365.25
+}
+if (nrow(patient_data) > 0 && "TimeLTPFOS" %in% names(patient_data)) {
+  patient_data$TimeLTPFOS <- suppressWarnings(as.numeric(patient_data$TimeLTPFOS)) * 365.25
+}
+
 cat("\n===== AE DATA COLUMN NAMES =====\n")
 print(names(aeData))
 cat("NA names:", which(is.na(names(aeData))), "\n")
@@ -242,11 +249,19 @@ ae_data <- if (exists("aeData") && is.data.frame(aeData)) {
 
 patient_sex_summary <- if (nrow(patient_data) > 0 && "Gender" %in% names(patient_data)) {
   patient_data |>
-    filter(!is.na(Gender) & Gender != "") |>
+    mutate(
+      Gender = trimws(as.character(Gender)),
+      Gender = dplyr::case_when(
+        is.na(Gender) | Gender == "" ~ "Unknown",
+        tolower(Gender) %in% c("u", "unk", "unknown", "unknown sex") ~ "Unknown",
+        TRUE ~ Gender
+      )
+    ) |>
     count(Gender, name = "n") |>
-    mutate(pct = n / sum(n))
+    tidyr::complete(Gender = c("Female", "Male", "Unknown"), fill = list(n = 0)) |>
+    mutate(pct = ifelse(sum(n) > 0, n / sum(n), 0))
 } else {
-  tibble::tibble(Gender = character(0), n = integer(0), pct = numeric(0))
+  tibble::tibble(Gender = c("Female", "Male", "Unknown"), n = c(0, 0, 0), pct = c(0, 0, 0))
 }
 
 rxDoneReferralLevel <- if (exists("rxDoneData") && is.data.frame(rxDoneData)) {
@@ -358,8 +373,8 @@ apply_ltp_rule_lesion <- function(df, ignore_first_ltp = FALSE) {
   d
 }
 
-patient_data_ltp <- apply_ltp_rule_patient(patient_data, report_ignore_first_ltp)
-lesion_data_ltp  <- apply_ltp_rule_lesion(lesion_data, report_ignore_first_ltp)
+patient_data_ltp <- apply_ltp_rule_patient(patient_data, FALSE)
+lesion_data_ltp  <- apply_ltp_rule_lesion(lesion_data, FALSE)
 patient_ltp <- get_ltp_rate(patient_data_ltp, "TimeLTPF", "StatusLTPF")
 lesion_ltp  <- get_ltp_rate(lesion_data_ltp, "TimeLTPEpisode", "StatusLTPEpisode")
 patient_os  <- get_os_rate(patient_data, "TimeSurvival", "StatusOverallSurvival")
@@ -396,7 +411,7 @@ fmt_param <- function(x) {
 | **Modality** | `r report_modality` |
 | **Minimum follow-up** | `r report_min_months_followup` months |
 | **Maximum follow-up** | `r report_max_years_followup` years |
-| **LTP definition** | `r if (report_ignore_first_ltp) "Allow 2xRx before LTP (ignore first LTP)" else "Standard LTP definition"` |
+| **Relaxed LTP definition** | `r if (report_include_ignore_first_ltp) "Included" else "Not included"` |
 
 ---
 
@@ -470,15 +485,21 @@ kable(tumour_tbl, caption = "Tumour size summary") |>
 
 ```{r sex-dist-plot, echo=FALSE, fig.height=4.2}
 if (nrow(patient_sex_summary) > 0) {
-  ggplot(patient_sex_summary, aes(x = Gender, y = n)) +
-    geom_col() +
-    geom_text(aes(label = n), vjust = -0.3) +
-    labs(
-      title = "Sex distribution",
-      x = NULL,
-      y = "Patients"
-    ) +
-    theme_minimal(base_size = 12)
+ggplot(
+  patient_sex_summary |>
+    mutate(Gender = factor(Gender,
+      levels = c("Female", "Male", "Unknown"))),
+  aes(x = Gender, y = n)
+) +
+  geom_col() +
+  geom_text(aes(label = n), vjust = -0.3) +
+  scale_x_discrete(drop = FALSE) +
+  labs(
+    title = "Sex distribution",
+    x = NULL,
+    y = "Patients"
+  ) +
+  theme_minimal(base_size = 12)
 } else {
   ggplot() +
     annotate("text", x = 0.5, y = 0.5, label = "No sex data available", size = 6) +
@@ -499,22 +520,39 @@ kable(sex_tbl, caption = "Sex distribution") |>
 ```
 
 
-## LTP curves at `r report_max_years_followup` years (`r if (report_ignore_first_ltp) "ignore first LTP" else "allow up to 2 Rx before LTP"`)
+## LTP curves at `r report_max_years_followup` years
 
 ```{r ltp-patient-plot, echo=FALSE, fig.height=4.8}
-makeRecurrencePlot(
-  strStart = format(reportStart, "%d/%m/%Y"),
-  strEnd = format(reportEnd, "%d/%m/%Y"),
-  selectedOrgans = report_organs,
-  selectedDiagnosisType = report_diagnosis_type,
-  selectedSubtypes = report_subtypes,
-  selectedGenders = report_genders,
-  selectedModality = report_modality,
-  minMonthsFollowup = report_min_months_followup,
-  maxYearsFollowup = report_max_years_followup,
-  ignoreFirstLTP = report_ignore_first_ltp,
-  ltpAnalysisUnit = "patient"
-)
+  makeRecurrencePlot(
+    strStart = format(reportStart, "%d/%m/%Y"),
+    strEnd = format(reportEnd, "%d/%m/%Y"),
+    selectedOrgans = report_organs,
+    selectedDiagnosisType = report_diagnosis_type,
+    selectedSubtypes = report_subtypes,
+    selectedGenders = report_genders,
+    selectedModality = report_modality,
+    minMonthsFollowup = report_min_months_followup,
+    maxYearsFollowup = report_max_years_followup,
+    ignoreFirstLTP = FALSE,
+    ltpAnalysisUnit = "patient"
+  )
+
+  if (report_include_ignore_first_ltp)
+  {
+    makeRecurrencePlot(
+      strStart = format(reportStart, "%d/%m/%Y"),
+      strEnd = format(reportEnd, "%d/%m/%Y"),
+      selectedOrgans = report_organs,
+      selectedDiagnosisType = report_diagnosis_type,
+      selectedSubtypes = report_subtypes,
+      selectedGenders = report_genders,
+      selectedModality = report_modality,
+      minMonthsFollowup = report_min_months_followup,
+      maxYearsFollowup = report_max_years_followup,
+      ignoreFirstLTP = TRUE,
+      ltpAnalysisUnit = "patient"
+    )
+  }
 ```
 
 ```{r ltp-lesion-plot, echo=FALSE, fig.height=4.8}
@@ -528,82 +566,239 @@ makeRecurrencePlot(
   selectedModality = report_modality,
   minMonthsFollowup = report_min_months_followup,
   maxYearsFollowup = report_max_years_followup,
-  ignoreFirstLTP = report_ignore_first_ltp,
+  ignoreFirstLTP = FALSE,
   ltpAnalysisUnit = "lesion"
 )
+
+if (report_include_ignore_first_ltp)
+{
+  makeRecurrencePlot(
+    strStart = format(reportStart, "%d/%m/%Y"),
+    strEnd = format(reportEnd, "%d/%m/%Y"),
+    selectedOrgans = report_organs,
+    selectedDiagnosisType = report_diagnosis_type,
+    selectedSubtypes = report_subtypes,
+    selectedGenders = report_genders,
+    selectedModality = report_modality,
+    minMonthsFollowup = report_min_months_followup,
+    maxYearsFollowup = report_max_years_followup,
+    ignoreFirstLTP = TRUE,
+    ltpAnalysisUnit = "lesion"
+  )
+}
 ```
 
 ## Survival curves at `r report_max_years_followup` years
 
 ```{r os-plot, echo=FALSE, fig.height=4.8}
-makeSurvivalPlot(
-  strStart = format(reportStart, "%d/%m/%Y"),
-  strEnd = format(reportEnd, "%d/%m/%Y"),
-  selectedOrgans = report_organs,
-  selectedDiagnosisType = report_diagnosis_type,
-  selectedSubtypes = report_subtypes,
-  selectedGenders = report_genders,
-  selectedModality = report_modality,
-  survivalType = 0,
-  minMonthsFollowup = report_min_months_followup,
-  maxYearsFollowup = report_max_years_followup,
-  ignoreFirstLTP = report_ignore_first_ltp
-)
+  makeSurvivalPlot(
+    strStart = format(reportStart, "%d/%m/%Y"),
+    strEnd = format(reportEnd, "%d/%m/%Y"),
+    selectedOrgans = report_organs,
+    selectedDiagnosisType = report_diagnosis_type,
+    selectedSubtypes = report_subtypes,
+    selectedGenders = report_genders,
+    selectedModality = report_modality,
+    survivalType = 0,
+    minMonthsFollowup = report_min_months_followup,
+    maxYearsFollowup = report_max_years_followup,
+    ignoreFirstLTP = FALSE
+  )
+
+  if (report_include_ignore_first_ltp) {
+    makeSurvivalPlot(
+    strStart = format(reportStart, "%d/%m/%Y"),
+    strEnd = format(reportEnd, "%d/%m/%Y"),
+    selectedOrgans = report_organs,
+    selectedDiagnosisType = report_diagnosis_type,
+    selectedSubtypes = report_subtypes,
+    selectedGenders = report_genders,
+    selectedModality = report_modality,
+    survivalType = 0,
+    minMonthsFollowup = report_min_months_followup,
+    maxYearsFollowup = report_max_years_followup,
+    ignoreFirstLTP = TRUE
+  )
+}
 ```
 
 ```{r ltpf-os-plot, echo=FALSE, fig.height=4.8}
-makeSurvivalPlot(
-  strStart = format(reportStart, "%d/%m/%Y"),
-  strEnd = format(reportEnd, "%d/%m/%Y"),
-  selectedOrgans = report_organs,
-  selectedDiagnosisType = report_diagnosis_type,
-  selectedSubtypes = report_subtypes,
-  selectedGenders = report_genders,
-  selectedModality = report_modality,
-  survivalType = 2,
-  minMonthsFollowup = report_min_months_followup,
-  maxYearsFollowup = report_max_years_followup,
-  ignoreFirstLTP = report_ignore_first_ltp
-)
+
+  makeSurvivalPlot(
+    strStart = format(reportStart, "%d/%m/%Y"),
+    strEnd = format(reportEnd, "%d/%m/%Y"),
+    selectedOrgans = report_organs,
+    selectedDiagnosisType = report_diagnosis_type,
+    selectedSubtypes = report_subtypes,
+    selectedGenders = report_genders,
+    selectedModality = report_modality,
+    survivalType = 2,
+    minMonthsFollowup = report_min_months_followup,
+    maxYearsFollowup = report_max_years_followup,
+    ignoreFirstLTP = FALSE
+  )
+
+if (report_include_ignore_first_ltp)
+{
+  makeSurvivalPlot(
+    strStart = format(reportStart, "%d/%m/%Y"),
+    strEnd = format(reportEnd, "%d/%m/%Y"),
+    selectedOrgans = report_organs,
+    selectedDiagnosisType = report_diagnosis_type,
+    selectedSubtypes = report_subtypes,
+    selectedGenders = report_genders,
+    selectedModality = report_modality,
+    survivalType = 2,
+    minMonthsFollowup = report_min_months_followup,
+    maxYearsFollowup = report_max_years_followup,
+    ignoreFirstLTP = TRUE
+  )
+}
+
 ```
 
-## Grade 3-5 adverse events
+## Adverse events
 
-```{r grade-3-5-ae-table, echo=FALSE}
+```{r adverse-events-summary-table, echo=FALSE, results='asis'}
+
+if (nrow(ae_data) > 0)
+{
+  ae_tbl <- ae_data
+
+  if (!"GradeDisplay" %in% names(ae_tbl)) {
+    if ("Grade" %in% names(ae_tbl)) {
+      ae_tbl$GradeDisplay <- ifelse(
+        is.na(ae_tbl$Grade) | trimws(as.character(ae_tbl$Grade)) == "",
+        "Unspecified",
+        as.character(ae_tbl$Grade)
+      )
+    } else {
+      ae_tbl$GradeDisplay <- "Unspecified"
+    }
+  }
+
+  report_ptids <- patient_data |>
+    mutate(PtID = sub("-[0-9]+$", "", ID)) |>
+    pull(PtID) |>
+    unique()
+
+  rxDoneReport <- rxDoneReferralLevel |>
+    mutate(PtID = sub("-[0-9]+$", "", ID)) |>
+    filter(PtID %in% report_ptids)
+
+  if ("RxDate" %in% names(rxDoneReport)) {
+    rxDoneReport <- rxDoneReport |>
+      filter(RxDate >= reportStart, RxDate <= reportEnd)
+  }
+
+  n_patients <- nrow(patient_data)
+  n_treatments <- nrow(rxDoneReport)
+  n_tumours <- nrow(lesion_data)
+  n_ae <- nrow(ae_tbl)
+  n_ae_patients <- dplyr::n_distinct(ae_tbl$PtID)
+
+  grade_counts <- c(
+    `Grade 5` = sum(ae_tbl$GradeDisplay == "5", na.rm = TRUE),
+    `Grade 4` = sum(ae_tbl$GradeDisplay == "4", na.rm = TRUE),
+    `Grade 3` = sum(ae_tbl$GradeDisplay == "3", na.rm = TRUE),
+    `Grade 2` = sum(ae_tbl$GradeDisplay == "2", na.rm = TRUE),
+    `Grade 1` = sum(ae_tbl$GradeDisplay == "1", na.rm = TRUE),
+    `Unspecified` = sum(ae_tbl$GradeDisplay == "Unspecified", na.rm = TRUE)
+  )
+
+  ae_summary <- tibble::tibble(
+    Metric = c(
+      "Patients",
+      "Treatments",
+      "Tumours treated",
+      "Patients with ≥1 AE",
+      "Total adverse events",
+      names(grade_counts)
+    ),
+    Value = c(
+      n_patients,
+      n_treatments,
+      n_tumours,
+      sprintf("%d (%.1f%%)", n_ae_patients, 100 * n_ae_patients / n_patients),
+      n_ae,
+      sprintf(
+        "%d (%.1f%%)",
+        as.integer(grade_counts),
+        100 * as.integer(grade_counts) / n_ae
+      )
+    )
+  )
+
+  severity_tbl <- ae_tbl |>
+    mutate(
+      Severity = dplyr::case_when(
+        GradeDisplay == "Unspecified" ~ "Unspecified",
+        TRUE ~ paste0("Grade ", GradeDisplay)
+      )
+    ) |>
+    count(Severity, name = "n") |>
+    mutate(
+      pct = n / sum(n),
+      Severity = factor(Severity, levels = c("Unspecified", "Grade 5", "Grade 4", "Grade 3", "Grade 2", "Grade 1"))
+    ) |>
+    arrange(Severity) |>
+    mutate(pct = scales::percent(pct, accuracy = 1))
+  
+  summary_html <-
+    kable(ae_summary, caption = "Adverse event summary") |>
+    kableExtra::kable_styling(full_width = FALSE) |>
+    as.character()
+  
+  severity_html <-
+    kable(severity_tbl, caption = "Severity distribution") |>
+    kableExtra::kable_styling(full_width = FALSE) |>
+    as.character()
+  
+  cat(
+    '<div style="display:flex; gap:25px; align-items:flex-start;">',
+    '<div style="flex:1;">', summary_html, '</div>',
+    '<div style="flex:1;">', severity_html, '</div>',
+    '</div>'
+  )
+}
+```
+
+
+```{r adverse-events-table, echo=FALSE, results='asis'}
 
 if (nrow(ae_data) > 0) {
-  ae_tbl <- ae_data |>
+  
+  ae_tbl <- ae_data
+
+  keep_cols <- intersect(
+    c("ID", "PtID", "Organ", "DiagnosisType", "Diagnosis1o", "Diagnosis2o",
+      "DiagnosisBn", "DiagnosisUn", "Complication", "GradeDisplay",
+      "DateofOnset", "DateofResolution", "Duration"),
+    names(ae_tbl)
+  )
+
+  ae_tbl <- ae_tbl |>
+    select(all_of(keep_cols)) |>
     mutate(
-      Grade = suppressWarnings(as.integer(as.character(Grade)))
+      GradeOrder = dplyr::case_when(
+        GradeDisplay == "5" ~ 1L,
+        GradeDisplay == "4" ~ 2L,
+        GradeDisplay == "3" ~ 3L,
+        GradeDisplay == "2" ~ 4L,
+        GradeDisplay == "1" ~ 5L,
+        TRUE ~ 6L   # Unspecified (and anything else) goes last
+      )
     ) |>
-    filter(Grade %in% c(3L, 4L, 5L))
-
-  if (nrow(ae_tbl) > 0) {
-    keep_cols <- intersect(
-      c("ID", "PtID", "Organ", "DiagnosisType", "Diagnosis1o", "Diagnosis2o", "DiagnosisBn", "DiagnosisUn",
-        "Complication", "Grade", "DateofOnset", "DateofResolution", "Duration"),
-      names(ae_tbl)
-    )
-
-    ae_tbl <- ae_tbl |>
-      select(all_of(keep_cols))
-
-    if ("DateofOnset" %in% names(ae_tbl)) {
-      ae_tbl <- ae_tbl |>
-        arrange(Grade, desc(DateofOnset))
+    arrange(GradeOrder, desc(DateofOnset)) |>
+    select(-GradeOrder)
+  
+    if (nrow(ae_tbl) > 0) {
+      kable(ae_tbl, caption = "Adverse events") |>
+        kableExtra::kable_styling(full_width = FALSE)
     } else {
-      ae_tbl <- ae_tbl |>
-        arrange(Grade)
+      cat("No adverse events in the selected cohort.")
     }
-
-    kable(ae_tbl, caption = "Grade 3-5 adverse events") |>
-      kableExtra::kable_styling(full_width = FALSE)
-  } else {
-    cat("No grade 3-5 adverse events in the selected cohort.")
   }
-} else {
-  cat("No adverse event data available.")
-}
 ```
 
 
