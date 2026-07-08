@@ -58,7 +58,7 @@ cancerOutcomesReportTab <- function(id = NULL) {
         width = 3,
         div(
           class = "report-buttons",
-          actionButton(ns("buttonRunCancerReport"), "Cancer Outcomes", class = "btn-primary"),
+          actionButton(ns("buttonRunCancerReport"), "Generate Report", class = "btn-primary"),
           downloadButton(ns("buttonCancerReportToPDF"), "Report to PDF"),
           downloadButton(ns("buttonCancerReportToDoc"), "Report to Doc")
         ),

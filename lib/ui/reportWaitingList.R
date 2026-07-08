@@ -25,7 +25,7 @@ reportWaitingListTab <- function(id = NULL) {
         width = 3,
         div(
           class = "report-buttons",
-          actionButton(("buttonRunReport"), "Waiting List Report", class = "btn-primary"),
+          actionButton(("buttonRunReport"), "Generate Report", class = "btn-primary"),
           downloadButton(("buttonReportToPDF"), "Report to PDF"),
           downloadButton(("buttonReportToHTML"), "Report to HTML")
         )

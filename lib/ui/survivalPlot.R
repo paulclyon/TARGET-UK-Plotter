@@ -84,10 +84,6 @@ survivalPlotTab <- function()
           "Survival Plot Type",
           c("OS" = 0, "CSS" = 1, "LTP-Free OS" = 2, "LTP-Free CSS" = 3),
           inline = TRUE
-        ),
-        conditionalPanel(
-          condition = "input.survivalLTPFSRadio == '2' || input.survivalLTPFSRadio == '3'",
-          checkboxInput("survivalAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
         )
       ),
       column(
@@ -109,6 +105,10 @@ survivalPlotTab <- function()
           "survivalSelectedSubtypes", "Subtypes",
           choices = diagnosisSubtypeFactors,
           selected = diagnosisSubtypeFactors
+        ),
+        conditionalPanel(
+          condition = "input.survivalLTPFSRadio == '2' || input.survivalLTPFSRadio == '3'",
+          checkboxInput("survivalAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
         )
       )
     ),

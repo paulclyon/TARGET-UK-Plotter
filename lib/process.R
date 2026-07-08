@@ -906,6 +906,13 @@ processData <- function()
           # Use this trick to add multiple organs as separate rows, with everything the same except the organ itself
           for (organ in organsToAdd)
           {
+            # So when the Diagnosis1o is NA or blank, to avoid it getting lost as a subtype in later analyses change NA as follows:
+            # e.g. Kidney/NA becomes Kidney/Kidney: No Diagnosis
+            diagnosis_1o_display <- diagnosis_1o
+            if (is.na(diagnosis_1o_display) || trimws(diagnosis_1o_display) == "") {
+              diagnosis_1o_display <- paste0(organ, ": No Diagnosis")
+            }
+            
             rxdone_pt_list                     <<- append(rxdone_pt_list,                       paste(ptID, "-", iRef, sep = ""))
             rxdone_sex_list                    <<- append(rxdone_sex_list,                      sex)
             rxdone_diagnosis_type_list         <<- append(rxdone_diagnosis_type_list,           diagnosis_type) # S=Secondary, P=Primary or B=Benign
@@ -993,6 +1000,7 @@ processData <- function()
       }
     } ########################## Ends the very long for loop for each referral for this patient
     
+    diagnosis_1o_Factors <<- levels(factor(rxdone_diagnosis_1o_list))    
     # This is a long list of all tumour sizes for all referrals
     tumourSizeListAll <- if (all(is.na(patientTumourSizes))) {
       NA_character_

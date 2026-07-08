@@ -37,7 +37,7 @@ auditRxPathwayTab <- function(id = NULL) {
         width = 3,
         div(
           class = "report-buttons",
-          actionButton(ns("buttonRunAuditPathwayReport"), "Pathway Audit", class = "btn-primary"),
+          actionButton(ns("buttonRunAuditPathwayReport"), "Generate Audit", class = "btn-primary"),
           downloadButton(ns("buttonAuditPathwayToPDF"), "Report to PDF"),
           downloadButton(ns("buttonAuditPathwayToDoc"), "Report to Doc")
         )
@@ -52,33 +52,53 @@ auditRxPathwayTab <- function(id = NULL) {
   )
 }
 
+# Helper function
+getAuditParams <- function(input, currentAuditParams) {
+  params <- currentAuditParams()
+  
+  if (is.null(params)) {
+    params <- list(
+      audit_start_date = input$auditDate1,
+      audit_end_date   = input$auditDate2,
+      audit_organs     = input$organAuditCheckbox
+    )
+    currentAuditParams(params)
+  }
+  
+  params
+}
+
 auditServer <- function(input, output, session, api, plots) {
   rmdAuditFile <- c(Sys.getenv("AUDIT_PATHWAY_RMD"))
   mdAuditFile <- c(Sys.getenv("AUDIT_PATHWAY_MD"))
   currentAuditParams <- reactiveVal(NULL)
+  
+  # Disable download buttons initially
+  shinyjs::disable("buttonAuditPathwayToDoc")
+  shinyjs::disable("buttonAuditPathwayToPDF")
 
-  finalRefAuditInput <- reactive({
-    tryCatch(
-      {
-        # Clear the old HTML file if it exists...
-        if (file.exists(mdAuditFile)) {
-          showNotification(paste("Cleaning out the old HTML file '", mdAuditFile, "'", sep = ""))
-          file.remove(mdAuditFile)
-        }
-
-        # This does the knitting bit ready to make the HTML by running the knit function
-        # This makes the MD file which is basically just HTML in a file, which we then return as includeMarkdown()
-        sapply(rmdAuditFile, knit, quiet = T)
-        htmltools::includeMarkdown(mdAuditFile)
-      },
-      error = function(errorMessage) {
-        logger(conditionMessage(errorMessage), T)
-        showNotification(conditionMessage(errorMessage))
-        # Choose a return value in case of error
-        NA
-      }
-    )
-  })
+  #finalRefAuditInput <- reactive({
+  #  tryCatch(
+  #    {
+  #      # Clear the old HTML file if it exists...
+  #      if (file.exists(mdAuditFile)) {
+  #        showNotification(paste("Cleaning out the old HTML file '", mdAuditFile, "'", sep = ""))
+  #        file.remove(mdAuditFile)
+  #      }
+  #
+  #      # This does the knitting bit ready to make the HTML by running the knit function
+  #      # This makes the MD file which is basically just HTML in a file, which we then return as includeMarkdown()
+  #      sapply(rmdAuditFile, knit, quiet = T)
+  #      htmltools::includeMarkdown(mdAuditFile)
+  #    },
+  #    error = function(errorMessage) {
+  #      logger(conditionMessage(errorMessage), T)
+  #      showNotification(conditionMessage(errorMessage))
+  #      # Choose a return value in case of error
+  #      NA
+  #    }
+  #  )
+  #})
 
   observe({
     updateCheckboxGroupInput(session, "organAuditCheckbox", "Organs to Audit",
@@ -93,15 +113,18 @@ auditServer <- function(input, output, session, api, plots) {
       audit_end_date   = input$auditDate2,
       audit_organs     = input$organAuditCheckbox
     ))
-      plots$activePlot <- NA
+    shinyjs::enable("buttonAuditPathwayToDoc")
+    shinyjs::enable("buttonAuditPathwayToPDF")
+    showNotification(paste0("Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"), "'..."))
+    plots$activePlot <- NA
   })
   
   output$summaryRefAudit <- renderUI({
     # Informational message (does not affect UI)
-    shinyCatch(
-      message(paste0("Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"), "'")),
-      prefix = ""
-    )
+    #shinyCatch(
+    #  message(paste0("Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"), "'")),
+    #  prefix = ""
+    #)
 
   # Render into a temporary dir so we don't overwrite app files
   tempReportDir <- tempdir()
@@ -151,12 +174,12 @@ auditServer <- function(input, output, session, api, plots) {
       file.copy(rmdAuditFile, tempReport, overwrite = TRUE)
 
       # Set up parameters to pass to Rmd document
-      params <- isolate(currentAuditParams())
+      params <- getAuditParams(input, currentAuditParams)
       req(params)
 
       shinyCatch(
         message(paste(
-          "Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"),
+          "Generating the audit DOC from file '", Sys.getenv("AUDIT_PATHWAY_RMD"),
           sep = ""
         )),
         prefix = ""
@@ -174,10 +197,7 @@ auditServer <- function(input, output, session, api, plots) {
         prefix = ""
       )
       pandoc::pandoc_convert(file = file.path(tempReportDir, "report.html"), from = "html", to = "docx", output = file)
-      shinyCatch(
-        message(paste0("Created file: ",filename)),
-        prefix = ""
-      )
+      shinyCatch(message(paste0("Created ",file)), prefix = "")
     }
   )
 
@@ -188,10 +208,10 @@ auditServer <- function(input, output, session, api, plots) {
       tempReport <- file.path(tempReportDir, "report.Rmd")
       file.copy(rmdAuditFile, tempReport, overwrite = TRUE)
       
-      params <- isolate(currentAuditParams())
+      params <- getAuditParams(input, currentAuditParams)
       req(params)
       
-      shinyCatch(message(paste0("Generating audit from '", Sys.getenv("AUDIT_PATHWAY_RMD"), "'")), prefix = "")
+      shinyCatch(message(paste0("Generating audit PDF from '", Sys.getenv("AUDIT_PATHWAY_RMD"), "'")), prefix = "")
       
       html_file <- rmarkdown::render(
         tempReport,

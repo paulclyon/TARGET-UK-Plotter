@@ -148,11 +148,13 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
   
   # Newwer method, which requires survfit2 wrapper rather than survfit, and allows maxYears on plot + table
   minYearsFollowup <- minMonthsFollowup / 12
+  year_breaks <- seq(0, maxYearsFollowup, by = 1)
   survivalPlot <- survivalFit |>
     ggsurvfit(linewidth = 1) +
-    add_confidence_interval() + add_censor_mark() +
+    add_confidence_interval() +
+    add_censor_mark() +
     add_risktable(
-      times = seq(minYearsFollowup, maxYearsFollowup, by = 1),
+      times = year_breaks,
       risktable_stats = c(
         "n.risk",
         "{round(estimate * 100, 1)}",
@@ -168,7 +170,9 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
       size = 5
     ) +
     #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
-    scale_ggsurvfit() + coord_cartesian(xlim = c(0, maxYearsFollowup)) +
+    scale_ggsurvfit() +
+    coord_cartesian(xlim = c(-0.4, maxYearsFollowup), expand = FALSE) +
+    coord_cartesian(xlim = c(0, maxYearsFollowup)) +
     labs(title = titleStr, y = "Probability", x = "Time (Years)") +
     theme(
       axis.text = element_text(size = 14),   # axis tick labels
@@ -423,12 +427,13 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
   
   # Newwer method, which requires survfit2 wrapper rather than survfit, and allows maxYears on plot + table
   minYearsFollowup <- minMonthsFollowup / 12
+  year_breaks <- seq(0, maxYearsFollowup, by = 1)
   recurrencePlot <- recurrenceFit |>
     ggsurvfit(linewidth = 1) +
     add_confidence_interval() +
     add_censor_mark() +
     add_risktable(
-      times = seq(minYearsFollowup, maxYearsFollowup, by = 1),
+      times = year_breaks,
       risktable_stats = c(
         "n.risk",
         "{round(estimate * 100, 1)}",
@@ -445,7 +450,9 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     ) +
     #  #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
     scale_ggsurvfit() +
-    coord_cartesian(xlim = c(minYearsFollowup, maxYearsFollowup)) +
+    #scale_x_continuous(breaks = year_breaks, expand = c(0, 0)) + 
+    coord_cartesian(xlim = c(-0.4, maxYearsFollowup), expand = FALSE) +
+    #coord_cartesian(xlim = c(minYearsFollowup, maxYearsFollowup)) +
     labs(title = titleStr, y = "Probability", x = "Time (Years)") +
     theme(
       axis.text = element_text(size = 14),   # axis tick labels

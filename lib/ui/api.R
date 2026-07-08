@@ -280,46 +280,57 @@ reloadStudyEvent <- function(studyName, input, output, session, api) {
 
 apiServer <- function(input, output, session)
 {
-  api <- reactiveValues(connected = FALSE, loaded = FALSE, organFactors = NULL, modalityFactors = NULL, genderFactors = NULL, cctaeGradeFactors = NULL)
+  api <- reactiveValues(
+    connected = FALSE,
+    loaded = FALSE,
+    organFactors = NULL,
+    modalityFactors = NULL,
+    genderFactors = NULL,
+    cctaeGradeFactors = NULL
+  )
+  
+  loadRequested <- reactiveVal(NULL)
+  
   output$apiStatus <- renderAPIStatus(api)
-  observeEvent(input$connectAPI, {
-    shinyjs::disable("connectAPI")
-    on.exit(shinyjs::enable("connectAPI"), add = TRUE)
-    ok <- connectAPIEvent(input, api)
-    if (isTRUE(ok)) {
-      apiConnectedEvent(session, api)
-    }
-  })
   
   observeEvent(input$connectLoadAPI, {
     shinyjs::disable("connectLoadAPI")
     on.exit(shinyjs::enable("connectLoadAPI"), add = TRUE)
+    
     ok <- connectAPIEvent(input, api)
-    if (!isTRUE(ok)) {
-      return()
-    }
+    if (!isTRUE(ok)) return()
+    
     apiConnectedEvent(session, api)
+    
     selectedStudy <- Sys.getenv("CASTOR_DEFAULT_STUDY")
     if (is.null(selectedStudy) || selectedStudy == "" || !(selectedStudy %in% studyNames)) {
       selectedStudy <- studyNames[1]
     }
-    reloadStudyEvent(selectedStudy, input, output, session, api)
+    
+    updateSelectInput(session, "studyDropdown",
+                      choices = studyNames,
+                      selected = selectedStudy
+    )
+    
+    shinyjs::show("studyDropdownGroup")
+    shinyjs::show("reloadData")
+    
+    session$onFlushed(function() {
+      loadRequested(selectedStudy)
+    }, once = TRUE)
   })
   
-  #observeEvent(input$disconnectAPI, disableReenable("disconnectAPI", disconnectAPIEvent, api))
-
-  # Update the Load Data button
-  #observe({
-  #  (api$connected)
-  #  apiConnectedEvent(session, api)
-  #})
-
+  observeEvent(loadRequested(), {
+    req(loadRequested())
+    reloadStudyEvent(loadRequested(), input, output, session, api)
+  }, ignoreInit = TRUE)
+  
   observeEvent(input$reloadData, {
     req(isTRUE(api$connected))
     studyName <- isolate(input$studyDropdown)
     req(!is.null(studyName), nzchar(studyName), studyName != "No API Connection")
     reloadStudyEvent(studyName, input, output, session, api)
   })
-
+  
   api
 }

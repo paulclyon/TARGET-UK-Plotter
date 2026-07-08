@@ -1,6 +1,5 @@
 recurrencePlotTab <- function()
 {
-  
   fluidRow(
     tags$head(
       tags$style(HTML("

@@ -49,6 +49,16 @@ postProcessData <- function()
       FreeText      = rxdone_freetext_list
     )
     
+    # So when the Diagnosis1o is NA or blank, to avoid it getting lost as a subtype in later analyses change NA as follows:
+    # e.g. Kidney/NA becomes Kidney/Kidney: No Diagnosis
+    rxDoneData <<- rxDoneData |>
+      mutate(
+        Diagnosis1o = if_else(
+          is.na(Diagnosis1o) | trimws(Diagnosis1o) == "",
+          paste0(Organ, ": No Diagnosis"),
+          Diagnosis1o
+        )
+      )
   } else {
     rxDoneData <<- NA
   }
@@ -73,10 +83,15 @@ postProcessData <- function()
   }
   
   # These are lists of the 1o, 2o and benign diagnoses
-  diagnosis_1o_Factors <<- levels(factor(rxdone_diagnosis_1o_list))
-  diagnosis_2o_Factors <<- levels(factor(rxdone_diagnosis_2o_list))
-  diagnosis_bn_Factors <<- levels(factor(rxdone_diagnosis_bn_list)) # Benign
-  diagnosis_un_Factors <<- levels(factor(rxdone_diagnosis_un_list)) # Unknown
+  diagnosis_1o_Factors <<- sort(unique(na.omit(rxDoneData$Diagnosis1o)))
+  diagnosis_2o_Factors <<- sort(unique(na.omit(rxDoneData$Diagnosis2o)))
+  diagnosis_bn_Factors <<- sort(unique(na.omit(rxDoneData$DiagnosisBn))) # Benign
+  diagnosis_un_Factors <<- sort(unique(na.omit(rxDoneData$DiagnosisUn))) # Unknown
+  
+  #diagnosis_1o_Factors <<- levels(factor(rxdone_diagnosis_1o_list))
+  #diagnosis_bn_Factors <<- levels(factor(rxdone_diagnosis_bn_list)) # Benign
+  ##diagnosis_2o_Factors <<- levels(factor(rxdone_diagnosis_2o_list))
+  #diagnosis_un_Factors <<- levels(factor(rxdone_diagnosis_un_list)) # Unknown
   
   # This is a list the different organ targets which have been referred or treated
   organFactors <<- levels(factor(append(rxdone_organ_list, rxwait_organ_list)))
@@ -147,6 +162,18 @@ postProcessData <- function()
       LostToFU                     = survival_lost_to_fu,
       LostToFUDate                 = asDateWithOrigin(survival_lost_to_fu_date)
     )
+    
+    # So when the Diagnosis1o is NA or blank, to avoid it getting lost as a subtype in later analyses change NA as follows:
+    # e.g. Kidney/NA becomes Kidney/Kidney: No Diagnosis
+    allData <<- allData |>
+      mutate(
+        Diagnosis1o = if_else(
+          is.na(Diagnosis1o) | trimws(Diagnosis1o) == "",
+          paste0(Organ, ": No Diagnosis"),
+          Diagnosis1o
+        )
+      )
+    
     # Now clean up the data into individual cancer and benign tables
     cancerPerPatientData <<- allData[!is.na(allData$DiagnosisType) & allData$DiagnosisType != "B", ]
     cancerPerPatientData <<- cancerPerPatientData[, !colnames(cancerPerPatientData) %in% c("DiagnosisBn")]
