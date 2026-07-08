@@ -273,7 +273,7 @@ reloadStudyEvent <- function(studyName, input, output, session, api) {
          shinyjs::show)
 
   # Make the plots which don't get refreshed elsewhere...
-  makeTreatmentVolumePlot(rxDoneData, input$volumePlotDurationRadio)
+  makeRxVolumePlot(rxDoneData, input$volumePlotDurationRadio)
   progress$set(message = "Completed loading & processing.", value = 1.0)
   showNotification("Completed data processing, plot/tables should now be available to view...")
 }
