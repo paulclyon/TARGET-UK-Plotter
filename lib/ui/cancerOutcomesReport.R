@@ -47,16 +47,22 @@ cancerOutcomesReportTab <- function(id = NULL) {
           "Subtypes",
           choices = character(0),
           selected = character(0)
+        ),
+        sliderInput(
+          "cancerReportTumourSizeRange",
+          "Tumour Size (mm)",
+          min = 0, max = 100, value = c(0, 100), step = 1, ticks = TRUE
         )
       ),
       column(
         width = 3,
         div(
           class = "report-buttons",
-          actionButton(ns("buttonRunReport"), "Cancer Outcomes", class = "btn-primary"),
-          downloadButton(ns("buttonReportToPDF"), "Report to PDF"),
-          downloadButton(ns("buttonReportToDoc"), "Report to Doc")
-        )
+          actionButton(ns("buttonRunCancerReport"), "Cancer Outcomes", class = "btn-primary"),
+          downloadButton(ns("buttonCancerReportToPDF"), "Report to PDF"),
+          downloadButton(ns("buttonCancerReportToDoc"), "Report to Doc")
+        ),
+        checkboxInput("cancerReportAnonymised", "Anonymise Report", value = TRUE)
       )
     )),
     wellPanel(
@@ -152,25 +158,28 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
   # non-reactive context (e.g. inside a downloadHandler's content function).
   buildReportParamsFromInputs <- function() {
     isolate(list(
-      report_start_date          = input$cancerReportDate1,
-      report_end_date            = input$cancerReportDate2,
-      report_organs              = input$cancerReportSelectedOrgans,
-      report_diagnosis_type      = input$cancerReportSelectedDiagnosisType,
-      report_subtypes            = input$cancerReportSelectedSubtypes,
+      report_start_date               = input$cancerReportDate1,
+      report_end_date                 = input$cancerReportDate2,
+      report_organs                   = input$cancerReportSelectedOrgans,
+      report_diagnosis_type           = input$cancerReportSelectedDiagnosisType,
+      report_subtypes                 = input$cancerReportSelectedSubtypes,
+      report_min_tumour_size          = input$cancerReportTumourSizeRange[1],
+      report_max_tumour_size          = input$cancerReportTumourSizeRange[2],
       report_include_ignore_first_ltp = isTRUE(input$recurrenceAllow2Rx),
-      report_min_months_followup = input$minMonthsFollowup,
-      report_max_years_followup  = input$maxYearsFollowup
+      report_min_months_followup      = input$minMonthsFollowup,
+      report_max_years_followup       = input$maxYearsFollowup,
+      report_cancer_anonymised        = input$cancerReportAnonymised
     ))
   }
   
-  observeEvent(input$buttonRunReport, {
+  observeEvent(input$buttonRunCancerReport, {
     currentReportParams(buildReportParamsFromInputs())
     
     plots$activePlot <- NA
   })
   
   output$summaryRefReport <- renderUI({
-    req(input$buttonRunReport > 0)
+    req(input$buttonRunCancerReport > 0)
     params <- currentReportParams()
     req(params)
     
@@ -211,7 +220,7 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
       style = "border:0;")
   })
   
-  output$buttonReportToDoc <- downloadHandler(
+  output$buttonCancerReportToDoc <- downloadHandler(
     filename = Sys.getenv("CANCER_OUTCOMES_REPORT_PATHWAY_DOC"),
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
@@ -259,7 +268,7 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
     }
   )
   
-  output$buttonReportToPDF <- downloadHandler(
+  output$buttonCancerReportToPDF <- downloadHandler(
     filename = Sys.getenv("CANCER_OUTCOMES_REPORT_PATHWAY_PDF"),
     content = function(file) {
       tempReportDir <- tempdir()

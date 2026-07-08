@@ -37,9 +37,9 @@ auditRxPathwayTab <- function(id = NULL) {
         width = 3,
         div(
           class = "report-buttons",
-          actionButton(ns("buttonRunAuditReport"), "Pathway Audit", class = "btn-primary"),
-          downloadButton(ns("buttonAuditToPDF"), "Report to PDF"),
-          downloadButton(ns("buttonAuditToDoc"), "Report to Doc")
+          actionButton(ns("buttonRunAuditPathwayReport"), "Pathway Audit", class = "btn-primary"),
+          downloadButton(ns("buttonAuditPathwayToPDF"), "Report to PDF"),
+          downloadButton(ns("buttonAuditPathwayToDoc"), "Report to Doc")
         )
       )
     )),
@@ -87,7 +87,7 @@ auditServer <- function(input, output, session, api, plots) {
     )
   })
 
-  observeEvent(input$buttonRunAuditReport, {
+  observeEvent(input$buttonRunAuditPathwayReport, {
     currentAuditParams(list(
       audit_start_date = input$auditDate1,
       audit_end_date   = input$auditDate2,
@@ -139,7 +139,7 @@ auditServer <- function(input, output, session, api, plots) {
     style = "border:0;")
   })
 
-  output$buttonAuditToDoc <- downloadHandler(
+  output$buttonAuditPathwayToDoc <- downloadHandler(
     filename = Sys.getenv("AUDIT_PATHWAY_DOC"),
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
@@ -181,8 +181,8 @@ auditServer <- function(input, output, session, api, plots) {
     }
   )
 
-  output$buttonAuditToPDF <- downloadHandler(
-    filename = Sys.getenv("AUDIT_PATHWAY_DOC"),
+  output$buttonAuditPathwayToPDF <- downloadHandler(
+    filename = Sys.getenv("AUDIT_PATHWAY_PDF"),
     content = function(file) {
       tempReportDir <- tempdir()
       tempReport <- file.path(tempReportDir, "report.Rmd")

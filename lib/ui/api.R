@@ -77,15 +77,19 @@ connectLoadAPIEvent <- function(input, output, session, api) {
   if (!isTRUE(ok)) {
     return(invisible())
   }
-
+  
   apiConnectedEvent(session, api)
-
+  
   selectedStudy <- Sys.getenv("CASTOR_DEFAULT_STUDY")
   if (is.null(selectedStudy) || selectedStudy == "" || !(selectedStudy %in% studyNames)) {
     selectedStudy <- studyNames[1]
   }
-
-  reloadStudyEvent(selectedStudy, input, output, session, api)
+  
+  session$onFlushed(function() {
+    reloadStudyEvent(selectedStudy, input, output, session, api)
+  }, once = TRUE)
+  
+  invisible()
 }
   
 connectAPIEvent <- function(input, api)

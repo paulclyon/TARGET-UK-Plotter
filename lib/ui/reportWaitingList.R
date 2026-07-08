@@ -25,9 +25,9 @@ reportWaitingListTab <- function(id = NULL) {
         width = 3,
         div(
           class = "report-buttons",
-          actionButton(ns("buttonRunReport"), "Waiting List Report", class = "btn-primary"),
-          downloadButton(ns("buttonReportToPDF"), "Report to PDF"),
-          downloadButton(ns("buttonReportToHTML"), "Report to HTML")
+          actionButton(("buttonRunReport"), "Waiting List Report", class = "btn-primary"),
+          downloadButton(("buttonReportToPDF"), "Report to PDF"),
+          downloadButton(("buttonReportToHTML"), "Report to HTML")
         )
       )
     ),
@@ -52,6 +52,13 @@ reportServer <- function(input, output, session, api, plots)
   if (!nzchar(rmdReportFile) || !file.exists(rmdReportFile)) {
     warning("REPORT_WAITING_LIST_RMD not set or file not found: ", rmdReportFile)
   }
+  content = function(file) {
+    if (!nzchar(rmdReportFile) || !file.exists(rmdReportFile)) {
+      showNotification(paste("Report template not found:", rmdReportFile), type = "error")
+      req(FALSE)
+    }
+  }
+    
   
   # keep checkbox choices in sync if api has organFactors
   observe({

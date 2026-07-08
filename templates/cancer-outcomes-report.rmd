@@ -13,9 +13,12 @@ params:
   report_subtypes: ["All"]
   report_genders: ["Female", "Male", "Unknown"]
   report_modality: "All"
+  report_min_tumour_size: 0
+  report_max_tumour_size: 100
   report_include_ignore_first_ltp: FALSE
   report_min_months_followup: 3
   report_max_years_followup: 5
+  report_cancer_anonymised: TRUE
 ---
 
 ```{css, echo=FALSE}
@@ -73,27 +76,87 @@ library(ggsurvfit)
 library(scales)
 library(kableExtra)
 library(htmltools)
+library(gridExtra)
 
-
-report_start_date <- params$report_start_date
-report_end_date   <- params$report_end_date
-report_organs     <- params$report_organs
-report_diagnosis_type <- params$report_diagnosis_type
-report_subtypes   <- params$report_subtypes
-report_genders    <- params$report_genders
-report_modality   <- params$report_modality
+report_start_date               <- params$report_start_date
+report_end_date                 <- params$report_end_date
+report_organs                   <- params$report_organs
+report_diagnosis_type           <- params$report_diagnosis_type
+report_subtypes                 <- params$report_subtypes
+report_genders                  <- params$report_genders
+report_modality                 <- params$report_modality
+report_min_tumour_size          <- params$report_min_tumour_size
+report_max_tumour_size          <- params$report_max_tumour_size
 report_include_ignore_first_ltp <- isTRUE(params$report_include_ignore_first_ltp)
-report_max_years_followup <- as.numeric(params$report_max_years_followup)[1]
-report_min_months_followup <- as.numeric(params$report_min_months_followup)[1]
-
-reportStart <- as.Date(report_start_date)
-reportEnd   <- as.Date(report_end_date)
+report_max_years_followup       <- as.numeric(params$report_max_years_followup)
+report_min_months_followup      <- as.numeric(params$report_min_months_followup)
+reportStart                     <- as.Date(report_start_date)
+reportEnd                       <- as.Date(report_end_date)
+reportAnonymised                <- isTRUE(params$report_cancer_anonymised)
 
 if (!exists("makeSurvivalPlot", mode = "function")) {
   stop("makeSurvivalPlot() is not available in the report environment. Source the app plotting methods before rendering this Rmd.")
 }
 if (!exists("makeRecurrencePlot", mode = "function")) {
   stop("makeRecurrencePlot() is not available in the report environment. Source the app plotting methods before rendering this Rmd.")
+}
+
+filter_by_report_diagnosis <- function(d, report_diagnosis_type, report_subtypes) {
+  if (!is.data.frame(d) || nrow(d) == 0) return(d)
+  if (is.null(report_diagnosis_type) || identical(report_diagnosis_type, "All")) return(d)
+
+  if (is.null(report_subtypes)) report_subtypes <- "All"
+  report_subtypes <- setdiff(as.character(report_subtypes), "All")
+
+  if (report_diagnosis_type == "1o & 2o") {
+    return(
+      d |>
+        filter(
+          (DiagnosisType == "P" & Diagnosis1o %in% report_subtypes) |
+          (DiagnosisType == "S" & Diagnosis2o %in% report_subtypes)
+        )
+    )
+  }
+
+  diag_code <- switch(
+    report_diagnosis_type,
+    "Primary"   = "P",
+    "Secondary" = "S",
+    "Benign"    = "B",
+    "Unknown"   = "U",
+    ""
+  )
+
+  diag_col <- switch(
+    diag_code,
+    "P" = "Diagnosis1o",
+    "S" = "Diagnosis2o",
+    "B" = "DiagnosisBn",
+    "U" = "DiagnosisUn",
+    ""
+  )
+
+  if (nzchar(diag_col) && all(c("DiagnosisType", diag_col) %in% names(d))) {
+    d |>
+      filter(
+        DiagnosisType == diag_code,
+        .data[[diag_col]] %in% report_subtypes
+      )
+  } else {
+    d
+  }
+}
+
+filter_by_tumour_size <- function(df, size_col, min_size, max_size) {
+  if (!is.data.frame(df) || nrow(df) == 0 || !size_col %in% names(df)) return(df)
+
+  df[[size_col]] <- suppressWarnings(as.numeric(df[[size_col]]))
+
+  df |>
+    dplyr::filter(
+      is.na(.data[[size_col]]) |
+        dplyr::between(.data[[size_col]], min_size, max_size)
+    )
 }
 
 normalise_organs <- function(x) {
@@ -106,23 +169,16 @@ report_organs <- normalise_organs(report_organs)
 
 filter_patient_rows <- function(df) {
   if (!is.data.frame(df) || nrow(df) == 0) return(df)
-  
+
   d <- df |>
     filter(!is.na(FirstRxDate)) |>
     filter(FirstRxDate >= reportStart, FirstRxDate <= reportEnd)
-    
+
   if (!identical(report_organs, "All")) {
     d <- d |> filter(Organ %in% report_organs)
   }
 
-  if (!identical(report_diagnosis_type, "All")) {
-    switch(substring(report_diagnosis_type, 1, 1),
-      "P" = { d <- d |> filter(DiagnosisType == "P", Diagnosis1o %in% report_subtypes) },
-      "S" = { d <- d |> filter(DiagnosisType == "S", Diagnosis2o %in% report_subtypes) },
-      "B" = { d <- d |> filter(DiagnosisType == "B", DiagnosisBn %in% report_subtypes) },
-      "U" = { d <- d |> filter(DiagnosisType == "U", DiagnosisUn %in% report_subtypes) }
-    )
-  }
+  d <- filter_by_report_diagnosis(d, report_diagnosis_type, report_subtypes)
 
   if (!identical(report_modality, "All")) {
     d <- d |> filter(grepl(report_modality, RxModalities, fixed = TRUE))
@@ -142,14 +198,7 @@ filter_lesion_rows <- function(df) {
     d <- d |> filter(Organ %in% report_organs)
   }
 
-  if (!identical(report_diagnosis_type, "All")) {
-    switch(substring(report_diagnosis_type, 1, 1),
-      "P" = { d <- d |> filter(DiagnosisType == "P", Diagnosis1o %in% report_subtypes) },
-      "S" = { d <- d |> filter(DiagnosisType == "S", Diagnosis2o %in% report_subtypes) },
-      "B" = { d <- d |> filter(DiagnosisType == "B", DiagnosisBn %in% report_subtypes) },
-      "U" = { d <- d |> filter(DiagnosisType == "U", DiagnosisUn %in% report_subtypes) }
-    )
-  }
+  d <- filter_by_report_diagnosis(d, report_diagnosis_type, report_subtypes)
 
   if (!identical(report_modality, "All")) {
     d <- d |> filter(grepl(report_modality, RxModality, fixed = TRUE))
@@ -163,6 +212,18 @@ filter_ae_rows <- function(df) {
 
   d <- df
 
+  if ("Grade" %in% names(d)) {
+  d <- d |>
+    mutate(
+      GradeRaw = as.character(Grade),
+      GradeNum = suppressWarnings(as.integer(GradeRaw)),
+      GradeDisplay = dplyr::case_when(
+        is.na(GradeRaw) | trimws(GradeRaw) == "" ~ "Unspecified",
+        TRUE ~ GradeRaw
+      )
+    )
+  }
+  
   if ("DateofOnset" %in% names(d)) {
     d$DateofOnset <- suppressWarnings(as.Date(d$DateofOnset, tryFormats = c("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y")))
   }
@@ -173,11 +234,15 @@ filter_ae_rows <- function(df) {
   if ("DateofOnset" %in% names(d) || "DateofResolution" %in% names(d)) {
     onset_ok <- if ("DateofOnset" %in% names(d)) {
       !is.na(d$DateofOnset) & d$DateofOnset >= reportStart & d$DateofOnset <= reportEnd
-    } else rep(FALSE, nrow(d))
+    } else {
+      rep(FALSE, nrow(d))
+    }
 
     res_ok <- if ("DateofResolution" %in% names(d)) {
       !is.na(d$DateofResolution) & d$DateofResolution >= reportStart & d$DateofResolution <= reportEnd
-    } else rep(FALSE, nrow(d))
+    } else {
+      rep(FALSE, nrow(d))
+    }
 
     d <- d[onset_ok | res_ok, , drop = FALSE]
   }
@@ -188,34 +253,93 @@ filter_ae_rows <- function(df) {
     d <- d |> filter(Organ %in% report_organs)
   }
 
-  # Keep diagnosis filtering out of AE logic unless you are sure those fields are populated consistently.
-  # If you really want it, apply it only as a secondary filter.
+  d <- filter_by_report_diagnosis(d, report_diagnosis_type, report_subtypes)
 
   if ("Grade" %in% names(d)) {
     d <- d |>
       mutate(
-        GradeRaw = as.character(Grade),
-        GradeNum = suppressWarnings(as.integer(GradeRaw)),
-        GradeDisplay = dplyr::case_when(
-          is.na(GradeRaw) | trimws(GradeRaw) == "" ~ "Unspecified",
-          TRUE ~ GradeRaw
-        )
+        Grade = as.character(Grade)
       )
   }
 
   d
 }
 
+# Get the filtered patient data and select only those where the MaxTumourSize is in reporting range
 patient_data <- if (exists("cancerPerPatientData") && is.data.frame(cancerPerPatientData)) {
   filter_patient_rows(cancerPerPatientData)
 } else {
   data.frame()
 }
 
+if (nrow(patient_data) > 0) {
+  patient_data <- filter_by_tumour_size(
+    patient_data,
+    "MaxTumourSize",
+    report_min_tumour_size,
+    report_max_tumour_size
+  )
+
+  # Derive the bare patient ID (referral suffix stripped) unconditionally -
+  # lesion_data and ae_data are keyed on PtID without the "-N" referral
+  # suffix, so keep_ids must be in the same bare format to match correctly.
+  patient_data <- patient_data |>
+    dplyr::mutate(PtID = sub("-[0-9]+$", "", ID))
+
+  # Add age from cancerData using the patient-level ID
+  if (exists("cancerData") && is.data.frame(cancerData)) {
+    age_lookup <- cancerData |>
+      dplyr::transmute(
+        PtID = as.character(ID),
+        AgeOnFirstRx = suppressWarnings(as.numeric(AgeOnFirstRx))
+      ) |>
+      dplyr::distinct(PtID, .keep_all = TRUE)
+  
+    patient_data <- patient_data |>
+      dplyr::mutate(PtID = as.character(sub("-[0-9]+$", "", ID))) |>
+      dplyr::left_join(age_lookup, by = "PtID")
+    
+  }
+
+  cat("\n===== AGE DIAGNOSTIC =====\n")
+  cat("cancerData exists:", exists("cancerData"), "\n")
+  if (exists("cancerData")) {
+    cat("cancerData is.data.frame:", is.data.frame(cancerData), "\n")
+    if (is.data.frame(cancerData)) {
+      cat("cancerData columns:", paste(names(cancerData), collapse = ", "), "\n")
+      cat("cancerData rows:", nrow(cancerData), "\n")
+    }
+  }
+  cat("AgeOnFirstRx in patient_data:", "AgeOnFirstRx" %in% names(patient_data), "\n")
+  if ("AgeOnFirstRx" %in% names(patient_data)) {
+    cat("Non-NA age count:", sum(!is.na(patient_data$AgeOnFirstRx)), "of", nrow(patient_data), "\n")
+  }
+
+  keep_ids <- unique(patient_data$PtID)
+
 lesion_data <- if (exists("cancerPerLesionData") && is.data.frame(cancerPerLesionData)) {
-  filter_lesion_rows(cancerPerLesionData)
+  filter_lesion_rows(cancerPerLesionData) |>
+    dplyr::filter(PtID %in% keep_ids)
 } else {
   data.frame()
+}
+
+lesion_data <- filter_by_tumour_size(
+  lesion_data,
+  "TumourSize",
+  report_min_tumour_size,
+  report_max_tumour_size
+)
+
+ae_data <- if (exists("aeData") && is.data.frame(aeData)) {
+    filter_ae_rows(aeData) |>
+      dplyr::filter(PtID %in% keep_ids)
+  } else {
+    data.frame()
+  }
+} else {
+  lesion_data <- data.frame()
+  ae_data <- data.frame()
 }
 
 if (nrow(patient_data) > 0 && "MaxTumourSize" %in% names(patient_data)) {
@@ -248,20 +372,17 @@ ae_data <- if (exists("aeData") && is.data.frame(aeData)) {
 }
 
 patient_sex_summary <- if (nrow(patient_data) > 0 && "Gender" %in% names(patient_data)) {
-  patient_data |>
-    mutate(
-      Gender = trimws(as.character(Gender)),
-      Gender = dplyr::case_when(
-        is.na(Gender) | Gender == "" ~ "Unknown",
-        tolower(Gender) %in% c("u", "unk", "unknown", "unknown sex") ~ "Unknown",
-        TRUE ~ Gender
-      )
-    ) |>
+  sex_counts <- patient_data |>
+    filter(!is.na(Gender) & Gender != "") |>
     count(Gender, name = "n") |>
-    tidyr::complete(Gender = c("Female", "Male", "Unknown"), fill = list(n = 0)) |>
-    mutate(pct = ifelse(sum(n) > 0, n / sum(n), 0))
+    ungroup()
+
+  sex_total <- sum(sex_counts$n)
+
+  sex_counts |>
+    mutate(pct = if (sex_total > 0) n / sex_total else NA_real_)
 } else {
-  tibble::tibble(Gender = c("Female", "Male", "Unknown"), n = c(0, 0, 0), pct = c(0, 0, 0))
+  tibble::tibble(Gender = character(0), n = integer(0), pct = numeric(0))
 }
 
 rxDoneReferralLevel <- if (exists("rxDoneData") && is.data.frame(rxDoneData)) {
@@ -314,13 +435,15 @@ status_to_event <- function(status) {
   status != 0
 }
 
-
 get_ltp_rate <- function(df, time_col, status_col) {
   if (!is.data.frame(df) || nrow(df) == 0) return(NA_real_)
   if (!(time_col %in% names(df)) || !(status_col %in% names(df))) return(NA_real_)
   d <- df |> filter(!is.na(.data[[time_col]]), !is.na(.data[[status_col]]))
   if (nrow(d) == 0) return(NA_real_)
-  fit <- survfit(Surv(d[[time_col]], status_to_event(d[[status_col]])) ~ 1, data = d)
+  cat("rows:", nrow(d), "\n")
+print(table(d[[status_col]], useNA = "ifany"))
+
+  fit <- survfit2(Surv(d[[time_col]], status_to_event(d[[status_col]])) ~ 1, data = d)
   s <- summary(fit, times = followup_days, extend = TRUE)
   if (length(s$surv) == 0) return(NA_real_)
   s$surv[1]
@@ -331,7 +454,7 @@ get_os_rate <- function(df, time_col, status_col) {
   if (!(time_col %in% names(df)) || !(status_col %in% names(df))) return(NA_real_)
   d <- df |> filter(!is.na(.data[[time_col]]), !is.na(.data[[status_col]]))
   if (nrow(d) == 0) return(NA_real_)
-  fit <- survfit(Surv(d[[time_col]], status_to_event(d[[status_col]])) ~ 1, data = d)
+  fit <- survfit2(Surv(d[[time_col]], status_to_event(d[[status_col]])) ~ 1, data = d)
   s <- summary(fit, times = followup_days, extend = TRUE)
   if (length(s$surv) == 0) return(NA_real_)
   s$surv[1]
@@ -376,7 +499,9 @@ apply_ltp_rule_lesion <- function(df, ignore_first_ltp = FALSE) {
 patient_data_ltp <- apply_ltp_rule_patient(patient_data, FALSE)
 lesion_data_ltp  <- apply_ltp_rule_lesion(lesion_data, FALSE)
 patient_ltp <- get_ltp_rate(patient_data_ltp, "TimeLTPF", "StatusLTPF")
-lesion_ltp  <- get_ltp_rate(lesion_data_ltp, "TimeLTPEpisode", "StatusLTPEpisode")
+#lesion_ltp  <- get_ltp_rate(lesion_data_ltp, "TimeLTPEpisode", "StatusLTPEpisode")
+lesion_ltp <- get_ltp_rate(filteredSurvivalData, "TimeLTPF", "StatusLTPF")
+
 patient_os  <- get_os_rate(patient_data, "TimeSurvival", "StatusOverallSurvival")
 patient_ltpf_os <- get_os_rate(patient_data, "TimeLTPFOS", "StatusLTPFOS")
 
@@ -396,9 +521,28 @@ fmt_param <- function(x) {
   x <- setdiff(as.character(x), "All")
   if (length(x) == 0) "All" else paste(x, collapse = ", ")
 }
+
+anonymise_ptid <- function(x) {
+  vapply(as.character(x), function(id) {
+
+    parts <- strsplit(id, "-", fixed = TRUE)[[1]]
+
+    pt <- parts[1]
+    chars <- strsplit(pt, "", fixed = TRUE)[[1]]
+    chars[c(TRUE, FALSE)] <- "\\*"
+    pt_masked <- paste(chars, collapse = "")
+
+    if (length(parts) > 1) {
+      paste0(pt_masked, "-", paste(parts[-1], collapse = "-"))
+    } else {
+      pt_masked
+    }
+
+  }, character(1))
+}
 ```
 
-## Report Details
+## Report Parameters
 
 | Parameter | Value |
 |:----------|:------|
@@ -407,6 +551,7 @@ fmt_param <- function(x) {
 | **Organ(s)** | `r if (identical(report_organs, "All")) "All" else paste(report_organs, collapse = ", ")` |
 | **Diagnosis type** | `r fmt_param(report_diagnosis_type)` |
 | **Subtype(s)** | `r fmt_param(report_subtypes)` |
+| **Tumour Size Range** | `r fmt_param(paste0(report_min_tumour_size, "-", report_max_tumour_size," mm"))` |
 | **Gender(s)** | `r paste(report_genders, collapse = ", ")` |
 | **Modality** | `r report_modality` |
 | **Minimum follow-up** | `r report_min_months_followup` months |
@@ -415,7 +560,7 @@ fmt_param <- function(x) {
 
 ---
 
-## Overview
+## Outcome Summary
 
 ```{r overview-table, echo=FALSE}
 overview_tbl <- tibble::tibble(
@@ -451,6 +596,78 @@ kable(overview_tbl, caption = "Cancer outcomes summary") |>
 
 ## Tumour size and sex distribution
 
+```{r tumour-size-and-demographics, echo=FALSE, results='asis'}
+
+# Tumour size table
+tumour_tbl <- tibble::tibble(
+  Metric = c(
+    "Count with size recorded",
+    "Median size (mm)",
+    "SD size (mm)",
+    "Mean size (mm)"
+  ),
+  Value = c(
+    tumour_summary$n[1],
+    round(tumour_summary$median[1], 1),
+    round(tumour_summary$sd[1], 1),
+    round(tumour_summary$mean[1], 1)
+  )
+)
+
+# Demographics table
+age_vals <- numeric(0)
+
+if (exists("cancerData") && is.data.frame(cancerData) && nrow(patient_data) > 0) {
+  pt_ids <- unique(trimws(as.character(sub("-[0-9]+$", "", patient_data$ID))))
+
+  age_lookup <- cancerData[, c("ID", "AgeOnFirstRx")]
+  age_lookup$ID <- trimws(as.character(age_lookup$ID))
+  age_lookup$AgeOnFirstRx <- suppressWarnings(as.numeric(age_lookup$AgeOnFirstRx))
+
+  age_vals <- age_lookup$AgeOnFirstRx[match(pt_ids, age_lookup$ID)]
+  age_vals <- age_vals[is.finite(age_vals)]
+}
+demo_counts <- if (nrow(patient_data) > 0 && "Gender" %in% names(patient_data)) {
+  patient_data |>
+    dplyr::mutate(Gender = ifelse(is.na(Gender) | Gender == "", "Unknown", Gender)) |>
+    dplyr::count(Gender, name = "n")
+} else {
+  tibble::tibble(Gender = character(0), n = integer(0))
+}
+
+female_n  <- if ("Female"  %in% demo_counts$Gender) demo_counts$n[demo_counts$Gender == "Female"]  else 0
+male_n    <- if ("Male"    %in% demo_counts$Gender) demo_counts$n[demo_counts$Gender == "Male"]    else 0
+unknown_n <- if ("Unknown" %in% demo_counts$Gender) demo_counts$n[demo_counts$Gender == "Unknown"] else 0
+demo_total <- sum(demo_counts$n)
+
+demo_tbl <- tibble::tibble(
+  Metric = c("Female", "Male", "Unknown", "Mean age (years)", "SD age (years)"),
+  Value = c(
+    sprintf("%d (%.1f%%)", female_n,  if (demo_total > 0) 100 * female_n  / demo_total else 0),
+    sprintf("%d (%.1f%%)", male_n,    if (demo_total > 0) 100 * male_n    / demo_total else 0),
+    sprintf("%d (%.1f%%)", unknown_n, if (demo_total > 0) 100 * unknown_n / demo_total else 0),
+    if (length(age_vals) > 0) sprintf("%.1f", mean(age_vals)) else "NA",
+    if (length(age_vals) > 1) sprintf("%.1f", sd(age_vals)) else "NA"
+  )
+)
+
+tumour_html <- kable(tumour_tbl, caption = "Tumour size") |>
+  kableExtra::kable_styling(full_width = FALSE) |>
+  as.character()
+
+demo_html <- kable(demo_tbl, caption = "Demographics") |>
+  kableExtra::kable_styling(full_width = FALSE) |>
+  as.character()
+
+cat(
+  '<div style="display:flex; gap:25px; align-items:flex-start;">',
+  '<div style="flex:1;">', tumour_html, '</div>',
+  '<div style="flex:1;">', demo_html, '</div>',
+  '</div>'
+)
+```
+
+
 ```{r tumour-size-hist, echo=FALSE, fig.height=4.5}
 if (nrow(lesion_data) > 0 && "TumourSize" %in% names(lesion_data)) {
   ggplot(lesion_data |> filter(!is.na(TumourSize)), aes(x = TumourSize)) +
@@ -466,21 +683,6 @@ if (nrow(lesion_data) > 0 && "TumourSize" %in% names(lesion_data)) {
     annotate("text", x = 0.5, y = 0.5, label = "No tumour size data available", size = 6) +
     theme_void()
 }
-```
-
-```{r tumour-size-summary, echo=FALSE}
-tumour_tbl <- tibble::tibble(
-  Metric = c("Count with size recorded", "Median size (mm)", "SD size (mm)", "Mean size (mm)"),
-  Value = c(
-    tumour_summary$n[1],
-    round(tumour_summary$median[1], 1),
-    round(tumour_summary$sd[1], 1),
-    round(tumour_summary$mean[1], 1)
-  )
-)
-
-kable(tumour_tbl, caption = "Tumour size summary") |>
-  kableExtra::kable_styling(full_width = FALSE)
 ```
 
 ```{r sex-dist-plot, echo=FALSE, fig.height=4.2}
@@ -507,17 +709,6 @@ ggplot(
 }
 ```
 
-```{r sex-summary-table, echo=FALSE}
-sex_tbl <- if (nrow(patient_sex_summary) > 0) {
-  patient_sex_summary |>
-    mutate(pct = scales::percent(pct, accuracy = 1))
-} else {
-  tibble::tibble(Gender = character(0), n = integer(0), pct = character(0))
-}
-
-kable(sex_tbl, caption = "Sex distribution") |>
-  kableExtra::kable_styling(full_width = FALSE)
-```
 
 
 ## LTP curves at `r report_max_years_followup` years
@@ -676,7 +867,6 @@ if (nrow(ae_data) > 0)
       ae_tbl$GradeDisplay <- "Unspecified"
     }
   }
-
   report_ptids <- patient_data |>
     mutate(PtID = sub("-[0-9]+$", "", ID)) |>
     pull(PtID) |>
@@ -706,26 +896,21 @@ if (nrow(ae_data) > 0)
     `Unspecified` = sum(ae_tbl$GradeDisplay == "Unspecified", na.rm = TRUE)
   )
 
+
   ae_summary <- tibble::tibble(
     Metric = c(
       "Patients",
       "Treatments",
       "Tumours treated",
       "Patients with ≥1 AE",
-      "Total adverse events",
-      names(grade_counts)
-    ),
+      "Total adverse events"
+      ),
     Value = c(
       n_patients,
       n_treatments,
       n_tumours,
       sprintf("%d (%.1f%%)", n_ae_patients, 100 * n_ae_patients / n_patients),
-      n_ae,
-      sprintf(
-        "%d (%.1f%%)",
-        as.integer(grade_counts),
-        100 * as.integer(grade_counts) / n_ae
-      )
+      n_ae
     )
   )
 
@@ -742,7 +927,7 @@ if (nrow(ae_data) > 0)
       Severity = factor(Severity, levels = c("Unspecified", "Grade 5", "Grade 4", "Grade 3", "Grade 2", "Grade 1"))
     ) |>
     arrange(Severity) |>
-    mutate(pct = scales::percent(pct, accuracy = 1))
+    mutate(pct = scales::percent(pct, accuracy = 1.1))
   
   summary_html <-
     kable(ae_summary, caption = "Adverse event summary") |>
@@ -762,6 +947,7 @@ if (nrow(ae_data) > 0)
   )
 }
 ```
+
 
 
 ```{r adverse-events-table, echo=FALSE, results='asis'}
@@ -793,8 +979,31 @@ if (nrow(ae_data) > 0) {
     select(-GradeOrder)
   
     if (nrow(ae_tbl) > 0) {
-      kable(ae_tbl, caption = "Adverse events") |>
+      
+      if (reportAnonymised) {
+        if ("PtID" %in% names(ae_tbl)) {
+          ae_tbl$PtID <- anonymise_ptid(ae_tbl$PtID)
+        }
+        if ("ID" %in% names(ae_tbl)) {
+          ae_tbl$ID <- anonymise_ptid(ae_tbl$ID)
+        }
+        for (col in c("DateofOnset", "DateofResolution")) {
+          if (col %in% names(ae_tbl)) {
+            ae_tbl[[col]] <- ifelse(
+              is.na(ae_tbl[[col]]),
+              "",
+              format(as.Date(ae_tbl[[col]]), "%b %Y")
+            )
+          }
+        }
+      }
+      
+      kable(
+        ae_tbl,
+        caption = "Adverse events",
+        row.names = FALSE) |>
         kableExtra::kable_styling(full_width = FALSE)
+
     } else {
       cat("No adverse events in the selected cohort.")
     }
