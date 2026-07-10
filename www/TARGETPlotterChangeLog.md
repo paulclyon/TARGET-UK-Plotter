@@ -41,7 +41,16 @@ V0.9  Iguana:    Implemented new last known alive field in addition to last imag
                  Fixed monthly waiting list organ filter
                  Fixed platform independent secret directory for credentials
                  <br>
-V1.0  Jackal     Implemented Waiting List Calendar and Report
+V1.1 Jackal      Implemented Waiting List Calendar and Report
+                 <br>
+V1.2 Hummingbird Improved recurrence and survival dashboards
+                 Introduced per lesion and per tumour LTP
+                 Introduced minimum months recurrence and survival followup
+                 Cleaned up debug logs / output
+                 <br>
+V1.3 Koala       Fixed the per lesion LTP analysis code which is tough to get completely correct (it had bugs in Hummingbird)
+                 Other improvements eg. AE table and Cancer Outcome Report
+                 Several improvements to survival and recurrence GUI including informational tool tip text
                  <br>
 
 </pre>
