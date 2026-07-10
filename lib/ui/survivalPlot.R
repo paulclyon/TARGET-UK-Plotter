@@ -1,76 +1,30 @@
 survivalPlotTab <- function()
 {
-  
   fluidRow(
-    tags$head(
-      tags$style(HTML("
-        #survvialPlot .form-group { margin-bottom: 2px; }
-        #survvialPlot .control-label { margin-bottom: 1px; }
-        #survvialPlot .shiny-input-container { margin-bottom: 2px; }
-        #survvialPlot .irs { margin-bottom: 0px; }
-        #survvialPlot .radio { margin-bottom: 0px; }
-        #survvialPlot .checkbox { margin-bottom: 0px; }
-      "))
-    ),
     tabPanel(
       "SurvivalPlot",
       column(
-        width = 2,
-        div(
-          column(
-            width = 2,
-            div(
-              style =  "background-color: lightgrey;
-                          border: 2px solid blue;
-                          border-radius: 5px;
-                          padding: 10px;
-                          margin: 5px;
-                          height: 320px;
-                          writing-mode: vertical-rl;
-                          text-orientation: mixed;
-                          transform: rotate(180deg);
-                          overflow-wrap: break-word;
-                          display: flex;
-                          align-items: center;
-                          justify-content: center;
-                          text-align: center;
-                ",
-              textOutput("informationalSurvivalPlot")
-            )
-          )
-        )
-      ),
-      column(
-        width = 3,
-        dateInput(
-          "survivalStartDate",
-          "Start Date",
-          format = "dd/mm/yyyy",
-          value = Sys.Date() - 365*20
-        ),
-        dateInput(
-          "survivalEndDate",
-          "End Date",
-          format = "dd/mm/yyyy",
-          value = Sys.Date()
-        ),
+        width = 4,
+        dateInput("survivalStartDate", "Start Date", format = "dd/mm/yyyy", value = Sys.Date() - 365*20),
+        dateInput("survivalEndDate", "End Date", format = "dd/mm/yyyy", value = Sys.Date()),
         div(
           style = "display:flex; gap:10px;",
           numericInput("minMonthsFollowup", "MinFU(m)", value = 3, min = 1, max = 24, width = "60px"),
           numericInput("maxYearsFollowup", "MaxFU(y)", value = 5, min = 1, max = 20, width = "60px")
         ),
-        sliderInput(
-          "survivalTumourSizeRange",
-          "Tumour Size (mm)",
-          min   = 0,
-          max   = 100,
-          value = c(0, 100),
-          step  = 1,
-          ticks = TRUE
+        conditionalPanel(
+          condition = "input.survivalLTPFSRadio == '2' || input.survivalLTPFSRadio == '3'",
+          checkboxInput("survivalAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
+        ),
+        radioButtons(
+          "survivalLTPFSRadio",
+          "Survival Plot Type",
+          c("OS" = 0, "CSS" = 1, "LTP-Free OS" = 2, "LTP-Free CSS" = 3),
+          inline = TRUE
         )
       ),
       column(
-        width = 3,
+        width = 4,
         selectInput("survivalSelectedOrgans","Target Organ", choices = organFactors, selected = organFactors[1]),
         selectInput("survivalSelectedDiagnosisType", "Diagnosis Type", choices = diagnosis_type_Factors),
         selectInput(
@@ -79,12 +33,7 @@ survivalPlotTab <- function()
           choices = c("All"),
           selected = "All"
         ),
-        radioButtons(
-          "survivalLTPFSRadio",
-          "Survival Plot Type",
-          c("OS" = 0, "CSS" = 1, "LTP-Free OS" = 2, "LTP-Free CSS" = 3),
-          inline = TRUE
-        )
+        uiOutput("survivalHelpUI")
       ),
       column(
         width = 4,
@@ -106,9 +55,14 @@ survivalPlotTab <- function()
           choices = diagnosisSubtypeFactors,
           selected = diagnosisSubtypeFactors
         ),
-        conditionalPanel(
-          condition = "input.survivalLTPFSRadio == '2' || input.survivalLTPFSRadio == '3'",
-          checkboxInput("survivalAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
+        sliderInput(
+          "survivalTumourSizeRange",
+          "Tumour Size (mm)",
+          min   = 0,
+          max   = 100,
+          value = c(0, 100),
+          step  = 1,
+          ticks = TRUE
         )
       )
     ),
@@ -147,6 +101,45 @@ survivalPlotServer <- function(input, output, session, api, plots)
   
   selectedSubtypes <- reactive({
     subtypeChoices()
+  })
+  
+  informationalText <- reactive({
+    plotTypeText <- switch(
+      as.character(input$survivalLTPFSRadio),
+      "0" = "Overall Survival",
+      "1" = "Cancer Specific Survival",
+      "2" = "Local Tumour Progression-free Overall Survival",
+      "3" = "Local Tumour Progression-free Cancer Specific Survival",
+      "Survival"
+    )
+    
+    if (input$survivalLTPFSRadio %in% c("2", "3")) {
+      if (isTRUE(input$survivalAllow2Rx)) {
+        paste0(
+          plotTypeText, ": time-to-LTP is measured from the first ablation. ",
+          "LTP after one subsequent re-Rx is treated as managed disease and censored; ",
+          "LTP after two or more subsequent re-Rx is counted as an event."
+        )
+      } else {
+        paste0(
+          plotTypeText, ": time-to-LTP is measured from the first ablation. ",
+          "Every confirmed LTP is counted as an event, regardless of later re-Rx."
+        )
+      }
+    } else {
+      paste0(
+        plotTypeText, ": time is measured from the first ablation. ",
+        "Events are death-related according to the selected survival definition."
+      )
+    }
+  })
+  
+  output$survivalHelpUI <- renderUI({
+    tags$span(
+      title = informationalText(),
+      style = "color:#337ab7; cursor: help; display:inline-block; font-weight: bold;",
+      tags$b("ⓘ Hover for Information")
+    )
   })
   
   observeEvent(list(input$survivalSelectedDiagnosisType, input$survivalSelectedOrgans), {
@@ -239,17 +232,75 @@ survivalPlotServer <- function(input, output, session, api, plots)
     )
   })
   
-  output$informationalSurvivalPlot <- renderText({ informationalText() })
-  
   informationalText <- reactive({
-    headerText <- "Informational:\n"
-    switch(input$survivalLTPFSRadio,
-           "0" = paste(headerText,"Overall Survival Plot"),
-           "1" = paste(headerText,"Cancer Specific Survival Plot"),
-           "2" = paste(headerText,"Local Tumour Progression-free Overall Survival Plot"),
-           "3" = paste(headerText,"Local Tumour Progression-free Cancer Specific Survival Plot"))
-  }
-  )
+    
+    header <- switch(
+      as.character(input$survivalLTPFSRadio),
+      "0" = "Overall Survival:\n",
+      "1" = "Cancer Specific Survival:\n",
+      "2" = "LTP-Free Overall Survival:\n",
+      "3" = "LTP-Free Cancer Specific Survival:\n",
+      "Survival:\n"
+    )
+    
+    switch(
+      as.character(input$survivalLTPFSRadio),
+      
+      # Overall Survival
+      "0" = paste0(
+        header,
+        "Time-to-event is measured from the first ablation. ",
+        "Death from any cause is counted as an event; patients still alive at last follow-up are censored."
+      ),
+      
+      # Cancer Specific Survival
+      "1" = paste0(
+        header,
+        "Time-to-event is measured from the first ablation. ",
+        "Only deaths attributable to cancer are counted as events; ",
+        "patients dying of other causes or alive at last follow-up are censored."
+      ),
+      
+      # LTP-Free Overall Survival
+      "2" = {
+        if (isTRUE(input$survivalAllow2Rx)) {
+          paste0(
+            header,
+            "Time-to-event is measured from the first ablation. ",
+            "LTP occurring after only one subsequent re-ablation is considered managed disease and is censored. ",
+            "LTP after two or more subsequent re-ablations, or death from any cause before LTP, is counted as an event."
+          )
+        } else {
+          paste0(
+            header,
+            "Time-to-event is measured from the first ablation. ",
+            "The first confirmed LTP is counted as an event regardless of any subsequent re-ablation. ",
+            "Death before LTP is also counted as an event."
+          )
+        }
+      },
+      
+      # LTP-Free Cancer Specific Survival
+      "3" = {
+        if (isTRUE(input$survivalAllow2Rx)) {
+          paste0(
+            header,
+            "Time-to-event is measured from the first ablation. ",
+            "LTP occurring after only one subsequent re-ablation is considered managed disease and is censored. ",
+            "LTP after two or more subsequent re-ablations or cancer-related death before LTP is counted as an event. ",
+            "Deaths from other causes are censored."
+          )
+        } else {
+          paste0(
+            header,
+            "Time-to-event is measured from the first ablation. ",
+            "The first confirmed LTP is counted as an event regardless of any subsequent re-ablation. ",
+            "Cancer-related death before LTP is also counted as an event, whereas deaths from other causes are censored."
+          )
+        }
+      }
+    )
+  })
   
   height <- reactive(detectedHeight(input, "plotSurvivalCurve"))
   output$plotSurvivalCurve <- renderPlot({

@@ -9,6 +9,7 @@ required_base_pkgs <- c(
   "shinyjs",
   "shinydashboard",
   "shinyalert",
+  "shinyBS",
   "markdown",
   "DT",
   "ggplot2",

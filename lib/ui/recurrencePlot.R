@@ -14,33 +14,7 @@ recurrencePlotTab <- function()
     tabPanel(
       "RecurrencePlot",
       column(
-        width = 2,
-        div(
-          column(
-            width = 2,
-            div(
-              style =  "background-color: lightgrey;
-                          border: 2px solid blue;
-                          border-radius: 5px;
-                          padding: 10px;
-                          margin: 5px;
-                          height: 320px;
-                          writing-mode: vertical-rl;
-                          text-orientation: mixed;
-                          transform: rotate(180deg);
-                          overflow-wrap: break-word;
-                          display: flex;
-                          align-items: center;
-                          justify-content: center;
-                          text-align: center;
-                ",
-              textOutput("informationalRecurrencePlot")
-            )
-          )
-        )
-      ),
-      column(
-        width = 3,
+        width = 4,
         dateInput("recurrenceStartDate", "Start Date", format = "dd/mm/yyyy", value = Sys.Date() - 365*10),
         dateInput("recurrenceEndDate", "End Date", format = "dd/mm/yyyy", value = Sys.Date()),
         div(
@@ -50,11 +24,15 @@ recurrencePlotTab <- function()
         ),
         radioButtons(
           "recurrenceLTPAnalysisUnit",
-          "LTP Analysis Per",
-          choices = c("Patient" = "patient", "Lesion" = "episode"),
+          label = NULL,
+          choices = c(
+            "Patient" = "patient",
+            "Lesion"  = "episode"
+          ),
           selected = "patient",
           inline = TRUE
         ),
+        
         # This panel is only relevant if we are on per patient LTP analysis, not per lesion analysis
         #  for per-lesion analysis the concept doesn't apply in the same way — ignoreFrstLTP was designed to say
         # "don't count LTP after just 1 Rx as a true LTP event", but in per-lesion analysis each referral episode 
@@ -63,10 +41,10 @@ recurrencePlotTab <- function()
         # ignore LTP events where LesionNo refers to a lesion that was being ablated for the first time — i.e. where
         # there was no prior local therapy at that site. But that information isn't currently stored in cancerPerLesionData,
         # and we are not currently mixing the two tables - simplist way is to just hide it unless per patient analysis.
-        checkboxInput("recurrenceAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
+        checkboxInput("recurrenceAllow2Rx", "Ignore first LTP managed by re-Rx", value = TRUE)
       ),
       column(
-        width = 3,
+        width = 4,
         selectInput("recurrenceSelectedOrgans", "Target Organ", choices = organFactors),
         selectInput(
           "recurrenceSelectedDiagnosisType",
@@ -79,11 +57,7 @@ recurrencePlotTab <- function()
           choices = c("All"),
           selected = "All"
         ),
-        sliderInput(
-          "recurrenceTumourSizeRange",
-          "Tumour Size (mm)",
-          min = 0, max = 100, value = c(0, 100), step = 1, ticks = TRUE
-        )
+        uiOutput("recurrenceHelpUI")
       ),
       column(
         width = 4,
@@ -104,6 +78,11 @@ recurrencePlotTab <- function()
           "recurrenceSelectedSubtypes", "Subtypes",
           choices = diagnosisSubtypeFactors,
           selected = diagnosisSubtypeFactors
+        ),
+        sliderInput(
+          "recurrenceTumourSizeRange",
+          "Tumour Size (mm)",
+          min = 0, max = 100, value = c(0, 100), step = 1, ticks = TRUE
         )
       )
     ),
@@ -139,6 +118,30 @@ recurrencePlotServer <- function(input, output, session, api, plots)
   
   selectedSubtypes <- reactive({
     subtypeChoices()
+  })
+  
+  informationalText <- reactive({
+    if (input$recurrenceLTPAnalysisUnit == "patient") {
+      if (isTRUE(input$recurrenceAllow2Rx)) {
+        "Per-patient analysis: time-to-LTP is measured from the first ablation. LTP after one subsequent ablation is censored; LTP after two or more subsequent ablations is an event."
+      } else {
+        "Per-patient analysis: time-to-LTP is measured from the first ablation. The first confirmed LTP is an event."
+      }
+    } else {
+      if (isTRUE(input$recurrenceAllow2Rx)) {
+        "Per-lesion analysis: time-to-LTP is measured from the ablation of each lesion. LTP after one subsequent re-Rx is censored; LTP after two or more subsequent re-Rx is an event."
+      } else {
+        "Per-lesion analysis: time-to-LTP is measured from the ablation of each lesion. Every confirmed LTP is counted as an event."
+      }
+    }
+  })
+  
+  output$recurrenceHelpUI <- renderUI({
+    tags$span(
+      title = informationalText(),
+      style = "color:#337ab7; cursor: help; display:inline-block;",
+      tags$b("ⓘ Hover for Information")
+    )
   })
   
   observeEvent(list(input$recurrenceSelectedDiagnosisType, input$recurrenceSelectedOrgans), {
@@ -232,17 +235,6 @@ recurrencePlotServer <- function(input, output, session, api, plots)
       input$recurrenceLTPAnalysisUnit      # per-patient or per-lesion
     )
   })
-  
-  output$informationalRecurrencePlot <- renderText({ informationalText() })
-  
-  informationalText <- reactive({
-    headerText <- "Informational:\n"
-    switch(input$recurrenceLTPAnalysisUnit,
-           "patient" = paste(headerText,"This is a per-patient analysis i.e. time-to-LTP is measured from first ablation even if LTP occurs after a subsequent ablation."),
-           "episode" = paste(headerText,"This is a per-lesion analysis i.e. time-to-LTP is measured across all tumours from each ablation.")
-    )
-  }
-  )
   
   height <- reactive(detectedHeight(input, "plotRecurrenceCurve"))
   

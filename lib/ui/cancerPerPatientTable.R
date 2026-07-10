@@ -40,14 +40,23 @@ cancerPerPatientTableServer <- function(input, output, session, isDocker, api)
   
   subtypeChoices <- reactive({
     req(input$cancerPerPatientTabSelectedDiagnosisType)
-    switch(
+    req(input$cancerPerPatientTabSelectedOrgans)
+    all_choices <- switch(
       input$cancerPerPatientTabSelectedDiagnosisType,
       "All"       = c("All"),
       "Primary"   = api$diagnosis_1o_Factors,
       "Secondary" = api$diagnosis_2o_Factors,
       "1o & 2o"   = c(api$diagnosis_1o_Factors, api$diagnosis_2o_Factors),
-      api$diagnosisSubtypeFactors
+      "Benign"    = api$diagnosis_bn_Factors,
+      "Unknown"   = api$diagnosis_un_Factors,
+      c("All")
     )
+    organ <- tolower(input$cancerPerPatientTabSelectedOrgans)
+    if (organ %in% c("liver", "kidney", "lung")) {
+      prefixed <- all_choices[grepl(paste0("^", organ, ":"), tolower(all_choices))]
+      if (length(prefixed) > 0) return(prefixed)
+    }
+    all_choices
   })
   
   cancerPerPatientDataFiltered <- reactive({
@@ -70,8 +79,12 @@ cancerPerPatientTableServer <- function(input, output, session, isDocker, api)
     if (diagType == "All")
     {
       if (!("All" %in% subtypes))
-        {
-        data <- data[data$Organ %in% subtypes, ]
+      {
+        data <- data[
+          data$Diagnosis1o %in% subtypes |
+            data$Diagnosis2o %in% subtypes |
+            data$DiagnosisUn %in% subtypes,
+        ]
       }
     }
     else if (diagType == "1o & 2o")
@@ -80,11 +93,12 @@ cancerPerPatientTableServer <- function(input, output, session, isDocker, api)
     }
     else
     {
-      data <- switch(substring(diagType, 1, 1),
-                     "P" = data[data$Diagnosis1o %in% subtypes, ],
-                     "S" = data[data$Diagnosis2o %in% subtypes, ],
-                     "U" = data[data$DiagnosisUn %in% subtypes, ],
-                     data
+      data <- switch(
+        substring(diagType, 1, 1),
+        "P" = data[data$Diagnosis1o %in% subtypes, ],
+        "S" = data[data$Diagnosis2o %in% subtypes, ],
+        "U" = data[data$DiagnosisUn %in% subtypes, ],
+        data
       )
     }
     data
@@ -99,15 +113,21 @@ cancerPerPatientTableServer <- function(input, output, session, isDocker, api)
     )
   })
   
-  observeEvent(input$cancerPerPatientTabSelectedDiagnosisType, {
-    choices <- subtypeChoices()
-    updateCheckboxGroupInput(
-      session,
-      "cancerPerPatientTabSelectedSubtypes",
-      choices = choices,
-      selected = choices
-    )
-  }, ignoreInit = FALSE)
+  observeEvent(
+    list(
+      input$cancerPerPatientTabSelectedDiagnosisType,
+      input$cancerPerPatientTabSelectedOrgans
+    ),
+    {
+      updateCheckboxGroupInput(
+        session,
+        "cancerPerPatientTabSelectedSubtypes",
+        choices  = subtypeChoices(),
+        selected = subtypeChoices()
+      )
+    },
+    ignoreInit = FALSE
+  )
   
   observe({
     updateSelectInput(session, "cancerPerPatientTabSelectedOrgans", "Target Organ",

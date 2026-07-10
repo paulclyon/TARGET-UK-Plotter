@@ -60,9 +60,14 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
       ptID   <- filteredSurvivalData$ID[i]
       ptOrgan <- filteredSurvivalData$Organ[i]
       
-      firstLtpDt <- min(cancerPerLesionData$LTPDate[
-        cancerPerLesionData$PtID == ptID & 
-          !is.na(cancerPerLesionData$LTPDate)], na.rm = TRUE)
+      ltpDates <- cancerPerLesionData$LTPDate[
+        cancerPerLesionData$PtID == ptID &
+          !is.na(cancerPerLesionData$LTPDate)
+      ]
+      if (length(ltpDates) == 0) {
+        next
+      }
+      firstLtpDt <- min(ltpDates)
       
       # Restrict to same organ to avoid unrelated Rx elsewhere counting as re-treatment
       laterRxCount <- length(unique(
@@ -155,6 +160,7 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
     add_censor_mark() +
     add_risktable(
       times = year_breaks,
+      risktable_height = 0.35,   # was 0.25 (default) — bump up to give the table more room
       risktable_stats = c(
         "n.risk",
         "{round(estimate * 100, 1)}",
@@ -167,14 +173,20 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
         "{round(conf.low * 100, 1)}" = "Lower 95%",
         "{round(conf.high * 100, 1)}" = "Upper 95%"
       ),
-      size = 5
+      size = 5,
+      theme = theme(
+        axis.text.y  = element_text(size = 14, face = "bold"),
+        axis.title.y = element_blank(),
+        axis.text.x  = element_text(size = 12),
+        axis.title.x = element_blank()   # or size it up if you want to keep "time"
+      )
     ) +
     #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
     scale_ggsurvfit() +
-    coord_cartesian(xlim = c(-0.4, maxYearsFollowup), expand = FALSE) +
-    coord_cartesian(xlim = c(0, maxYearsFollowup)) +
+    coord_cartesian(xlim = c(-0.4, maxYearsFollowup + 0.3), expand = FALSE) +
     labs(title = titleStr, y = "Probability", x = "Time (Years)") +
     theme(
+      plot.margin = margin(10, 20, 10, 10),  # Give a little breathing space so we don't clip values in the risk table
       axis.text = element_text(size = 14),   # axis tick labels
       axis.title = element_text(size = 16)   # axis titles
     )
@@ -246,9 +258,14 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
       ptID   <- filteredSurvivalData$ID[i]
       ptOrgan <- filteredSurvivalData$Organ[i]
       
-      firstLtpDt <- min(cancerPerLesionData$LTPDate[
-        cancerPerLesionData$PtID == ptID & 
-          !is.na(cancerPerLesionData$LTPDate)], na.rm = TRUE)
+      ltpDates <- cancerPerLesionData$LTPDate[
+        cancerPerLesionData$PtID == ptID &
+          !is.na(cancerPerLesionData$LTPDate)
+      ]
+      if (length(ltpDates) == 0) {
+        next
+      }
+      firstLtpDt <- min(ltpDates)
       
       # Restrict to same organ to avoid unrelated Rx elsewhere counting as re-treatment
       laterRxCount <- length(unique(
@@ -279,7 +296,7 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     
     # Get rid of anything which doesn't have the necessary recurrence data, so that we know if its going to be an empty fit before we fit it
     filteredSurvivalData <- filteredSurvivalData |>
-      filter(!is.na(TimeLTPF), !is.na(StatusLTPF))
+      filter(!is.na(TimeLTPF), !is.na(StatusLTPF), TimeLTPF >= 0)
     
     # If no rows to plot, let the user know there is no data
     if (nrow(filteredSurvivalData) == 0) {
@@ -434,6 +451,7 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     add_censor_mark() +
     add_risktable(
       times = year_breaks,
+      risktable_height = 0.35,   # was 0.25 (default) — bump up to give the table more room
       risktable_stats = c(
         "n.risk",
         "{round(estimate * 100, 1)}",
@@ -446,17 +464,22 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
         "{round(conf.low * 100, 1)}" = "Lower 95%",
         "{round(conf.high * 100, 1)}" = "Upper 95%"
       ),
-      size = 5
+      size = 5,
+      theme = theme(
+        axis.text.y  = element_text(size = 14, face = "bold"),
+        axis.title.y = element_blank(),
+        axis.text.x  = element_text(size = 12),
+        axis.title.x = element_blank()   # or size it up if you want to keep "time"
+      )
     ) +
     #  #add_quantile(y_value = 0.6, color = "gray50", linewidth = 0.75) +
     scale_ggsurvfit() +
-    #scale_x_continuous(breaks = year_breaks, expand = c(0, 0)) + 
-    coord_cartesian(xlim = c(-0.4, maxYearsFollowup), expand = FALSE) +
-    #coord_cartesian(xlim = c(minYearsFollowup, maxYearsFollowup)) +
+    coord_cartesian(xlim = c(-0.4, maxYearsFollowup + 0.3), expand = FALSE) +
     labs(title = titleStr, y = "Probability", x = "Time (Years)") +
     theme(
+      plot.margin = margin(10, 70, 10, 10),  # Give a little breathing space so we don't clip values in the risk table
       axis.text = element_text(size = 14),   # axis tick labels
-      axis.title = element_text(size = 16)   # axis titles
-    )
+      axis.title.y = element_blank()
+      )
   recurrencePlot
 }

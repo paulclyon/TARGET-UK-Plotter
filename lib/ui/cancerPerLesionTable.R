@@ -40,14 +40,22 @@ cancerPerLesionTableServer <- function(input, output, session, isDocker, api)
   
   subtypeChoices <- reactive({
     req(input$cancerPerLesionTabSelectedDiagnosisType)
-    switch(
+    req(input$cancerPerLesionTabSelectedOrgans)
+    all_choices <- switch(
       input$cancerPerLesionTabSelectedDiagnosisType,
-      "All"       = c("All"),
+      "All"       = api$diagnosisSubtypeFactors,
       "Primary"   = api$diagnosis_1o_Factors,
       "Secondary" = api$diagnosis_2o_Factors,
       "1o & 2o"   = c(api$diagnosis_1o_Factors, api$diagnosis_2o_Factors),
+      "Unknown"   = api$diagnosis_un_Factors,
       api$diagnosisSubtypeFactors
     )
+    organ <- tolower(input$cancerPerLesionTabSelectedOrgans)
+    if (organ %in% c("kidney", "lung", "liver")) {
+      organ_choices <- all_choices[grepl(paste0("^", organ, ":"), tolower(all_choices))]
+      if (length(organ_choices) > 0) return(organ_choices)
+    }
+    all_choices
   })
   
   cancerPerLesionDataFiltered <- reactive({
@@ -69,9 +77,10 @@ cancerPerLesionTableServer <- function(input, output, session, isDocker, api)
     
     if (diagType == "All")
     {
-      if (!("All" %in% subtypes))
-        {
-        data <- data[data$Organ %in% subtypes, ]
+      if (!("All" %in% subtypes)) {
+        data <- data[data$Diagnosis1o %in% subtypes |
+                       data$Diagnosis2o %in% subtypes |
+                       data$DiagnosisUn %in% subtypes, ]
       }
     }
     else if (diagType == "1o & 2o")
@@ -99,15 +108,22 @@ cancerPerLesionTableServer <- function(input, output, session, isDocker, api)
     )
   })
   
-  observeEvent(input$cancerPerLesionTabSelectedDiagnosisType, {
-    choices <- subtypeChoices()
-    updateCheckboxGroupInput(
-      session,
-      "cancerPerLesionTabSelectedSubtypes",
-      choices = choices,
-      selected = choices
-    )
-  }, ignoreInit = FALSE)
+  observeEvent(
+    list(
+      input$cancerPerLesionTabSelectedDiagnosisType,
+      input$cancerPerLesionTabSelectedOrgans
+    ),
+    {
+      choices <- subtypeChoices()
+      updateCheckboxGroupInput(
+        session,
+        "cancerPerLesionTabSelectedSubtypes",
+        choices = choices,
+        selected = choices
+      )
+    },
+    ignoreInit = FALSE
+  )
   
   observe({
     updateSelectInput(session, "cancerPerLesionTabSelectedOrgans", "Target Organ",

@@ -1,3 +1,13 @@
+# So when the Diagnosis1o is NA or blank, to avoid it getting lost as a subtype in later analyses change NA as follows:
+# e.g. Kidney/NA becomes Kidney/Kidney: Unspecified
+fixDx1o <- function(org, dx) {
+  org <- as.character(org)
+  dx  <- as.character(dx)
+  dx <- trimws(dx)
+  dx[is.na(dx) | dx == ""] <- paste0(org[is.na(dx) | dx == ""], ": Unspecified")
+  dx
+}
+
 # Post-process the processed data
 postProcessData <- function()
 {
@@ -49,16 +59,9 @@ postProcessData <- function()
       FreeText      = rxdone_freetext_list
     )
     
-    # So when the Diagnosis1o is NA or blank, to avoid it getting lost as a subtype in later analyses change NA as follows:
-    # e.g. Kidney/NA becomes Kidney/Kidney: No Diagnosis
-    rxDoneData <<- rxDoneData |>
-      mutate(
-        Diagnosis1o = if_else(
-          is.na(Diagnosis1o) | trimws(Diagnosis1o) == "",
-          paste0(Organ, ": No Diagnosis"),
-          Diagnosis1o
-        )
-      )
+    # e.g. Kidney/NA becomes Kidney/Kidney: Unspecified
+    rxDoneData <<- rxDoneData |> mutate(Diagnosis1o = fixDx1o(Organ, Diagnosis1o))
+    
   } else {
     rxDoneData <<- NA
   }
@@ -163,20 +166,44 @@ postProcessData <- function()
       LostToFUDate                 = asDateWithOrigin(survival_lost_to_fu_date)
     )
     
-    # So when the Diagnosis1o is NA or blank, to avoid it getting lost as a subtype in later analyses change NA as follows:
-    # e.g. Kidney/NA becomes Kidney/Kidney: No Diagnosis
-    allData <<- allData |>
-      mutate(
-        Diagnosis1o = if_else(
-          is.na(Diagnosis1o) | trimws(Diagnosis1o) == "",
-          paste0(Organ, ": No Diagnosis"),
-          Diagnosis1o
-        )
-      )
+    # There was an issue ...
+    # When computing TimeLTPF, use a cascade of fallback dates for censoring
+    # Use a proper Date fallback chain
+    censorDate <- dplyr::coalesce(
+      allData$LastImagingDate,
+      allData$LastKnownAlive,
+      allData$DeceasedDate,
+      allData$FirstRxDate   # final fallback: censor at time 0 if no follow-up exists
+    )
+    eventOrCensorDate <- dplyr::coalesce(
+      allData$FirstLTPDate,
+      censorDate
+    )
+    allData$TimeLTPF <- as.numeric(difftime(
+      eventOrCensorDate,
+      allData$FirstRxDate,
+      units = "days"
+    )) / 365.25
+    allData$StatusLTPF <- ifelse(!is.na(allData$FirstLTPDate), 2L, 1L)
+    
+    # e.g. Kidney/NA becomes Kidney/Kidney: Unspecified
+    allData <<- allData |> mutate(Diagnosis1o = fixDx1o(Organ, Diagnosis1o))
     
     # Now clean up the data into individual cancer and benign tables
+    allData$Organ <- as.character(allData$Organ)
+    allData$Diagnosis1o <- as.character(allData$Diagnosis1o)     # Force Diagnosis1o to be a plain character vector
+    
+    # Replace missing / blank primary diagnosis with "<Organ>: Unspecified"
+    ix <- is.na(allData$Diagnosis1o) | trimws(allData$Diagnosis1o) == ""
+    allData$Diagnosis1o[ix] <- paste0(allData$Organ[ix], ": Unspecified")
     cancerPerPatientData <<- allData[!is.na(allData$DiagnosisType) & allData$DiagnosisType != "B", ]
     cancerPerPatientData <<- cancerPerPatientData[, !colnames(cancerPerPatientData) %in% c("DiagnosisBn")]
+    
+    # Rebuild subtype lists from the cleaned table
+    diagnosis_1o_Factors <<- sort(unique(na.omit(cancerPerPatientData$Diagnosis1o)))
+    diagnosis_2o_Factors <<- sort(unique(na.omit(cancerPerPatientData$Diagnosis2o)))
+    diagnosis_un_Factors <<- sort(unique(na.omit(cancerPerPatientData$DiagnosisUn)))
+    
     benignData <<- allData[!is.na(allData$DiagnosisType) & allData$DiagnosisType == "B", ]
     benignData <<- benignData[, !colnames(benignData) %in% c("Diagnosis1o", "Diagnosis2o", "LTPCountMax", "TimeLTPF", "StatusLTPF", "TimeLTPFOS", "StatusLTPFOS", "TimeLTPFCSS", "StatusLTPFCSS")]
     
