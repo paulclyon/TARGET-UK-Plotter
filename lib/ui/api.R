@@ -293,6 +293,16 @@ apiServer <- function(input, output, session)
   
   output$apiStatus <- renderAPIStatus(api)
   
+  observeEvent(input$connectAPI, {
+    shinyjs::disable("connectAPI")
+    on.exit(shinyjs::enable("connectAPI"), add = TRUE)
+    
+    ok <- connectAPIEvent(input, api)
+    if (!isTRUE(ok)) return()
+    
+    apiConnectedEvent(session, api)
+  })
+  
   observeEvent(input$connectLoadAPI, {
     shinyjs::disable("connectLoadAPI")
     on.exit(shinyjs::enable("connectLoadAPI"), add = TRUE)
