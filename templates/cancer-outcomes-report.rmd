@@ -101,6 +101,21 @@ if (!exists("makeRecurrencePlot", mode = "function")) {
   stop("makeRecurrencePlot() is not available in the report environment. Source the app plotting methods before rendering this Rmd.")
 }
 
+DEBUG_MODE <- toupper(Sys.getenv("DEBUG_MODE", unset = "FALSE")) == "TRUE"
+
+debug_log <- function(...) {
+  if (isTRUE(DEBUG_MODE)) {
+    cat(sprintf(...), "\n", file = stderr(), sep = "")
+  }
+}
+
+debug_table <- function(label, x) {
+  if (isTRUE(DEBUG_MODE)) {
+    cat(label, "\n", file = stderr(), sep = "")
+    cat(capture.output(print(table(x, useNA = "ifany"))), sep = "\n", file = stderr())
+  }
+}
+
 filter_by_report_diagnosis <- function(d, report_diagnosis_type, report_subtypes) {
   if (!is.data.frame(d) || nrow(d) == 0) return(d)
   if (is.null(report_diagnosis_type) || identical(report_diagnosis_type, "All")) return(d)
@@ -168,6 +183,48 @@ normalise_organs <- function(x) {
 report_organs <- normalise_organs(report_organs)
 
 filter_patient_rows <- function(df) {
+  if (!is.data.frame(df) || nrow(df) == 0) return(df)
+
+  n0 <- nrow(df)
+  debug_log("[FUNNEL] Start: %d rows", n0)
+
+  d <- df |> filter(!is.na(FirstRxDate))
+  debug_log("[FUNNEL] After non-NA FirstRxDate: %d (dropped %d)", nrow(d), n0 - nrow(d))
+
+  n1 <- nrow(d)
+  d <- d |> filter(FirstRxDate >= reportStart, FirstRxDate <= reportEnd)
+  debug_log("[FUNNEL] After date range (%s to %s): %d (dropped %d)",
+            reportStart, reportEnd, nrow(d), n1 - nrow(d))
+
+  if (!identical(report_organs, "All")) {
+    n2 <- nrow(d)
+    d <- d |> filter(Organ %in% report_organs)
+    debug_log("[FUNNEL] After organ filter (%s): %d (dropped %d)",
+              paste(report_organs, collapse=","), nrow(d), n2 - nrow(d))
+  }
+
+  n3 <- nrow(d)
+  d_before_diag <- d
+  d <- filter_by_report_diagnosis(d, report_diagnosis_type, report_subtypes)
+  debug_log("[FUNNEL] After diagnosis/subtype filter (%s / %s): %d (dropped %d)",
+            report_diagnosis_type, paste(report_subtypes, collapse=","), nrow(d), n3 - nrow(d))
+
+  if (isTRUE(DEBUG_MODE)) {
+    dropped_rows <- dplyr::anti_join(d_before_diag, d, by = "ID")
+    debug_table("[FUNNEL] Breakdown of dropped rows by DiagnosisType:", dropped_rows$DiagnosisType)
+  }
+
+  if (!identical(report_modality, "All")) {
+    n4 <- nrow(d)
+    d <- d |> filter(grepl(report_modality, RxModalities, fixed = TRUE))
+    debug_log("[FUNNEL] After modality filter (%s): %d (dropped %d)",
+              report_modality, nrow(d), n4 - nrow(d))
+  }
+  
+  d
+}
+
+filter_patient_rows.old <- function(df) {
   if (!is.data.frame(df) || nrow(df) == 0) return(df)
 
   d <- df |>
@@ -273,12 +330,25 @@ patient_data <- if (exists("cancerPerPatientData") && is.data.frame(cancerPerPat
 }
 
 if (nrow(patient_data) > 0) {
+  n_before_size <- nrow(patient_data)
   patient_data <- filter_by_tumour_size(
     patient_data,
     "MaxTumourSize",
     report_min_tumour_size,
     report_max_tumour_size
   )
+  if (isTRUE(DEBUG_MODE)) {
+    cat(sprintf("[FUNNEL] After tumour size filter (%s-%s mm): %d (dropped %d)\n",
+            report_min_tumour_size, report_max_tumour_size, nrow(patient_data), n_before_size - nrow(patient_data)),
+    file = stderr())
+    missing_ltp_data <- patient_data |> filter(is.na(TimeLTPF) | is.na(StatusLTPF))
+    debug_log("[FUNNEL] Of %d final patients, %d are missing TimeLTPF/StatusLTPF", nrow(patient_data), nrow(missing_ltp_data))
+    
+    if (nrow(missing_ltp_data) > 0) {
+      debug_log("[FUNNEL] Missing-outcome patient ID(s): %s", paste(missing_ltp_data$ID, collapse = ", "))
+    }
+  }
+  
 
   # Derive the bare patient ID (referral suffix stripped) unconditionally -
   # lesion_data and ae_data are keyed on PtID without the "-N" referral
@@ -397,6 +467,13 @@ rxDoneReferralLevel <- if (exists("rxDoneData") && is.data.frame(rxDoneData)) {
 }
 
 meanTreatmentsPerPatient <-
+  rxDoneReferralLevel |>
+  mutate(PtID = sub("-[0-9]+$", "", ID)) |>
+  count(PtID) |>
+  summarise(mean = mean(n, na.rm = TRUE)) |>
+  pull(mean)
+
+meanReferralsPerPatient <-
   rxDoneReferralLevel |>
   mutate(PtID = sub("-[0-9]+$", "", ID)) |>
   count(PtID) |>
@@ -567,8 +644,8 @@ overview_tbl <- tibble::tibble(
   Metric = c(
     "Patients",
     "Tumours treated",
-    "Mean treatments per referral",
-    "Mean tumours ablated per treatment",
+    "Mean referrals per patient",
+    "Mean tumours treated per patient",
     "Median tumour size (mm)",
     "SD tumour size (mm)",
     paste0(report_max_years_followup, "-year OS"),
@@ -579,7 +656,7 @@ overview_tbl <- tibble::tibble(
   Value = c(
     nrow(patient_data),
     nrow(lesion_data),
-    round(meanTreatmentsPerPatient, 2),
+    round(meanReferralsPerPatient, 2),
     round(meanTumoursPerPatient, 2),
     round(tumour_summary$median[1], 1),
     round(tumour_summary$sd[1], 1),
@@ -724,6 +801,8 @@ ggplot(
     selectedModality = report_modality,
     minMonthsFollowup = report_min_months_followup,
     maxYearsFollowup = report_max_years_followup,
+    minTumourSize = report_min_tumour_size,
+    maxTumourSize = report_max_tumour_size,
     ignoreFirstLTP = FALSE,
     ltpAnalysisUnit = "patient"
   )
@@ -740,6 +819,8 @@ ggplot(
       selectedModality = report_modality,
       minMonthsFollowup = report_min_months_followup,
       maxYearsFollowup = report_max_years_followup,
+      minTumourSize = report_min_tumour_size,
+      maxTumourSize = report_max_tumour_size,
       ignoreFirstLTP = TRUE,
       ltpAnalysisUnit = "patient"
     )
@@ -757,6 +838,8 @@ makeRecurrencePlot(
   selectedModality = report_modality,
   minMonthsFollowup = report_min_months_followup,
   maxYearsFollowup = report_max_years_followup,
+  minTumourSize = report_min_tumour_size,
+  maxTumourSize = report_max_tumour_size,
   ignoreFirstLTP = FALSE,
   ltpAnalysisUnit = "lesion"
 )
@@ -773,6 +856,8 @@ if (report_include_ignore_first_ltp)
     selectedModality = report_modality,
     minMonthsFollowup = report_min_months_followup,
     maxYearsFollowup = report_max_years_followup,
+    minTumourSize = report_min_tumour_size,
+    maxTumourSize = report_max_tumour_size,
     ignoreFirstLTP = TRUE,
     ltpAnalysisUnit = "lesion"
   )
@@ -793,6 +878,8 @@ if (report_include_ignore_first_ltp)
     survivalType = 0,
     minMonthsFollowup = report_min_months_followup,
     maxYearsFollowup = report_max_years_followup,
+    minTumourSize = report_min_tumour_size,
+    maxTumourSize = report_max_tumour_size,
     ignoreFirstLTP = FALSE
   )
 
@@ -808,6 +895,8 @@ if (report_include_ignore_first_ltp)
     survivalType = 0,
     minMonthsFollowup = report_min_months_followup,
     maxYearsFollowup = report_max_years_followup,
+    minTumourSize = report_min_tumour_size,
+    maxTumourSize = report_max_tumour_size,
     ignoreFirstLTP = TRUE
   )
 }
@@ -826,6 +915,8 @@ if (report_include_ignore_first_ltp)
     survivalType = 2,
     minMonthsFollowup = report_min_months_followup,
     maxYearsFollowup = report_max_years_followup,
+    minTumourSize = report_min_tumour_size,
+    maxTumourSize = report_max_tumour_size,
     ignoreFirstLTP = FALSE
   )
 
@@ -842,6 +933,8 @@ if (report_include_ignore_first_ltp)
     survivalType = 2,
     minMonthsFollowup = report_min_months_followup,
     maxYearsFollowup = report_max_years_followup,
+    minTumourSize = report_min_tumour_size,
+    maxTumourSize = report_max_tumour_size,
     ignoreFirstLTP = TRUE
   )
 }

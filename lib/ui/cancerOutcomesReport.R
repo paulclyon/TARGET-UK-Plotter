@@ -31,23 +31,13 @@ cancerOutcomesReportTab <- function(id = NULL) {
       ),
       column(
         width = 3,
-        checkboxInput("recurrenceAllow2Rx", "Include additional LTP plots allowing 2xRx before LTP", value = TRUE),
         selectInput(
           "cancerReportSelectedOrgans",
           "Organ",
           choices = character(0),
           selected = NULL
         ),
-        selectInput("cancerReportSelectedDiagnosisType", "Diagnosis Type", choices = diagnosis_type_Factors)
-      ),
-      column(
-        width = 3,
-        checkboxGroupInput(
-          ns("cancerReportSelectedSubtypes"),
-          "Subtypes",
-          choices = character(0),
-          selected = character(0)
-        ),
+        selectInput("cancerReportSelectedDiagnosisType", "Diagnosis Type", choices = diagnosis_type_Factors),
         sliderInput(
           "cancerReportTumourSizeRange",
           "Tumour Size (mm)",
@@ -56,13 +46,23 @@ cancerOutcomesReportTab <- function(id = NULL) {
       ),
       column(
         width = 3,
+        checkboxGroupInput(
+          ns("cancerReportSelectedSubtypes"),
+          "Subtypes",
+          choices = character(0),
+          selected = character(0)
+        )
+      ),
+      column(
+        width = 3,
+        checkboxInput("recurrenceAllow2Rx", "Include additional LTP plots allowing 2xRx before LTP", value = TRUE),
+        checkboxInput("cancerReportAnonymised", "Anonymise Report", value = TRUE),
         div(
           class = "report-buttons",
           actionButton(ns("buttonRunCancerReport"), "Generate Report", class = "btn-primary"),
           downloadButton(ns("buttonCancerReportToPDF"), "Report to PDF"),
           downloadButton(ns("buttonCancerReportToDoc"), "Report to Doc")
-        ),
-        checkboxInput("cancerReportAnonymised", "Anonymise Report", value = TRUE)
+        )
       )
     )),
     wellPanel(
@@ -120,9 +120,9 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
     tryCatch(
       {
         # Clear the old HTML file if it exists...
-        if (file.exists(mdReportFile)) {
-          showNotification(paste("Cleaning out the old HTML file '", mdReportFile, "'", sep = ""))
-          file.remove(mdReportFile)
+        if (file.exists(mdCancerOutcomesReportFile)) {
+          showNotification(paste("Cleaning out the old HTML file '", mdCancerOutcomesReportFile, "'", sep = ""))
+          file.remove(mdCancerOutcomesReportFile)
         }
         
         # This does the knitting bit ready to make the HTML by running the knit function
@@ -171,6 +171,22 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
       report_cancer_anonymised        = input$cancerReportAnonymised
     ))
   }
+  
+  observe({
+    sizes <- as.numeric(api$cancerPerPatientData$MaxTumourSize)
+    sizes <- sizes[!is.na(sizes)]
+    if (length(sizes) > 0) {
+      dataMin <- floor(min(sizes))
+      dataMax <- ceiling(max(sizes))
+      updateSliderInput(
+        session,
+        "cancerReportTumourSizeRange",
+        min   = dataMin,
+        max   = dataMax,
+        value = c(dataMin, dataMax)
+      )
+    }
+  })
   
   observeEvent(input$buttonRunCancerReport, {
     currentReportParams(buildReportParamsFromInputs())

@@ -20,21 +20,16 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
   
   if (selectedDiagnosisType == "All")
   {
-    if (! "All" %in% selectedSubtypes)
-    {
-      # This just removes all rows as no Organ is All, and therefore we get the error message for the blank plot
-      filteredSurvivalData <<- filteredSurvivalData |> filter(Organ %in% selectedSubtypes)
-    }
+    # no diagnosis filter here
   }
   else
   {
     # We just want to use the first letter of what is selected in the GUI e.g. P(rimary) to match the EDC data
     #filteredSurvivalData <<- filteredSurvivalData |> filter(DiagnosisType == substring(selectedDiagnosisType, 1, 1))
     filteredSurvivalData <<- switch(substring(selectedDiagnosisType, 1, 1),
-                                    "P" = filteredSurvivalData |> filter(Diagnosis1o %in% selectedSubtypes),
-                                    "S" = filteredSurvivalData |> filter(Diagnosis2o %in% selectedSubtypes),
-                                    "B" = filteredSurvivalData |> filter(DiagnosisBn %in% selectedSubtypes),
-                                    "U" = filteredSurvivalData |> filter(DiagnosisUn %in% selectedSubtypes)
+                                    "P" = filteredSurvivalData |> filter(DiagnosisType == "P", Diagnosis1o %in% selectedSubtypes),
+                                    "S" = filteredSurvivalData |> filter(DiagnosisType == "S", Diagnosis2o %in% selectedSubtypes),
+                                    "U" = filteredSurvivalData |> filter(DiagnosisType == "U", DiagnosisUn %in% selectedSubtypes)
     )
   }
   
@@ -229,10 +224,10 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
   else
   {
     filteredSurvivalData <<- switch(substring(selectedDiagnosisType, 1, 1),
-                                    "P" = filteredSurvivalData |> filter(Diagnosis1o %in% selectedSubtypes),
-                                    "S" = filteredSurvivalData |> filter(Diagnosis2o %in% selectedSubtypes),
-                                    "B" = filteredSurvivalData |> filter(DiagnosisBn %in% selectedSubtypes),
-                                    "U" = filteredSurvivalData |> filter(DiagnosisUn %in% selectedSubtypes)
+                                    "P" = filteredSurvivalData |> filter(DiagnosisType == "P", Diagnosis1o %in% selectedSubtypes),
+                                    "S" = filteredSurvivalData |> filter(DiagnosisType == "S", Diagnosis2o %in% selectedSubtypes),
+                                    "B" = filteredSurvivalData |> filter(DiagnosisType == "B", DiagnosisBn %in% selectedSubtypes),
+                                    "U" = filteredSurvivalData |> filter(DiagnosisType == "U", DiagnosisUn %in% selectedSubtypes)
     )
   }
   
@@ -338,6 +333,11 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     # Apply filters to per-lesion data matching those applied to per-patient data above
     filteredPerLesionData <- cancerPerLesionData[
       cancerPerLesionData$RxDate >= start & cancerPerLesionData$RxDate <= end, ]
+    
+    keep_ids <- unique(sub("-[0-9]+$", "", filteredSurvivalData$ID))
+    filteredPerLesionData <- filteredPerLesionData[
+      filteredPerLesionData$PtID %in% keep_ids, ]
+    
     filteredPerLesionData <- filteredPerLesionData[
       filteredPerLesionData$Gender %in% selectedGenders, ]
     
@@ -346,8 +346,7 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     
     if (selectedDiagnosisType == "All")
     {
-      if (!"All" %in% selectedSubtypes)
-        filteredPerLesionData <- filteredPerLesionData[filteredPerLesionData$Organ %in% selectedSubtypes, ]
+      # no diagnosis filter here
     }
     else if (selectedDiagnosisType == "1o & 2o")
     {
@@ -363,6 +362,11 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
                                       "U" = filteredPerLesionData[filteredPerLesionData$DiagnosisUn %in% selectedSubtypes, ],
                                       filteredPerLesionData
       )
+    }
+    
+    if (selectedModality != "All") {
+      filteredPerLesionData <- filteredPerLesionData[
+        grepl(selectedModality, filteredPerLesionData$RxModalities, fixed = TRUE), ]
     }
     
     # Filter by tumour size if specified — episodes with no recorded size are kept

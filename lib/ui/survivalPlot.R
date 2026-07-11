@@ -14,7 +14,7 @@ survivalPlotTab <- function()
         ),
         conditionalPanel(
           condition = "input.survivalLTPFSRadio == '2' || input.survivalLTPFSRadio == '3'",
-          checkboxInput("survivalAllow2Rx", "Allow 2xRx before LTP", value = TRUE)
+          checkboxInput("survivalAllow2Rx", "Ignore first LTP if ok after re-Rx", value = TRUE)
         ),
         radioButtons(
           "survivalLTPFSRadio",
@@ -187,7 +187,7 @@ survivalPlotServer <- function(input, output, session, api, plots)
   
   # Update tumour size slider range dynamically based on actual data
   observe({
-    sizes <- as.numeric(api$cancerPerPatientData$survival_max_tumour_size)  # adjust column name to match your data frame
+    sizes <- as.numeric(api$cancerPerPatientData$MaxTumourSize)  # adjust column name to match your data frame
     sizes <- sizes[!is.na(sizes)]
     if (length(sizes) > 0) {
       dataMin <- floor(min(sizes))

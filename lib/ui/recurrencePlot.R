@@ -41,7 +41,7 @@ recurrencePlotTab <- function()
         # ignore LTP events where LesionNo refers to a lesion that was being ablated for the first time — i.e. where
         # there was no prior local therapy at that site. But that information isn't currently stored in cancerPerLesionData,
         # and we are not currently mixing the two tables - simplist way is to just hide it unless per patient analysis.
-        checkboxInput("recurrenceAllow2Rx", "Ignore first LTP managed by re-Rx", value = TRUE)
+        checkboxInput("recurrenceAllow2Rx", "Ignore first LTP if ok after re-Rx", value = TRUE)
       ),
       column(
         width = 4,
@@ -162,7 +162,7 @@ recurrencePlotServer <- function(input, output, session, api, plots)
   })
   
   observe({
-    sizes <- as.numeric(api$cancerPerPatientData$survival_max_tumour_size)  # adjust column name to match your data frame
+    sizes <- as.numeric(api$cancerPerPatientData$MaxTumourSize)
     sizes <- sizes[!is.na(sizes)]
     if (length(sizes) > 0) {
       dataMin <- floor(min(sizes))

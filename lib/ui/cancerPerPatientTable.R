@@ -95,9 +95,9 @@ cancerPerPatientTableServer <- function(input, output, session, isDocker, api)
     {
       data <- switch(
         substring(diagType, 1, 1),
-        "P" = data[data$Diagnosis1o %in% subtypes, ],
-        "S" = data[data$Diagnosis2o %in% subtypes, ],
-        "U" = data[data$DiagnosisUn %in% subtypes, ],
+        "P" = data[data$DiagnosisType == "P" & data$Diagnosis1o %in% subtypes, ],
+        "S" = data[data$DiagnosisType == "S" & data$Diagnosis2o %in% subtypes, ],
+        "U" = data[data$DiagnosisType == "U" & data$DiagnosisUn %in% subtypes, ],
         data
       )
     }
