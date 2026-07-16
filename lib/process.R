@@ -344,11 +344,13 @@ processData <- function()
             }
             else
             {
-              # ltp is FALSE (no LTP) — ltp.list should be empty, warn if not
               if ("ltp.list" %in% colnames(imaging.df))
               {
                 thisLTPLesionIDs <- imaging.df$ltp.list[j]
-                if (!is.null(thisLTPLesionIDs) && !is.na(thisLTPLesionIDs) && trimws(thisLTPLesionIDs) != "")
+                if (!is.null(thisLTPLesionIDs) && 
+                    !is.na(thisLTPLesionIDs) && 
+                    trimws(thisLTPLesionIDs) != "" &&
+                    trimws(thisLTPLesionIDs) != "0")   # "0" is a common placeholder — ignore silently
                 {
                   addDataIntegrityError(ptID, date=thisImagingDate,
                                         error=paste("ltp.list = '", thisLTPLesionIDs,

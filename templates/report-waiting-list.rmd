@@ -14,6 +14,8 @@ params:
   first_ref_date: !r Sys.Date() - 365*2
   last_ref_date:  !r Sys.Date() + 365
   report_organs: ["Liver", "Lung", "Kidney", "Adrenal", "Other"]
+  report_wait_anonymised: TRUE
+
 ---
 
 
@@ -37,12 +39,13 @@ report_organs     <- params$report_organs
 tciStart          <- as.Date(tci_start_date)
 reportStart       <- as.Date(report_start_date)
 reportEnd         <- as.Date(report_end_date)
+reportAnonymised  <- isTRUE(params$report_wait_anonymised)
 
 #output_dir <- file.path("..",Sys.getenv("REPORT_OUTPUT_DIR"))
 output_dir <- tempdir()
 out_html   <- file.path(output_dir,"tci_calendar.html")
 out_pdf    <- file.path(output_dir,"tci_calendar.pdf")
-            
+  
 # Remove Dummy patient numbers from the data
 rxWaitReportData <- rxWaitData |>
   filter((ID != "000-1" & ID != "00000-1" & ID != "000000-1"))
@@ -69,10 +72,19 @@ rxWaitReportData <- rxWaitReportData |>
     TciDate_raw = TciDate,
     across(
       .cols = setdiff(date_cols, "TciDate"),
-      .fns  = ~ format(.x, "%d-%m-%Y")
+      .fns = function(x) {
+        if (reportAnonymised) {
+          anonymise_date(x)
+        } else {
+          format(x, "%d-%m-%Y")
+        }
+      }
     ),
     TciDate = cell_spec(
-      format(TciDate_raw, "%d-%m-%Y"),
+      if (reportAnonymised)
+        anonymise_date(TciDate_raw)
+      else
+        format(TciDate_raw, "%d-%m-%Y"),
       color = ifelse(
         is.na(TciDate_raw), "black",
         ifelse(TciDate_raw < Sys.Date(), "#90EE90", "black")
@@ -81,24 +93,25 @@ rxWaitReportData <- rxWaitReportData |>
     )
   ) |>
   select(-TciDate_raw)
+    
+  rxClockStopData <- subset(rxWaitData, select = c(ID, ClockStopDaysPreDTT, ClockStopDaysPostDTT, ClockStopWhy ))
+  rxClockStopData <- dplyr::filter(rxClockStopData, !is.na(ClockStopDaysPreDTT) | !is.na(ClockStopDaysPostDTT))
   
-rxClockStopData <- subset(rxWaitData, select = c(ID, ClockStopDaysPreDTT, ClockStopDaysPostDTT, ClockStopWhy ))
-rxClockStopData <- dplyr::filter(rxClockStopData, !is.na(ClockStopDaysPreDTT) | !is.na(ClockStopDaysPostDTT))
+  # Remove the Ref_DTT column to save space
+  rxWaitReportData <- subset(rxWaitReportData, select = -c(Ref_DTT))
+  
+  # Rename column DaysWaiting to DaysSinceReferral so its clearer
+  rxWaitReportData <- rxWaitReportData %>% rename(DaysSinceReferral = DaysWaiting)
+  
+  # Sort by TCI date
+  # rxWaitReportData <- rxWaitReportData %>% arrange(desc(TciDate))
+  
+  # Sort by Patient ID
+  #rxWaitReportData <- rxWaitReportData %>% arrange(order(ID))
+  rxWaitReportData <- rxWaitReportData %>% arrange(ID)
+  generatedTime <- format(Sys.time(), "%a %b %d %X %Y")
 
-# Remove the Ref_DTT column to save space
-rxWaitReportData <- subset(rxWaitReportData, select = -c(Ref_DTT))
 
-# Rename column DaysWaiting to DaysSinceReferral so its clearer
-rxWaitReportData <- rxWaitReportData %>% rename(DaysSinceReferral = DaysWaiting)
-
-# Sort by TCI date
-# rxWaitReportData <- rxWaitReportData %>% arrange(desc(TciDate))
-
-# Sort by Patient ID
-#rxWaitReportData <- rxWaitReportData %>% arrange(order(ID))
-rxWaitReportData <- rxWaitReportData %>% arrange(ID)
-
-generatedTime <- format(Sys.time(), "%a %b %d %X %Y")
 ```
 
 <!-- PCL: I had to do an ugly global variable hack to get report_start_date and report_end_date visible from this file, but it works-->
@@ -109,6 +122,7 @@ Organs included: `r paste(report_organs)`<br>
 
 ```{r echo = FALSE, results = 'asis'}
 if (nrow(rxWaitReportData) > 0) {
+  if (reportAnonymised) if ("ID" %in% names(rxWaitReportData)) rxWaitReportData$ID <- anonymise_ptid(rxWaitReportData$ID)
   options(knitr.kable.NA = "")
   kbl(
     rxWaitReportData,
@@ -136,6 +150,7 @@ Notes on TCI Table:
 ```{r echo = FALSE,  results = 'asis'}
 if (nrow(rxClockStopData) > 0)
 {
+  if (reportAnonymised) if ("ID" %in% names(rxClockStopData)) rxClockStopData$ID <- anonymise_ptid(rxClockStopData$ID)
   kbl(rxClockStopData, caption=paste('Waiting List Clock Stops (Created ',generatedTime,')',sep="")) %>%
     kable_styling()
 }
@@ -169,8 +184,8 @@ if (isChromeInstalled())
   tciNextMonth <- tciThisMonth %m+% months(1)
 
   # Create two widgets
-  cal_this_month <- makeTciCalendar(reportStart, tciThisMonth, report_organs, TRUE, FALSE)
-  cal_next_month <- makeTciCalendar(reportStart, tciNextMonth, report_organs, TRUE, FALSE)
+  cal_this_month <- makeTciCalendar(reportStart, tciThisMonth, report_organs, TRUE, FALSE, anonymised = reportAnonymised)
+  cal_next_month <- makeTciCalendar(reportStart, tciNextMonth, report_organs, TRUE, FALSE, anonymised = reportAnonymised)
 
   # Output dir and file paths (unique)
   output_dir <- tempdir()
@@ -288,11 +303,11 @@ makeWaitingListPlot(report_start_date, report_end_date, report_organs)
 
 Includes both treated and TCI dates for all organs<br>
 ```{r tciCalendarThisYear, echo = FALSE, warning = FALSE}
-makeCalendarHeatmap(report_start_date, report_organs, TRUE)
+makeCalendarHeatmap(report_start_date, report_organs, TRUE, anonymised = reportAnonymised)
 ```
 
 ```{r tciCalendarNextYear, echo = FALSE, warning = FALSE}
-makeCalendarHeatmap(as.Date(report_start_date) + 365, report_organs, TRUE)
+makeCalendarHeatmap(as.Date(report_start_date) + 365, report_organs, TRUE, anonymised = reportAnonymised)
 ```
 
 

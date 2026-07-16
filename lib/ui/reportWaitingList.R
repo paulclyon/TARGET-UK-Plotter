@@ -23,6 +23,7 @@ reportWaitingListTab <- function(id = NULL) {
       ),
       column(
         width = 3,
+        checkboxInput("reportWaitAnonymised", "Anonymise Report", value = TRUE),
         div(
           class = "report-buttons",
           actionButton(("buttonRunReport"), "Generate Report", class = "btn-primary"),
@@ -106,10 +107,11 @@ reportServer <- function(input, output, session, api, plots)
   # Helper to build params list (avoids duplication)
   make_params <- function() {
     list(
-      tci_start_date = input$reportDate0,
-      first_ref_date = input$reportDate1,
-      last_ref_date  = input$reportDate2,
-      report_organs  = input$organReportCheckbox
+      tci_start_date         = input$reportDate0,
+      first_ref_date         = input$reportDate1,
+      last_ref_date          = input$reportDate2,
+      report_organs          = input$organReportCheckbox,
+      report_wait_anonymised = input$reportWaitAnonymised
     )
   }
   

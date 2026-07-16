@@ -252,22 +252,24 @@ postProcessData <- function()
         )
       }
       
-      # This is a temporary holding place to help with the merge so we can expand to per-lesion episode data and then merge on three keys
-      rxLesions <- do.call(rbind, lapply(seq_len(nrow(rxEpisodes)), function(i) {
-        nTumours <- suppressWarnings(as.integer(rxEpisodes$TumourCount[i]))
-        if (is.na(nTumours) || nTumours < 1L) {
-          return(NULL)
-        }
-        tumourSizes <- rxdone_tumour_size_mm[[i]]
-        if (length(tumourSizes) < nTumours) {
-          tumourSizes <- c(tumourSizes, rep(NA_real_, nTumours - length(tumourSizes)))
-        }
-        data.frame(
-          rxEpisodes[i, ],
-          LesionNo  = seq_len(nTumours),
-          TumourSize = tumourSizes[seq_len(nTumours)],
-          row.names = NULL
-        )
+      nTumoursVec <- suppressWarnings(as.integer(rxEpisodes$TumourCount))
+      validIdx    <- which(!is.na(nTumoursVec) & nTumoursVec >= 1L)
+      
+      # Repeat each valid episode's row the right number of times, and generate
+      # LesionNo = 1..n for each episode in one vectorised step (no rbind/do.call at all)
+      repIdx <- rep(validIdx, nTumoursVec[validIdx])
+      rxLesions <- rxEpisodes[repIdx, ]
+      rxLesions$LesionNo <- sequence(nTumoursVec[validIdx])
+      rownames(rxLesions) <- NULL
+      
+      # TumourSize still needs per-episode alignment (sizes come from a list-column),
+      # but unlist(lapply(...)) here just concatenates vectors - it's iterative in C,
+      # not subject to the do.call(rbind,...) stack issue at all
+      rxLesions$TumourSize <- unlist(lapply(validIdx, function(i) {
+        sizes <- rxdone_tumour_size_mm[[i]]
+        n <- nTumoursVec[i]
+        if (length(sizes) < n) sizes <- c(sizes, rep(NA_real_, n - length(sizes)))
+        sizes[seq_len(n)]
       }))
       
       # Log a single data integrity entry per skipped episode (missing/zero TumourCount)

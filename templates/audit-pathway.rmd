@@ -9,6 +9,7 @@ params:
   audit_start_date: !r Sys.Date() - 365
   audit_end_date: !r Sys.Date()
   audit_organs: ["Liver", "Lung", "Kidney", "Adrenal", "Other"]
+  audit_rx_pathway_anonymised: TRUE
 ---
 
 ```{css, echo=FALSE}
@@ -56,7 +57,7 @@ img { max-width: 100% !important; height: auto !important; }
 ```
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 knitr::opts_chunk$set(out.width = "100%")
 knitr::opts_chunk$set(fig.width = 10, fig.height = 5, dpi = 120)
 options(knitr.table.format = "html")
@@ -68,6 +69,7 @@ library(kableExtra)
 audit_start_date <- params$audit_start_date
 audit_end_date   <- params$audit_end_date
 audit_organs     <- params$audit_organs
+reportAnonymised <- isTRUE(params$audit_rx_pathway_anonymised)
 
 auditStart <- as.Date(audit_start_date)
 auditEnd   <- as.Date(audit_end_date)
@@ -119,11 +121,17 @@ overall_group <- function(data, col_name) {
     { subset(., select = -c(summary_level)) }
 }
 
-add_year_separators <- function(tbl, group_width, nYears) {
-  for (i in seq_len(nYears)) {
-    tbl <- kableExtra::column_spec(tbl, 2 + (i - 1) * group_width, border_left = TRUE)
+add_year_separators <- function(kable, cols)
+{
+  n_positions <- grep("^n_", cols)
+  for (pos in n_positions) {
+    kable <- column_spec(
+      kable,
+      pos,
+      extra_css = "border-left:1px solid #666;"
+    )
   }
-  tbl
+  kable
 }
 
 # ---------------------------------------------------------------------------
@@ -152,6 +160,17 @@ names(rxDoneByYear) <- yearLabels
 # For wait-time plots we still need the full audit-period data frame
 rxDoneAuditData    <- rxDoneClean |> filter(RxDate >= auditStart & RxDate <= auditEnd)
 rxWaitAuditData    <- rxWaitClean
+
+if (reportAnonymised)
+{
+  if (reportAnonymised) {
+    rxDoneAuditData <- rxDoneAuditData |>
+      mutate(ID = anonymise_ptid(ID))
+  
+    rxWaitAuditData <- rxWaitAuditData |>
+      mutate(ID = anonymise_ptid(ID))
+  }
+}
 
 # ---------------------------------------------------------------------------
 # Significance testing helpers
@@ -256,8 +275,14 @@ result <- yr_tables[[1]] |>
                           sapply(Organ, function(o) sig_z[[pc]][o])))
       }
 
-      add <- add |> select(Organ, starts_with("n_"), starts_with("mean_"),
-                           starts_with("median_"), ends_with(lbl))
+      add <- add |>
+        select(
+          Organ,
+          starts_with("n_"),
+          starts_with("mean_"),
+          starts_with("median_"),
+          all_of(paste0(pct_cols, "_", lbl))
+        )
 
       result <- result |> left_join(
         add |> select(
@@ -285,36 +310,78 @@ result <- yr_tables[[1]] |>
 # Generic multi-year boxplot builder
 # ---------------------------------------------------------------------------
 buildMultiYearBoxplot <- function(value_col, title_str, ylab_str, hlines = list()) {
-  # Stack all years into one data frame with a Year column
+
   combined <- bind_rows(lapply(seq_along(yearWindows), function(i) {
     rxDoneByYear[[i]] |>
       select(Organ, !!sym(value_col)) |>
       mutate(
-        Year = yearLabels[i],
-        !!sym(value_col) := if_else(!!sym(value_col) < 0, NA_real_, !!sym(value_col))
+        Year = factor(yearLabels[i], levels = yearLabels),
+        !!sym(value_col) := if_else(!!sym(value_col) < 0,
+                                    NA_real_,
+                                    !!sym(value_col))
       )
   }))
 
-  p <- combined |>
-    ggplot(aes(x = Organ, y = !!sym(value_col), color = Year)) +
-    geom_boxplot(position = "dodge2")
+  ## N for each Organ × Year
+  counts <- combined |>
+    filter(!is.na(.data[[value_col]])) |>
+    count(Organ, Year, name = "N")
+
+  ## Position for the labels (slightly below the boxes)
+  ymin <- min(combined[[value_col]], na.rm = TRUE)
+  ymax <- max(combined[[value_col]], na.rm = TRUE)
+  yrange <- ymax - ymin
+
+  counts$y <- ymin - 0.08 * yrange
+  counts$label <- paste0("N=", counts$N)
+
+  p <- ggplot(combined,
+              aes(x = Organ,
+                  y = .data[[value_col]],
+                  colour = Year)) +
+    geom_boxplot(position = position_dodge(width = 0.8)) +
+
+    ## N labels under each box
+    geom_text(
+      data = counts,
+      aes(
+        x = Organ,
+        y = y,
+        label = N,
+        group = Year
+      ),
+      position = position_dodge(width = 0.8),
+      colour = "black",      # same colour for every year
+      size = 3,
+      inherit.aes = FALSE
+    )
 
   for (h in hlines) {
-    p <- p + geom_hline(yintercept = h$y, linetype = "dashed", color = h$color)
+    p <- p +
+      geom_hline(yintercept = h$y,
+                 linetype = "dashed",
+                 colour = h$color)
   }
 
-  auditPeriodText <- paste0(format(auditStart, "%e %b %Y"), " -- ", format(auditEnd, "%e %b %Y"))
+  auditPeriodText <- paste0(
+    format(auditStart, "%e %b %Y"),
+    " -- ",
+    format(auditEnd, "%e %b %Y")
+  )
 
-  p + ggtitle(paste0(title_str, "\n", auditPeriodText)) +
+  p +
+    ggtitle(paste0(title_str, "\n", auditPeriodText)) +
     labs(y = ylab_str, x = "Organ Treated") +
     scale_color_brewer(palette = "Set1") +
+    scale_y_continuous(expand = expansion(mult = c(0.15, 0.05))) +
+    coord_cartesian(clip = "off") +
     theme(
       legend.position = "bottom",
-      axis.text.x     = element_text(
+      axis.text.x = element_text(
         angle = if (nYears > 2) 35 else 0,
         hjust = if (nYears > 2) 1 else 0.5
       ),
-      plot.margin = margin(5, 10, 5, 5, "mm")
+      plot.margin = margin(15, 10, 25, 10)
     )
 }
 
@@ -394,10 +461,9 @@ if (nYears == 1) {
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
     add_header_above(c("Time from Referral Received-to-DTT" = length(col_headers))) |>
-
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
-    add_year_separators(5, nYears)
-}
+    add_year_separators(display_cols)
+  }
 ```
 
 Mean, median (days) and percentage of referrals meeting defined time standards. Numbers in brackets show the preceding year's values. * t-test significant difference vs preceding year. + z-test significant difference vs preceding year.
@@ -450,8 +516,7 @@ if (nYears == 1) {
                       "% within 31 days\n(Cancer std.)", "% within 45 days\n(Local std.)",
                       "% within 60 days\n(Local std.)")) |>
     add_header_above(data.frame(paste0("Time from DTT-to-Ablation\n", auditPeriodText), 6)) |>
-    kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
-    add_year_separators(6, nYears)
+    kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE)
 } else
 {
   dttRxMulti <- buildMultiYearTable(
@@ -479,7 +544,7 @@ if (nYears == 1) {
     add_header_above(span_headers) |>
     add_header_above(c("Time from DTT-to-Ablation" = length(col_headers))) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
-    add_year_separators(4, nYears)
+    add_year_separators(display_cols)
 }
 ```
 
@@ -549,8 +614,9 @@ if (nYears == 1) {
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
     add_header_above(c("Time from Referral received-to-Ablation" = length(col_headers))) |>
-    kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE)
-}
+    kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
+    add_year_separators(display_cols)
+  }
 ```
 
 Mean, median (days) and percentage of referrals meeting defined time standard from the referral received date to treatment date overall.
@@ -628,6 +694,7 @@ rxDoneAuditData |>
   column_spec(1, width = "30em") |>
   column_spec(2, width = "8em") |>
   column_spec(3, width = "8em")
+```
 
 ```{r clockstop}
 rxDoneAuditData |>

@@ -58,3 +58,12 @@ asDateWithOrigin <- function(thisDate)
 {
   as.Date(thisDate, origin = '1970-01-01')
 }
+
+
+anonymise_date <- function(x) {
+  ifelse(
+    is.na(x),
+    NA_character_,
+    sub("^\\d{2}", "●●", format(as.Date(x), "%d-%m-%Y"))
+  )
+}

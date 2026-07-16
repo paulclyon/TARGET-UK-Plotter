@@ -1,13 +1,16 @@
 library(htmltools)
 library(knitr)
 
-getTciData <- function(startDate, reportOrgans, includeTreated)
+getTciData <- function(startDate, reportOrgans, includeTreated, anonymised = FALSE)
 {
   # Get first date of the month
   firstDateOfMonth <- format(ymd(startDate),"%Y-%m-01")
   
   # Make a data table which we can use to populate the calendar
   tciData <- subset(rxWaitData, select = c(ID, TciDate, TciStatus, Organ))
+  if (anonymised) {
+    tciData$ID <- anonymise_ptid(tciData$ID)
+  }
   
   # Filter to just the organs of interest and other stuff
   if (nrow(tciData)>0)
@@ -29,6 +32,9 @@ getTciData <- function(startDate, reportOrgans, includeTreated)
   if (includeTreated)
   {
     rxData <- subset(rxDoneData, select = c(ID, RxDate, Organ))
+    if (anonymised) {
+      rxData$ID <- anonymise_ptid(rxData$ID)
+    }
     if (!("All Organs" %in% reportOrgans)) {
       rxData <- rxData |>
         dplyr::filter(Organ %in% reportOrgans)
@@ -137,10 +143,10 @@ makeTransparent<-function(someColor, alpha=100)
                                               blue=curcoldata[3],alpha=alpha, maxColorValue=255)})
 }
 
-makeTciCalendar <- function(startDate, dateToShow, reportOrgans, includeTreated = TRUE, withNavigation = FALSE)
+makeTciCalendar <- function(startDate, dateToShow, reportOrgans, includeTreated = TRUE, withNavigation = FALSE, anonymised = FALSE)
 {
   # Because its a calendar you often get the last week of the previous month included, so make sure we go back to start of that month
-  tciData     <- getTciData(asDateWithOrigin(startDate)-months(1), reportOrgans, includeTreated)
+  tciData     <- getTciData(asDateWithOrigin(startDate)-months(1), reportOrgans, includeTreated, anonymised = anonymised)
   colLiver    <- "#C4A484"
   colLung     <- "#00A0FF"
   colKidney   <- "#FFDB58"
@@ -257,11 +263,11 @@ makeTciCalendar <- function(startDate, dateToShow, reportOrgans, includeTreated 
 
 # Make a heatmap calendar of the year of both Treated and TCI so we can see capacity
 # Note that TCI status is ignored 
-makeCalendarHeatmap <- function(startDate, reportOrgans = NA, includeTreated)
+makeCalendarHeatmap <- function(startDate, reportOrgans = NA, includeTreated, anonymised = FALSE)
 {
   firstDateOfYear <- format(ymd(startDate),"%Y-01-01")
   
-  tciData <- getTciData(firstDateOfYear, reportOrgans, includeTreated)
+  tciData <- getTciData(firstDateOfYear, reportOrgans, includeTreated, anonymised = anonymised)
   calendarYear <- year(startDate)
   
   # We need to remove everything from tciData but the current year of interest

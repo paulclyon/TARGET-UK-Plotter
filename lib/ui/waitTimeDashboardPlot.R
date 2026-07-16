@@ -89,7 +89,7 @@ waitTimesDashboardPlotTab <- function() {
       box(
         width = 4,
         plotlyOutput("plotWaitTimesDashboardRefToRx")
-      ),
+      )
     ),
     detectHeightJS("waitTimesDashboard", "plotWaitTimesDashboardRefToDTT"),
     detectHeightJS("waitTimesDashboard", "plotWaitTimesDashboardDTTToRx"),

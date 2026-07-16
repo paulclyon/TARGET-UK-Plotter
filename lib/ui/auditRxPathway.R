@@ -35,6 +35,7 @@ auditRxPathwayTab <- function(id = NULL) {
       ),
       column(
         width = 3,
+        checkboxInput("auditRxPathwayAnonymised", "Anonymise Report", value = TRUE),
         div(
           class = "report-buttons",
           actionButton(ns("buttonRunAuditPathwayReport"), "Generate Audit", class = "btn-primary"),
@@ -58,24 +59,27 @@ getAuditParams <- function(input, currentAuditParams) {
   
   if (is.null(params)) {
     params <- list(
-      audit_start_date = input$auditDate1,
-      audit_end_date   = input$auditDate2,
-      audit_organs     = input$organAuditCheckbox
+      audit_start_date            = input$auditDate1,
+      audit_end_date              = input$auditDate2,
+      audit_organs                = input$organAuditCheckbox,
+      audit_rx_pathway_anonymised = input$auditRxPathwayAnonymised
     )
     currentAuditParams(params)
   }
-  
   params
 }
 
-auditServer <- function(input, output, session, api, plots) {
+auditServer <- function(input, output, session, api, plots)
+{
+  auditRefresh <- reactiveVal(0)
   rmdAuditFile <- c(Sys.getenv("AUDIT_PATHWAY_RMD"))
   mdAuditFile <- c(Sys.getenv("AUDIT_PATHWAY_MD"))
   currentAuditParams <- reactiveVal(NULL)
   
-  # Disable download buttons initially
+  # Disable the buttons initially
   shinyjs::disable("buttonAuditPathwayToDoc")
   shinyjs::disable("buttonAuditPathwayToPDF")
+  shinyjs::disable("buttonRunAuditPathwayReport")
 
   #finalRefAuditInput <- reactive({
   #  tryCatch(
@@ -107,60 +111,77 @@ auditServer <- function(input, output, session, api, plots) {
     )
   })
 
+  observeEvent(list(input$auditDate1, input$auditDate2, input$organAuditCheckbox, input$auditRxPathwayAnonymised),
+    {
+      shinyjs::enable("buttonRunAuditPathwayReport")
+    },
+    ignoreInit = TRUE
+  )
+  
   observeEvent(input$buttonRunAuditPathwayReport, {
+    
     currentAuditParams(list(
-      audit_start_date = input$auditDate1,
-      audit_end_date   = input$auditDate2,
-      audit_organs     = input$organAuditCheckbox
+      audit_start_date            = input$auditDate1,
+      audit_end_date              = input$auditDate2,
+      audit_organs                = input$organAuditCheckbox,
+      audit_rx_pathway_anonymised = input$auditRxPathwayAnonymised
     ))
+    
+    auditRefresh(auditRefresh() + 1)
+    
     shinyjs::enable("buttonAuditPathwayToDoc")
     shinyjs::enable("buttonAuditPathwayToPDF")
-    showNotification(paste0("Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"), "'..."))
+    
+    showNotification(
+      paste0("Generating the audit from file '",
+             Sys.getenv("AUDIT_PATHWAY_RMD"), "'...")
+    )
+    
     plots$activePlot <- NA
   })
   
-  output$summaryRefAudit <- renderUI({
-    # Informational message (does not affect UI)
-    #shinyCatch(
-    #  message(paste0("Generating the audit from file '", Sys.getenv("AUDIT_PATHWAY_RMD"), "'")),
-    #  prefix = ""
-    #)
+  output$summaryRefAudit <- renderUI(
+  {
+    auditRefresh()   # <-- forces re-render every button click
+    params <- currentAuditParams()
+    req(params)
 
-  # Render into a temporary dir so we don't overwrite app files
-  tempReportDir <- tempdir()
-  tempRmd <- file.path(tempReportDir, "report.Rmd")
-  file.copy(rmdAuditFile, tempRmd, overwrite = TRUE)
-
-  params <- currentAuditParams()
-  req(params)
-
-  # Render to HTML
-  render_result <- tryCatch({
-    rmarkdown::render(tempRmd,
-                      output_format = "html_document",
-                      output_dir = tempReportDir,
-                      params = params,
-                      envir = new.env(parent = globalenv()),
-                      quiet = TRUE)
-  }, error = function(e) { 
-    logger(conditionMessage(e), TRUE); 
-    showNotification(conditionMessage(e)); 
-    return(NULL)
-  })
-
-  if (is.null(render_result) || !file.exists(render_result)) {
-    return(tags$div("Failed to render audit - see notifications for details."))
-  }
-
-  # Read the rendered HTML and embed in an iframe via srcdoc (avoids includeHTML warning)
-  html_text <- paste(readLines(render_result, warn = FALSE), collapse = "\n")
-
-  tags$iframe(
-    srcdoc = html_text,
-    width = "100%",
-    height = "900px",
-    style = "border:0;")
-  })
+    # Render into a temporary dir so we don't overwrite app files
+    tempReportDir <- tempdir()
+    tempRmd <- file.path(tempReportDir, "report.Rmd")
+    file.copy(rmdAuditFile, tempRmd, overwrite = TRUE)
+  
+    params <- currentAuditParams()
+    req(params)
+  
+    # Render to HTML
+    render_result <- tryCatch({
+      rmarkdown::render(tempRmd,
+                        output_format = "html_document",
+                        output_dir = tempReportDir,
+                        params = params,
+                        envir = new.env(parent = globalenv()),
+                        quiet = TRUE)
+    }, error = function(e) { 
+      logger(conditionMessage(e), TRUE); 
+      showNotification(conditionMessage(e)); 
+      return(NULL)
+    })
+  
+    if (is.null(render_result) || !file.exists(render_result)) {
+      return(tags$div("Failed to render audit - see notifications for details."))
+    }
+  
+    # Read the rendered HTML and embed in an iframe via srcdoc (avoids includeHTML warning)
+    html_text <- paste(readLines(render_result, warn = FALSE), collapse = "\n")
+  
+    tags$iframe(
+      srcdoc = html_text,
+      width = "100%",
+      height = "900px",
+      style = "border:0;")
+    }
+  )
 
   output$buttonAuditPathwayToDoc <- downloadHandler(
     filename = Sys.getenv("AUDIT_PATHWAY_DOC"),
