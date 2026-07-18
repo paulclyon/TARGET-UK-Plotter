@@ -1,87 +1,142 @@
-makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 5, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, selectedModality = "All", survivalType, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
+filterPatientData <- function(
+    strStart,
+    strEnd,
+    selectedOrgans,
+    selectedDiagnosisType,
+    selectedSubtypes,
+    selectedGenders,
+    selectedModality = "All",
+    minTumourSize = NULL,
+    maxTumourSize = NULL
+)
 {
-  # Filter the dates
-  start <- as.Date(strStart, format = "%d/%m/%Y")
-  end <- as.Date(strEnd, format = "%d/%m/%Y")
+  start <- as.Date(strStart, format="%d/%m/%Y")
+  end   <- as.Date(strEnd, format="%d/%m/%Y")
   
-  #if (!is.data.frame(cancerPerPatientData) || nrow(cancerPerPatientData) == 0) {
-  #  return(ggplot()) # Any empty plot
-  #}
-  
-  filteredSurvivalData <<- cancerPerPatientData |>
+  filteredData <- cancerPerPatientData |>
     filter(between(FirstRxDate, start, end)) |>
     filter(Gender %in% selectedGenders)
   
-  if (selectedOrgans != "All")
+  if (!("All" %in% selectedOrgans))
   {
-    filteredSurvivalData <<- filteredSurvivalData |>
+    filteredData <- filteredData |>
       filter(Organ %in% selectedOrgans)
   }
   
-  if (selectedDiagnosisType == "All")
+  if (selectedDiagnosisType != "All")
   {
-    # no diagnosis filter here
-  }
-  else
-  {
-    # We just want to use the first letter of what is selected in the GUI e.g. P(rimary) to match the EDC data
-    #filteredSurvivalData <<- filteredSurvivalData |> filter(DiagnosisType == substring(selectedDiagnosisType, 1, 1))
-    filteredSurvivalData <<- switch(substring(selectedDiagnosisType, 1, 1),
-                                    "P" = filteredSurvivalData |> filter(DiagnosisType == "P", Diagnosis1o %in% selectedSubtypes),
-                                    "S" = filteredSurvivalData |> filter(DiagnosisType == "S", Diagnosis2o %in% selectedSubtypes),
-                                    "U" = filteredSurvivalData |> filter(DiagnosisType == "U", DiagnosisUn %in% selectedSubtypes)
+    filteredData <- switch(
+      substring(selectedDiagnosisType,1,1),
+      "P" = filteredData |> filter(DiagnosisType=="P", Diagnosis1o %in% selectedSubtypes),
+      "S" = filteredData |> filter(DiagnosisType=="S", Diagnosis2o %in% selectedSubtypes),
+      "B" = filteredData |> filter(DiagnosisType=="B", DiagnosisBn %in% selectedSubtypes),
+      "U" = filteredData |> filter(DiagnosisType=="U", DiagnosisUn %in% selectedSubtypes),
+      filteredData   # fallback: no recognised diagnosis code, leave data untouched rather than silently becoming NULL
     )
   }
   
-  # Filter by tumour size if specified — patients with no recorded size are kept
-  if (!is.null(minTumourSize) && !is.null(maxTumourSize))
+  if (!is.null(minTumourSize) &&
+      !is.null(maxTumourSize))
   {
-    filteredSurvivalData <<- filteredSurvivalData |>
-      filter(is.na(MaxTumourSize) | between(MaxTumourSize, minTumourSize, maxTumourSize))
+    filteredData <- filteredData |>
+      filter(is.na(MaxTumourSize) |
+               between(MaxTumourSize,
+                       minTumourSize,
+                       maxTumourSize))
   }
   
-  # Filter by modality, remember in the survival table we might have 'Cryotherapy,Microwave' for eexampel
-  if (selectedModality != "All") {
-    filteredSurvivalData <<- filteredSurvivalData |>
-      filter(grepl(selectedModality, RxModalities, fixed = TRUE))
+  if (!("All" %in% selectedModality))
+  {
+    filteredData <- filteredData |>
+      filter(
+        Reduce(
+          `|`,
+          lapply(selectedModality, function(m)
+            grepl(m, RxModalities, fixed = TRUE)
+          )
+        )
+      )
   }
+  
+  filteredData
+}
+
+applyIgnoreFirstLTP <- function(filteredData)
+{
+  for (i in which(
+    !is.na(filteredData$TimeLTPF) &
+    filteredData$StatusLTPF == 2))
+  {
+    ptID    <- filteredData$ID[i]
+    ptOrgan <- filteredData$Organ[i]
+    
+    ltpDates <- cancerPerLesionData$LTPDate[
+      cancerPerLesionData$PtID == ptID &
+        !is.na(cancerPerLesionData$LTPDate)
+    ]
+    
+    if (length(ltpDates) == 0)
+      next
+    
+    firstLtpDt <- min(ltpDates)
+    
+    laterRxCount <- length(unique(
+      cancerPerLesionData$RxNo[
+        cancerPerLesionData$PtID == ptID &
+          cancerPerLesionData$Organ == ptOrgan &
+          !is.na(cancerPerLesionData$RxDate) &
+          cancerPerLesionData$RxDate > firstLtpDt
+      ]
+    ))
+    
+    if (laterRxCount == 1)
+    {
+      filteredData$StatusLTPF[i] <- 1
+      
+      if (filteredData$Deceased[i] == 0)
+      {
+        filteredData$StatusLTPFOS[i]  <- 1
+        filteredData$StatusLTPFCSS[i] <- 1
+      }
+    }
+  }
+  filteredData
+}
+
+noDataPlot <- function(msg = "No data available for selected filters")
+{
+  ggplot() +
+    annotate(
+      "text",
+      x = 0.5,
+      y = 0.5,
+      label = msg,
+      size = 6,
+      hjust = 0.5
+    ) +
+    theme_void()
+}
+
+makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 5, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, selectedModality = "All", survivalType, ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL)
+{
+  # Filter the data using helper function
+  filteredSurvivalData <- filterPatientData(
+    strStart,
+    strEnd,
+    selectedOrgans,
+    selectedDiagnosisType,
+    selectedSubtypes,
+    selectedGenders,
+    selectedModality,
+    minTumourSize,
+    maxTumourSize
+  )
   
   # This is the bit where we think about the number of Rx (ablations) before we call LR
   # So if LTPCountMax is just 1, we dont count it as real LR if ignoreFirstLTP is TRUE
   # A way to do this is to change the StatusLTPF/LTPFOS/LTPFCSS column status to 1 for all those recurring after just 1 Rx, if not deceased, as follows
-  if (isTRUE(ignoreFirstLTP)) {
-    for (i in which(!is.na(filteredSurvivalData$TimeLTPF) & 
-                    filteredSurvivalData$StatusLTPF == 2)) {
-      ptID   <- filteredSurvivalData$ID[i]
-      ptOrgan <- filteredSurvivalData$Organ[i]
-      
-      ltpDates <- cancerPerLesionData$LTPDate[
-        cancerPerLesionData$PtID == ptID &
-          !is.na(cancerPerLesionData$LTPDate)
-      ]
-      if (length(ltpDates) == 0) {
-        next
-      }
-      firstLtpDt <- min(ltpDates)
-      
-      # Restrict to same organ to avoid unrelated Rx elsewhere counting as re-treatment
-      laterRxCount <- length(unique(
-        cancerPerLesionData$RxNo[
-          cancerPerLesionData$PtID == ptID & 
-            cancerPerLesionData$Organ == ptOrgan &
-            !is.na(cancerPerLesionData$RxDate) &
-            cancerPerLesionData$RxDate > firstLtpDt]
-      ))
-      
-      if (laterRxCount == 1) {
-        filteredSurvivalData$StatusLTPF[i] <- 1
-        if (filteredSurvivalData$Deceased[i] == 0) {
-          filteredSurvivalData$StatusLTPFOS[i]  <- 1
-          filteredSurvivalData$StatusLTPFCSS[i] <- 1
-        }
-      }
-    }
-  }
+  if (ignoreFirstLTP)
+    filteredSurvivalData <- applyIgnoreFirstLTP(filteredSurvivalData)
   
   # Get rid of anything which doesn't have the necessary recurrence data, so that we know if its going to be an empty fit before we fit it
   #filteredSurvivalData <- filteredSurvivalData |>
@@ -90,12 +145,7 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
   
   # If no rows to plot, let the user know there is no data
   if (nrow(filteredSurvivalData) == 0) {
-    return(ggplot()+
-             annotate("text", x = 0.5, y = 0.5,
-                      label = "No data available for selected filters",
-                      size = 6, hjust = 0.5) +
-             theme_void()
-    )
+    return(list(noDataPlot(), NULL))
   }
   
   # Censoring = 1=censored, 2=dead - 
@@ -147,7 +197,6 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
   #survivalPlot
   
   # Newwer method, which requires survfit2 wrapper rather than survfit, and allows maxYears on plot + table
-  minYearsFollowup <- minMonthsFollowup / 12
   year_breaks <- seq(0, maxYearsFollowup, by = 1)
   survivalPlot <- survivalFit |>
     ggsurvfit(linewidth = 1) +
@@ -158,15 +207,15 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
       risktable_height = 0.35,   # was 0.25 (default) — bump up to give the table more room
       risktable_stats = c(
         "n.risk",
-        "{round(estimate * 100, 1)}",
-        "{round(conf.low * 100, 1)}",
-        "{round(conf.high * 100, 1)}"
+        "{scales::percent(estimate, accuracy = 0.1)}",
+        "{scales::percent(conf.low, accuracy = 0.1)}",
+        "{scales::percent(conf.high, accuracy = 0.1)}"
       ),
       stats_label = list(
         "n.risk" = "At risk",
-        "{round(estimate * 100, 1)}" = "%",
-        "{round(conf.low * 100, 1)}" = "Lower 95%",
-        "{round(conf.high * 100, 1)}" = "Upper 95%"
+        "{scales::percent(estimate, accuracy = 0.1)}" = "%",
+        "{scales::percent(conf.low, accuracy = 0.1)}" = "Lower 95%",
+        "{scales::percent(conf.high, accuracy = 0.1)}" = "Upper 95%"
       ),
       size = 5,
       theme = theme(
@@ -185,101 +234,30 @@ makeSurvivalPlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFo
       axis.text = element_text(size = 14),   # axis tick labels
       axis.title = element_text(size = 16)   # axis titles
     )
-  survivalPlot
+  list(survivalPlot, survivalFit)
 }
 
 # This can do both per-patient and per-tumour LTP analysis
 makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYearsFollowup = 100, selectedOrgans, selectedDiagnosisType, selectedSubtypes, selectedGenders, selectedModality = "All", ignoreFirstLTP = FALSE, minTumourSize = NULL, maxTumourSize = NULL, ltpAnalysisUnit = "patient")
 {
-  # Filter the dates
-  start <- as.Date(strStart, format = "%d/%m/%Y")
-  end <- as.Date(strEnd, format = "%d/%m/%Y")
-  
-  if (!is.data.frame(cancerPerPatientData) || nrow(cancerPerPatientData) <= 0) {
-    return(ggplot())
-  }
-  
-  filteredSurvivalData <<- cancerPerPatientData |>
-    filter(between(FirstRxDate, start, end)) |>
-    filter(Gender %in% selectedGenders)
-  
-  if (selectedOrgans != "All")
-  {
-    filteredSurvivalData <<- filteredSurvivalData |>
-      filter(Organ %in% selectedOrgans)
-  }
-  
-  if (selectedDiagnosisType == "All")
-  {
-    if (!"All" %in% selectedSubtypes)
-    {
-      filteredSurvivalData <<- filteredSurvivalData |> filter(Organ %in% selectedSubtypes)
-    }
-  }
-  else if (selectedDiagnosisType == "1o & 2o")
-  {
-    filteredSurvivalData <<- filteredSurvivalData |> 
-      filter(Diagnosis1o %in% selectedSubtypes | Diagnosis2o %in% selectedSubtypes)
-  }
-  else
-  {
-    filteredSurvivalData <<- switch(substring(selectedDiagnosisType, 1, 1),
-                                    "P" = filteredSurvivalData |> filter(DiagnosisType == "P", Diagnosis1o %in% selectedSubtypes),
-                                    "S" = filteredSurvivalData |> filter(DiagnosisType == "S", Diagnosis2o %in% selectedSubtypes),
-                                    "B" = filteredSurvivalData |> filter(DiagnosisType == "B", DiagnosisBn %in% selectedSubtypes),
-                                    "U" = filteredSurvivalData |> filter(DiagnosisType == "U", DiagnosisUn %in% selectedSubtypes)
-    )
-  }
-  
-  # Filter by tumour size if specified — patients with no recorded size are kept
-  if (!is.null(minTumourSize) && !is.null(maxTumourSize))
-  {
-    filteredSurvivalData <<- filteredSurvivalData |>
-      filter(is.na(MaxTumourSize) | between(MaxTumourSize, minTumourSize, maxTumourSize))
-  }
-  
-  # Filter by modality
-  if (selectedModality != "All") {
-    filteredSurvivalData <<- filteredSurvivalData |>
-      filter(RxModalities %in% selectedModality)
-  }
+  # Filter the using helper function
+  filteredSurvivalData <- filterPatientData(
+    strStart,
+    strEnd,
+    selectedOrgans,
+    selectedDiagnosisType,
+    selectedSubtypes,
+    selectedGenders,
+    selectedModality,
+    minTumourSize,
+    maxTumourSize
+  )
   
   # This is the bit where we think about the number of Rx (ablations) before we call LR
   # So if LTPCountMax is just 1, we dont count it as real LR if ignoreFirstLTP is TRUE
   # A way to do this is to change the StatusLTPF column status to 1 for all those recurring after just 1 Rx, as follows
-  if (isTRUE(ignoreFirstLTP)) {
-    for (i in which(!is.na(filteredSurvivalData$TimeLTPF) & 
-                    filteredSurvivalData$StatusLTPF == 2)) {
-      ptID   <- filteredSurvivalData$ID[i]
-      ptOrgan <- filteredSurvivalData$Organ[i]
-      
-      ltpDates <- cancerPerLesionData$LTPDate[
-        cancerPerLesionData$PtID == ptID &
-          !is.na(cancerPerLesionData$LTPDate)
-      ]
-      if (length(ltpDates) == 0) {
-        next
-      }
-      firstLtpDt <- min(ltpDates)
-      
-      # Restrict to same organ to avoid unrelated Rx elsewhere counting as re-treatment
-      laterRxCount <- length(unique(
-        cancerPerLesionData$RxNo[
-          cancerPerLesionData$PtID == ptID & 
-            cancerPerLesionData$Organ == ptOrgan &
-            !is.na(cancerPerLesionData$RxDate) &
-            cancerPerLesionData$RxDate > firstLtpDt]
-      ))
-      
-      if (laterRxCount == 1) {
-        filteredSurvivalData$StatusLTPF[i] <- 1
-        if (filteredSurvivalData$Deceased[i] == 0) {
-          filteredSurvivalData$StatusLTPFOS[i]  <- 1
-          filteredSurvivalData$StatusLTPFCSS[i] <- 1
-        }
-      }
-    }
-  }
+  if (ignoreFirstLTP)
+    filteredSurvivalData <- applyIgnoreFirstLTP(filteredSurvivalData)
   
   # Switch between per-patient and per-lesion LTP analysis
   # Per-patient: time-to-LTP measured from date of first Rx across all referrals (current approach)
@@ -295,12 +273,7 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     
     # If no rows to plot, let the user know there is no data
     if (nrow(filteredSurvivalData) == 0) {
-      return(ggplot()+
-               annotate("text", x = 0.5, y = 0.5,
-                        label = "No data available for selected filters",
-                        size = 6, hjust = 0.5) +
-               theme_void()
-      )
+      return(list(noDataPlot(), NULL))
     }
     
     # Censoring = 1=censored, 2=recurred (almost treat as if death) - 
@@ -322,15 +295,12 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     # Episodes without a confirmed LTP event are censored at last imaging date with StatusLTPEpisode=1
     if (!is.data.frame(cancerPerLesionData) || nrow(cancerPerLesionData) == 0)
     {
-      return(ggplot() +
-               annotate("text", x = 0.5, y = 0.5,
-                        label = "No per-lesion data available.\nPlease reload data.",
-                        size = 5, hjust = 0.5) +
-               theme_void()
-      )
+      return(list(noDataPlot(), NULL))
     }
     
     # Apply filters to per-lesion data matching those applied to per-patient data above
+    start <- as.Date(strStart, "%d/%m/%Y")
+    end   <- as.Date(strEnd, "%d/%m/%Y")
     filteredPerLesionData <- cancerPerLesionData[
       cancerPerLesionData$RxDate >= start & cancerPerLesionData$RxDate <= end, ]
     
@@ -341,8 +311,10 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     filteredPerLesionData <- filteredPerLesionData[
       filteredPerLesionData$Gender %in% selectedGenders, ]
     
-    if (selectedOrgans != "All")
+    if (!("All" %in% selectedOrgans))
+    {
       filteredPerLesionData <- filteredPerLesionData[filteredPerLesionData$Organ %in% selectedOrgans, ]
+    }
     
     if (selectedDiagnosisType == "All")
     {
@@ -364,9 +336,19 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
       )
     }
     
-    if (selectedModality != "All") {
+    if (!("All" %in% selectedModality) &&
+        "RxModality" %in% names(filteredPerLesionData))
+    {
       filteredPerLesionData <- filteredPerLesionData[
-        grepl(selectedModality, filteredPerLesionData$RxModalities, fixed = TRUE), ]
+        Reduce(
+          `|`,
+          lapply(selectedModality, function(m)
+            grepl(m,
+                  filteredPerLesionData$RxModality,
+                  fixed = TRUE)
+          )
+        ),
+      ]
     }
     
     # Filter by tumour size if specified — episodes with no recorded size are kept
@@ -413,12 +395,7 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
     # If no rows to plot, let the user know there is no data
     if (nrow(filteredPerLesionData) == 0)
     {
-      return(ggplot() +
-               annotate("text", x = 0.5, y = 0.5,
-                        label = "No data available for selected filters",
-                        size = 6, hjust = 0.5) +
-               theme_void()
-      )
+      return(list(noDataPlot(), NULL))
     }
     
     logger(paste("LTP perLesion analysis: Total No. Filtered Lesions=", nrow(filteredPerLesionData),
@@ -447,7 +424,6 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
   #recurrencePlot
   
   # Newwer method, which requires survfit2 wrapper rather than survfit, and allows maxYears on plot + table
-  minYearsFollowup <- minMonthsFollowup / 12
   year_breaks <- seq(0, maxYearsFollowup, by = 1)
   recurrencePlot <- recurrenceFit |>
     ggsurvfit(linewidth = 1) +
@@ -458,15 +434,15 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
       risktable_height = 0.35,   # was 0.25 (default) — bump up to give the table more room
       risktable_stats = c(
         "n.risk",
-        "{round(estimate * 100, 1)}",
-        "{round(conf.low * 100, 1)}",
-        "{round(conf.high * 100, 1)}"
+        "{scales::percent(estimate, accuracy = 0.1)}",
+        "{scales::percent(conf.low, accuracy = 0.1)}",
+        "{scales::percent(conf.high, accuracy = 0.1)}"
       ),
       stats_label = list(
         "n.risk" = "At risk",
-        "{round(estimate * 100, 1)}" = "%",
-        "{round(conf.low * 100, 1)}" = "Lower 95%",
-        "{round(conf.high * 100, 1)}" = "Upper 95%"
+        "{scales::percent(estimate, accuracy = 0.1)}" = "%",
+        "{scales::percent(conf.low, accuracy = 0.1)}" = "Lower 95%",
+        "{scales::percent(conf.high, accuracy = 0.1)}" = "Upper 95%"
       ),
       size = 5,
       theme = theme(
@@ -485,5 +461,5 @@ makeRecurrencePlot <- function(strStart, strEnd, minMonthsFollowup = 0, maxYears
       axis.text = element_text(size = 14),   # axis tick labels
       axis.title.y = element_blank()
       )
-  recurrencePlot
+  list(recurrencePlot, recurrenceFit)
 }

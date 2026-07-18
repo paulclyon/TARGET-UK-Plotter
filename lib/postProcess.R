@@ -248,7 +248,7 @@ postProcessData <- function()
           RxNo      = integer(0),
           LesionNo  = integer(0),
           LTPDate   = as.Date(character(0)),
-          LTPCount = as.integer(0)
+          LTPCount = integer(0)
         )
       }
       

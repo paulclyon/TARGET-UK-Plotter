@@ -51,11 +51,18 @@ cancerOutcomesReportTab <- function(id = NULL) {
           "Subtypes",
           choices = character(0),
           selected = character(0)
+        ),
+        checkboxGroupInput(
+          "cancerReportSelectedModality",
+          "Modality",
+          choices = character(0),
+          selected = character(0)
         )
       ),
       column(
         width = 3,
-        checkboxInput("recurrenceAllow2Rx", "Include additional LTP plots allowing 2xRx before LTP", value = TRUE),
+        checkboxInput("recurrenceAllow2Rx", "+2xRx before LTP", value = TRUE),
+        checkboxInput("recurrenceIncludeMap", "+Postcode Map", value = FALSE),
         checkboxInput("cancerReportAnonymised", "Anonymise Report", value = TRUE),
         div(
           class = "report-buttons",
@@ -99,12 +106,25 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
       prefixed <- all_choices[grepl(paste0("^", organ, "\\s*:"), tolower(all_choices))]
       if (length(prefixed) > 0) return(prefixed)
     }
-    
     all_choices
   })
   
   selectedSubtypes <- reactive({
     subtypeChoices()
+  })
+  
+  modalityInitialised <- reactiveVal(FALSE)
+  observe({
+    if (modalityInitialised()) return()
+    req(api$modalityFactors)
+    modalityChoices <- setdiff(api$modalityFactors, "All")
+    updateCheckboxGroupInput(
+      session,
+      "cancerReportSelectedModality",
+      choices  = c("All", modalityChoices),
+      selected = "All"
+    )
+    modalityInitialised(TRUE)
   })
   
   observeEvent(list(input$cancerReportSelectedDiagnosisType, input$cancerReportSelectedOrgans), {
@@ -163,9 +183,11 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
       report_organs                   = input$cancerReportSelectedOrgans,
       report_diagnosis_type           = input$cancerReportSelectedDiagnosisType,
       report_subtypes                 = input$cancerReportSelectedSubtypes,
+      report_modality                 = input$cancerReportSelectedModality,
       report_min_tumour_size          = input$cancerReportTumourSizeRange[1],
       report_max_tumour_size          = input$cancerReportTumourSizeRange[2],
       report_include_ignore_first_ltp = isTRUE(input$recurrenceAllow2Rx),
+      report_include_postcode_map     = isTRUE(input$recurrenceIncludeMap),
       report_min_months_followup      = input$minMonthsFollowup,
       report_max_years_followup       = input$maxYearsFollowup,
       report_cancer_anonymised        = input$cancerReportAnonymised
@@ -190,7 +212,6 @@ cancerOutcomesReportServer <- function(input, output, session, api, plots)
   
   observeEvent(input$buttonRunCancerReport, {
     currentReportParams(buildReportParamsFromInputs())
-    
     plots$activePlot <- NA
   })
   
