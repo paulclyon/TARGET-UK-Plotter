@@ -433,6 +433,18 @@ if (nrow(patient_data) > 0) {
   patient_data <- patient_data |>
     dplyr::mutate(PtID = sub("-[0-9]+$", "", ID))
 
+  # this is used to plot the year by year volume plot
+  report_ptids <- if (nrow(patient_data) > 0) {
+    patient_data |>
+      mutate(PtID = sub("-[0-9]+$", "", ID)) |>
+      pull(PtID) |>
+      unique()
+  }
+  else
+  {
+    character(0)
+  }
+
   # Add age from cancerData using the patient-level ID
   if (exists("cancerData") && is.data.frame(cancerData)) {
     age_lookup <- cancerData |>
@@ -832,8 +844,8 @@ overview_metrics <- c(
   "Mean tumours treated per patient",
   "Median tumour size (mm)",
   "SD tumour size (mm)",
-  paste0(report_max_years_followup, "-year LTP (per patient)"),
-  paste0(report_max_years_followup, "-year LTP (per lesion)"),
+  paste0(report_max_years_followup, "-year LTP-free (per patient)"),
+  paste0(report_max_years_followup, "-year LTP-free (per lesion)"),
   paste0(report_max_years_followup, "-year OS"),
   paste0(report_max_years_followup, "-year CSS"),
   paste0(report_max_years_followup, "-year LTP-free OS"),
@@ -909,6 +921,42 @@ cat(
   '</div>',
   '</div>'
 )
+```
+
+## Ablation Sessions per Year
+
+```{r sessions-per-year, echo=FALSE, fig.height=4.5}
+
+progress$set(
+  value = 0.35,
+  message = "Generating sessions-per-year summary ..."
+)
+
+sessions_per_year <- rxDoneReferralLevel |>
+  mutate(PtID = sub("-[0-9]+$", "", ID)) |>
+  filter(PtID %in% report_ptids) |>
+  filter(RxDate >= reportStart, RxDate <= reportEnd) |>
+  mutate(Year = format(RxDate, "%Y")) |>
+  count(Year, name = "Sessions") |>
+  arrange(Year)
+
+if (nrow(sessions_per_year) > 0) {
+  ggplot(sessions_per_year, aes(x = Year, y = Sessions)) +
+    geom_col() +
+    geom_text(aes(label = Sessions), vjust = -0.4, size = 4) +
+    labs(
+      title = paste0("Ablation Sessions per Year (", format(reportStart, "%d %b %Y"),
+                     " \u2013 ", format(reportEnd, "%d %b %Y"), ")"),
+      x = "Year",
+      y = "Ablation Sessions"
+    ) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+    theme_minimal(base_size = 12)
+} else {
+  ggplot() +
+    annotate("text", x = 0.5, y = 0.5, label = "No ablation sessions in the selected cohort/period.", size = 6) +
+    theme_void()
+}
 ```
 
 ## Tumour size and sex distribution
@@ -1152,11 +1200,7 @@ if (nrow(ae_data) > 0)
       ae_tbl$GradeDisplay <- "Unspecified"
     }
   }
-  report_ptids <- patient_data |>
-    mutate(PtID = sub("-[0-9]+$", "", ID)) |>
-    pull(PtID) |>
-    unique()
-
+  
   rxDoneReport <- rxDoneReferralLevel |>
     mutate(PtID = sub("-[0-9]+$", "", ID)) |>
     filter(PtID %in% report_ptids)

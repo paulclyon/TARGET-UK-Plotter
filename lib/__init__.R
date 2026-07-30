@@ -70,7 +70,7 @@ for (pkg in c(required_base_pkgs,required_latex_pkgs)) {
 
 # Install github packages
 # Please note that the castorRedc library updated form 1.1.0 to 2.1.0 from 2024...
-githubPkgs <- c("castoredc/castoRedc", "deepanshu88/summaryBox")
+githubPkgs <- c("castoredc/castoRedc", "deepanshu88/summaryBox", "kassambara/survminer")
 for (pkg in githubPkgs) {
   if (!require(sub(".*/", "", pkg), character.only = TRUE)) {
     remotes::install_github(pkg, quiet = FALSE, host = "api.github.com")

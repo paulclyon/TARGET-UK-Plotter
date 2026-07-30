@@ -13,16 +13,18 @@ auditRxPathwayTab <- function(id = NULL) {
         width = 3,
         dateInput(
           "auditDate1",
-          "Start Date:",
+          "Treatment Start Date:",
           format = "dd/mm/yyyy",
           value = Sys.Date() - 365
         ),
         dateInput(
           "auditDate2",
-          "End Date:",
+          "Treatment End Date:",
           format = "dd/mm/yyyy",
           value = Sys.Date()
-        )
+        ),
+        checkboxInput("auditFinancialYearStart", "Financial Year Start", FALSE),
+        checkboxInput("auditPrimaryCancersOnly", "Primary Cancers Only", FALSE)
       ),
       column(
         width = 3,
@@ -61,6 +63,8 @@ getAuditParams <- function(input, currentAuditParams) {
     params <- list(
       audit_start_date            = input$auditDate1,
       audit_end_date              = input$auditDate2,
+      audit_financial_year        = input$auditFinancialYearStart,
+      audit_primary_cancers_only  = input$auditPrimaryCancersOnly,
       audit_organs                = input$organAuditCheckbox,
       audit_rx_pathway_anonymised = input$auditRxPathwayAnonymised
     )
@@ -110,19 +114,22 @@ auditServer <- function(input, output, session, api, plots)
       selected = api$organFactors
     )
   })
-
-  observeEvent(list(input$auditDate1, input$auditDate2, input$organAuditCheckbox, input$auditRxPathwayAnonymised),
-    {
-      shinyjs::enable("buttonRunAuditPathwayReport")
-    },
-    ignoreInit = TRUE
+  
+  observeEvent(list(input$auditDate1, input$auditDate2, input$organAuditCheckbox, 
+                    input$auditRxPathwayAnonymised, input$auditFinancialYearStart,
+                    input$auditPrimaryCancersOnly),
+               { shinyjs::enable("buttonRunAuditPathwayReport") },
+               ignoreInit = TRUE
   )
+  
   
   observeEvent(input$buttonRunAuditPathwayReport, {
     
     currentAuditParams(list(
       audit_start_date            = input$auditDate1,
       audit_end_date              = input$auditDate2,
+      audit_financial_year        = input$auditFinancialYearStart,
+      audit_primary_cancers_only  = input$auditPrimaryCancersOnly,
       audit_organs                = input$organAuditCheckbox,
       audit_rx_pathway_anonymised = input$auditRxPathwayAnonymised
     ))

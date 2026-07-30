@@ -34,8 +34,20 @@ processData <- function()
     }
     
     # Get Diagnosis - FIXME we assume the first diagnosis is the one we care about for TARGET-UK, but what about the second diagnosis? It would be useful for multiple organ treatments for example
-    diagnosis_type <- getDataEntry("dx_diagonsis_type_1",i)   # Key> P=Primary, S=Secondary, B=Benign, U=Unknown, N=N/A (FIXME: diagnosis spelt wrong in Castor!)
-    if (!is.na(diagnosis_type)) diagnosis_type <- substr(diagnosis_type, start = 1, stop = 1) # Get the first char otherwise it returns the descriptive text
+    # Note that this can be overwritten by the referral level diagnosis type which is more accurate i.e. renal cancer lung met is not a primary
+    diagnosis_type <- getDataEntry("dx_diagonsis_type_1",i)   # (FIXME: diagnosis spelt wrong in Castor!)
+    
+    if (is.na(diagnosis_type) || trimws(diagnosis_type) == "")
+    {
+      # If the diagnosis type is missing, call it unknown up front so that it doesn't get deleted from subsequent cancer lesion data
+      diagnosis_type <- "U"
+    } else
+    {
+      # Otherwise just the first char otherwise it returns the descriptive text
+      # Key> P=Primary, S=Secondary, B=Benign, U=Unknown, N=N/A 
+      diagnosis_type <- substr(trimws(diagnosis_type), start=1, stop=1) 
+    }
+    
     diagnosis_1o <- NA
     diagnosis_2o <- NA
     diagnosis_bn <- NA
@@ -491,6 +503,27 @@ processData <- function()
           survival_organ <- "Multiple Organs"
         }
         
+        # Get the type, if specified, it is either Primary, Secondary or Benign
+        # This is important field as the diagnosis fields above may show a primary renal cancer, but actually it could be a secondary lung met we are ablating
+        # So what we do here is overwrite the diagnosis_type which is stored in the tables if the specific tumour type for this referral is specified, otherwise default to patient level
+        thisTumourType <- getDataEntry(paste("ref_tumour_type_", as.integer(iRef), sep = ""), i)
+        if (!is.na(thisTumourType) && trimws(thisTumourType) != "")
+        {
+          thisTumourType <- substr(thisTumourType, 1, 1) # We will get back e.g. 'Secondary Cancer (radiological or histological diagnosis)' just want the first character
+          logger(paste0("FIXME: this tumour type = ",thisTumourType))
+          if (thisTumourType %in% c("P", "S", "B", "U"))
+          {
+            diagnosis_type <- thisTumourType
+            logger(paste0("FIXME: updating ********** this tumour type = ",thisTumourType))
+            
+          }
+          else
+          {
+            addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), date=ref_rx_date, organ=organForRx,
+                                  error=paste("Patient referral has invalid tumour type '",thisTumourType,"', ignoring.",  sep = ""))
+          }
+        }
+        
         # Get the date of referral, if it is NA later on we set it as the treatment date, if that is set, as a bit of a hack
         ref_date <- convertToDate(getDataEntry(paste("ref_date_recd_", as.integer(iRef), sep = ""), i))
         
@@ -917,7 +950,7 @@ processData <- function()
             
             rxdone_pt_list                     <<- append(rxdone_pt_list,                       paste(ptID, "-", iRef, sep = ""))
             rxdone_sex_list                    <<- append(rxdone_sex_list,                      sex)
-            rxdone_diagnosis_type_list         <<- append(rxdone_diagnosis_type_list,           diagnosis_type) # S=Secondary, P=Primary or B=Benign
+            rxdone_diagnosis_type_list         <<- append(rxdone_diagnosis_type_list,           diagnosis_type) # S=Secondary, P=Primary, B=Benign, U=Unknown
             rxdone_diagnosis_1o_list           <<- append(rxdone_diagnosis_1o_list,             diagnosis_1o)   # Cancer
             rxdone_diagnosis_2o_list           <<- append(rxdone_diagnosis_2o_list,             diagnosis_2o)   # Cancer
             rxdone_diagnosis_bn_list           <<- append(rxdone_diagnosis_bn_list,             diagnosis_bn)   # Benign
