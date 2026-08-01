@@ -10,6 +10,7 @@ params:
   audit_end_date: !r Sys.Date()
   audit_financial_year: FALSE
   audit_primary_cancers_only: FALSE
+  audit_split_primary_secondary: TRUE
   audit_organs: ["Liver", "Lung", "Kidney", "Adrenal", "Other"]
   audit_rx_pathway_anonymised: TRUE
 ---
@@ -71,6 +72,7 @@ library(kableExtra)
 audit_start_date     <- params$audit_start_date
 audit_end_date       <- params$audit_end_date
 audit_financial_year <- isTRUE(params$audit_financial_year)
+splitPrimarySecondary <- isTRUE(params$audit_split_primary_secondary)
 audit_organs         <- params$audit_organs
 reportAnonymised     <- isTRUE(params$audit_rx_pathway_anonymised)
 
@@ -185,13 +187,20 @@ yearBasisText <- if (audit_financial_year) "Financial Year (6 Apr\u20135 Apr)" e
 # ---------------------------------------------------------------------------
 # Helper: overall_group -- adds an "All Organs" summary row
 # ---------------------------------------------------------------------------
+
 overall_group <- function(data, col_name) {
-  d1 <- data %>% mutate(summary_level = "grouped")
-  d2 <- data %>% mutate(summary_level = "ungrouped") %>%
-    mutate(!!sym(col_name) := "All Organs")
-  rbind(d1, d2) %>%
-    group_by(summary_level, !!sym(col_name)) %>%
-    { subset(., select = -c(summary_level)) }
+
+  grouped <- data |>
+    group_by(!!sym(col_name)) |>
+    mutate(summary_level = "grouped")
+
+  all_organs <- data |>
+    mutate(
+      !!sym(col_name) := "All Organs",
+      summary_level = "ungrouped"
+    )
+
+  bind_rows(grouped, all_organs)
 }
 
 add_year_separators <- function(kable, cols)
@@ -212,24 +221,39 @@ add_year_separators <- function(kable, cols)
 # data frame, then split into per-year slices.
 # ---------------------------------------------------------------------------
 cleanBase <- function(data) {
+
   d <- data |>
     filter(!(ID %in% c("000-1", "00000-1", "000000-1")))
+
   if (!("All" %in% audit_organs)) {
     d <- d |> filter(Organ %in% audit_organs)
   }
+
   if (audit_primary_cancers_only && "DiagnosisType" %in% names(d)) {
     d <- d |> filter(DiagnosisType == "P")
   }
+
+  # Split selected organs into Primary / Secondary
+  if (isTRUE(splitPrimarySecondary) &&
+      "DiagnosisType" %in% names(d)) {
+
+    d <- d |>
+      mutate(
+        Organ = paste0(
+          Organ,
+          ifelse(DiagnosisType == "P", "-Primary", "-Secondary")
+        )
+      )
+  }
+
   d
 }
 
 rxWaitClean <- cleanBase(rxWaitData)
-rxDoneClean <- cleanBase(rxDoneData) |>
-  filter(
-    is.na(Ref_DTT) |
-    is.na(DTT_Rx) |
-    !(Ref_DTT == 0 & DTT_Rx == 0)
-  ) # This is a special fix to exclude for those cases which don't have a referral date, resulting in these zero entries
+rxDoneClean <- cleanBase(rxDoneData)
+
+# Organs after optional Primary/Secondary splitting
+table_organs <- sort(unique(rxDoneClean$Organ))
 
 # List of per-year data frames
 rxDoneByYear <- lapply(yearWindows, function(w) {
@@ -238,7 +262,7 @@ rxDoneByYear <- lapply(yearWindows, function(w) {
 names(rxDoneByYear) <- yearLabels
 
 # For wait-time plots we still need the full audit-period data frame
-rxDoneAuditData    <- rxDoneClean |> filter(RxDate >= auditStart & RxDate <= auditEnd)
+rxDoneAuditData    <- bind_rows(rxDoneByYear)
 rxWaitAuditData    <- rxWaitClean
 
 if (reportAnonymised)
@@ -297,104 +321,106 @@ buildMultiYearTable <- function(summarise_fn, pct_cols, count_cols, raw_col) {
   yr_tables <- lapply(rxDoneByYear, summarise_fn)
 
   # All organs + individual organ rows to test
-  organs_to_test <- c(audit_organs, "All Organs")
+  organs_to_test <- c(table_organs, "All Organs")
 
-  # Build comparison columns year-by-year (each vs its predecessor)
-result <- yr_tables[[1]] |>
-  mutate(
-    `Organ Treated` = paste0(Organ, " (N=", n, ")"),
-    !!paste0("n_", yearLabels[1]) := paste0("N=", n)
-  ) |>
-  select(`Organ Treated`, Organ, all_of(paste0("n_", yearLabels[1])), mean, median, all_of(pct_cols))
-
-  colnames(result)[colnames(result) == "mean"]   <- paste0("mean_",   yearLabels[1])
-  colnames(result)[colnames(result) == "median"] <- paste0("median_", yearLabels[1])
-  for (pc in pct_cols) {
-    colnames(result)[colnames(result) == pc] <- paste0(pc, "_", yearLabels[1])
-  }
-
-  for (i in seq_along(yearWindows)) {
-    lbl      <- yearLabels[i]
-    cur_tbl  <- yr_tables[[i]]
-    cur_data <- rxDoneByYear[[i]]
-
-    if (i > 1) {
-      prev_lbl  <- yearLabels[i - 1]
-      prev_tbl  <- yr_tables[[i - 1]]
-      prev_data <- rxDoneByYear[[i - 1]]
-
-      # Significance markers per organ
-      sig_t  <- setNames(
-        sapply(organs_to_test, function(org)
-          getTTestPValueFromData(cur_data, prev_data, org, raw_col)),
-        organs_to_test)
-
-      sig_z <- lapply(seq_along(pct_cols), function(j) {
-        setNames(
-          sapply(organs_to_test, function(org)
-            getZTestPValueFromTables(cur_tbl, prev_tbl, org, count_cols[j])),
-          organs_to_test)
-      })
-      names(sig_z) <- pct_cols
-
-      add <- cur_tbl |>
-        select(Organ, n, mean, median, all_of(pct_cols)) |>
+  # First column totals — must use the date-filtered audit data, not the
+  # unfiltered full-history rxDoneClean, or the headline N will include
+  # referrals from outside the audit period entirely.
+  overall_counts <- rxDoneAuditData |>
+    mutate(
+      !!raw_col := if_else(.data[[raw_col]] < 0,
+                           NA_real_,
+                           .data[[raw_col]])
+    ) |>
+    group_by(Organ) |>
+    summarise(
+      total_n = sum(!is.na(.data[[raw_col]])),
+      .groups = "drop"
+    ) |>
+    bind_rows(
+      rxDoneAuditData |>
         mutate(
-          !!paste0("n_",      lbl) := paste0("N=", n),
-          !!paste0("mean_",   lbl) := paste0(mean,   " (", prev_tbl$mean[match(Organ, prev_tbl$Organ)],   ")",
-                                              sapply(Organ, function(o) sig_t[o])),
-          !!paste0("median_", lbl) := paste0(median, " (", prev_tbl$median[match(Organ, prev_tbl$Organ)], ")")
+          !!raw_col := if_else(.data[[raw_col]] < 0,
+                               NA_real_,
+                               .data[[raw_col]])
+        ) |>
+        summarise(
+          Organ = "All Organs",
+          total_n = sum(!is.na(.data[[raw_col]]))
         )
+    )
 
-      for (j in seq_along(pct_cols)) {
-        pc       <- pct_cols[j]
-        prev_pct <- prev_tbl[[pc]][match(cur_tbl$Organ, prev_tbl$Organ)]
-        add <- add |>
-          mutate(!!paste0(pc, "_", lbl) :=
-                   paste0(!!sym(pc), " (", prev_pct, ")",
-                          sapply(Organ, function(o) sig_z[[pc]][o])))
-      }
-
-      add <- add |>
-        select(
-          Organ,
-          starts_with("n_"),
-          starts_with("mean_"),
-          starts_with("median_"),
-          all_of(paste0(pct_cols, "_", lbl))
-        )
-
-      result <- result |> left_join(
-        add |> select(
-          Organ,
-          all_of(c(
-            paste0("n_", lbl),
-            paste0("mean_", lbl),
-            paste0("median_", lbl),
-            paste0(pct_cols, "_", lbl)
-          ))
+  result <- NULL
+    
+  for (i in seq_along(yearWindows))
+  {
+    lbl <- yearLabels[i]
+    cur_tbl <- yr_tables[[i]]
+    prev_tbl <- if (i > 1) yr_tables[[i-1]] else NULL
+  
+    add <- cur_tbl |>
+      select(Organ, n, mean, sd, median, all_of(pct_cols)) |>
+      mutate(
+        !!paste0("n_", lbl) := paste0("N=", n),
+        !!paste0("mean_", lbl) := paste0(
+          mean,
+          if (i > 1) {
+            sapply(Organ, function(org)
+              getTTestPValueFromData(
+                rxDoneByYear[[i]],
+                rxDoneByYear[[i-1]],
+                org,
+                raw_col
+              )
+            )
+          } else "",
+          " (SD=", sd, ")"
         ),
-        by = "Organ"
+        !!paste0("median_", lbl) := median
       )
+  
+    for (pc in pct_cols) {
+      add <- add |>
+        mutate(
+          !!paste0(pc, "_", lbl) := .data[[pc]]
+        )
+    }
+  
+    add <- add |>
+      select(
+        Organ,
+        starts_with("n_"),
+        starts_with("mean_"),
+        starts_with("median_"),
+        ends_with(lbl)
+      )
+  
+    if (is.null(result)) {
+      result <- add
     } else {
-      # First year -- just add N column
-      result <- result |>
-        mutate(!!paste0("n_", lbl) := paste0("N=", yr_tables[[1]]$n[match(Organ, yr_tables[[1]]$Organ)]))
+      result <- result |> left_join(add, by = "Organ")
     }
   }
-
-  result |> filter(Organ == "All Organs" | Organ %in% audit_organs)
+  result <- result |>
+    left_join(overall_counts, by = "Organ") |>
+    mutate(
+      `Organ Treated` = paste0(Organ, " (N=", total_n, ")")
+    ) |>
+    select(`Organ Treated`, everything())
+  
+  result |> filter(Organ == "All Organs" | Organ %in% table_organs)
 }
 
 # ---------------------------------------------------------------------------
 # Generic multi-year boxplot builder
 # ---------------------------------------------------------------------------
 buildMultiYearBoxplot <- function(value_col, title_str, ylab_str, hlines = list()) {
-
+  
   combined <- bind_rows(lapply(seq_along(yearWindows), function(i) {
     rxDoneByYear[[i]] |>
       select(Organ, !!sym(value_col)) |>
       mutate(
+        Organ = factor(Organ),
         Year = factor(yearLabels[i], levels = yearLabels),
         !!sym(value_col) := if_else(!!sym(value_col) < 0,
                                     NA_real_,
@@ -402,63 +428,111 @@ buildMultiYearBoxplot <- function(value_col, title_str, ylab_str, hlines = list(
       )
   }))
 
-  ## N and mean for each Organ × Year, positioned just above that box's own
-  ## top edge (Q3) -- not the whisker, which can extend much further out
+  # Position dodge used later
+  dodge_width <- 0.8
+  pd <- position_dodge(width = dodge_width) 
+  
+  p <- ggplot(
+    combined,
+    aes(
+      x = Organ,
+      y = .data[[value_col]],
+      colour = Year
+    )
+  ) +
+  geom_boxplot(position = pd) +
+  labs(
+    colour = if (audit_financial_year)
+      "Financial Year"
+    else
+      "Calendar Year"
+  )
+    
+  # Extract actual boxplot positions and heights
+  # N and mean labels
   counts <- combined |>
     filter(!is.na(.data[[value_col]])) |>
     group_by(Organ, Year) |>
     summarise(
-      N       = n(),
+      N = n(),
       meanVal = mean(.data[[value_col]], na.rm = TRUE),
-      q3      = quantile(.data[[value_col]], 0.75, na.rm = TRUE),
+      box_top = quantile(.data[[value_col]], 0.75, na.rm = TRUE),
       .groups = "drop"
     ) |>
-    mutate(label = sprintf("N=%d (%.1f)", N, meanVal))
-
-  yrange <- diff(range(combined[[value_col]], na.rm = TRUE))
-  counts$y <- counts$q3 + 0.03 * yrange
-
-  ## Compute an explicit numeric x position for each label, offset to sit
-  ## over the left-hand edge of its box (i.e. left of the median/whisker
-  ## line, which runs through the box centre) rather than dead-centre.
-  organLevels <- levels(factor(combined$Organ))
-  nGroupsYear <- nlevels(combined$Year)
-  dodgeWidth  <- 0.8
-
+    mutate(
+      label = sprintf("N=%d (%.1f)", N, meanVal)
+    )
+  
+  # One common height for ALL labels: highest box in entire plot
+  global_top <- max(counts$box_top, na.rm = TRUE)
+  
   counts <- counts |>
     mutate(
-      organIdx  = match(Organ, organLevels),
-      yearIdx   = match(Year, levels(Year)),
-      # centre x for this Organ/Year slot under position_dodge(width = 0.8)
-      slotCentre = organIdx - dodgeWidth / 2 +
-                    (yearIdx - 0.5) * (dodgeWidth / nGroupsYear),
-      # nudge left within the slot so the label clears the whisker/median line
-      x = slotCentre - 0.18 * (dodgeWidth / nGroupsYear)
+      y = min(combined[[value_col]], na.rm = TRUE) -
+          0.30 * diff(range(combined[[value_col]], na.rm = TRUE))
     )
+  
+  # Match the dodged x position of each year
+  nYears <- length(yearLabels)
+  
+  label_shift <- -0.10   # move labels left; adjust this value
+  
+  box_width <- dodge_width / nYears
+  
+  # Match actual geom_boxplot dodge positions
+  nYears <- length(yearLabels)
 
-  p <- ggplot(combined,
-            aes(x = Organ,
-                y = .data[[value_col]],
-                colour = Year)) +
-    geom_boxplot(position = position_dodge(width = 0.8)) +
-    labs(colour = if (audit_financial_year) "Financial Year" else "Calendar Year") +
-
-    ## N (mean) labels just above each box's top edge, rotated vertical,
-    ## nudged left of the whisker upstroke
+  counts <- counts |>
+  mutate(
+    y = min(combined[[value_col]], na.rm = TRUE) -
+        0.30 * diff(range(combined[[value_col]], na.rm = TRUE))
+  )
+  
+  # actual geom_boxplot default width
+  box_width <- 0.75 * (dodge_width / nYears)
+  
+  counts <- counts |>
+    group_by(Organ) |>
+    mutate(
+      nYearsHere = n(),
+      year_num = row_number(),
+      organ_num = as.numeric(Organ),
+  
+      box_width = dodge_width / nYearsHere,
+  
+      box_centre = organ_num - dodge_width/2 +
+        (year_num - 0.5) * (dodge_width/nYearsHere),
+  
+      x_label = box_centre - (0.75 * box_width)/2 + 0.03
+    ) |>
+    ungroup()
+  
+  counts <- counts |>
+    mutate(
+      Year = factor(Year, levels = yearLabels)
+    )
+  
+  p <- p +
     geom_text(
       data = counts,
       aes(
-        x = x,
+        x = x_label,
         y = y,
         label = label
       ),
-      colour = "black",      # same colour for every year
-      size = 2.6,
       angle = 90,
+      size = 3.2,
+      colour = "black",
+      inherit.aes = FALSE,
       hjust = 0,
-      vjust = 0.5,
-      inherit.aes = FALSE
-    )
+      vjust = 0.5
+    ) +
+    labs(
+      colour = if (audit_financial_year)
+        "Financial Year"
+      else
+        "Calendar Year"
+  )
 
   for (h in hlines) {
     p <- p +
@@ -496,13 +570,72 @@ auditPeriodText <- paste0(
   format(auditStart, "%e %b %Y"), " -- ", format(auditEnd, "%e %b %Y"),
   " (", round(as.numeric(difftime(auditEnd, auditStart, units = "weeks")) / 52 * 12, 1), " month period)"
 )
+
+missing_date_legend.old <- function(data, date_col, label) {
+
+  missing_ids <- data |>
+    filter(is.na(.data[[date_col]])) |>
+    pull(ID) |>
+    unique()
+
+  if (length(missing_ids) == 0) {
+    return("")
+  }
+
+  paste0(
+    "<br><br><strong>Missing ",
+    label,
+    " date (N=",
+    length(missing_ids),
+    "):</strong> ",
+    paste(missing_ids, collapse = ", ")
+  )
+}
+
+missing_date_legend_by_organ <- function(data, date_col, label_prefix = "Missing Dates:") {
+
+  missing <- data |>
+    filter(is.na(.data[[date_col]])) |>
+    select(ID, Organ)
+
+  if (nrow(missing) == 0) {
+    return(NULL)
+  }
+
+  legend_text <- missing |>
+    group_by(Organ) |>
+    summarise(
+      TreatmentIDs = paste(ID, collapse = ", "),
+      N = n(),
+      .groups = "drop"
+    ) |>
+    mutate(
+      legend = paste0(
+        Organ,
+        " (N=",
+        N,
+        "): ",
+        TreatmentIDs
+      )
+    ) |>
+    pull(legend)
+
+  paste(
+    c(
+      label_prefix,
+      legend_text
+    ),
+    collapse = "\n"
+  )
+}
 ```
 
 **Audit Generated on:** `r format(Sys.time(), "%a %b %d %X %Y")`<br>
 **Audit Period:** `r format(audit_start_date, "%d %B %Y")` – `r format(audit_end_date, "%d %B %Y")`<br>
-**Organ included in audit:** `r paste(audit_organs)`<br>
-**Filters:** `r paste0(if (audit_primary_cancers_only) "Primary cancers only" else "All diagnosis types")`<br>
-**Year basis:** `r yearBasisText`<br>
+**Organ included in audit:** `r paste(audit_organs, collapse = ", ")`<br>
+**Primary cancers only:** `r if (audit_primary_cancers_only) "Yes" else "No"`<br>
+**Split primary/secondary cancers:** `r if (splitPrimarySecondary) "Yes" else "No"`<br>
+**Organs included:** `r paste(audit_organs, collapse = ", ")`<br>**Year basis:** `r yearBasisText`<br>
 **Years in audit:** `r paste(yearLabels, collapse = ", ")`<br>
 
 ## Audit Summary
@@ -520,7 +653,17 @@ n_patients  <- as.integer(summaryData |>
   pull(PtID) |>
   dplyr::n_distinct())
 
-n_referrals <- as.integer(nrow(summaryData))
+n_referrals_total <- as.integer(nrow(summaryData))
+
+n_referrals_valid_ref_rx <- as.integer(
+  summaryData |>
+    filter(!is.na(Ref_RxDone)) |>
+    nrow()
+)
+
+n_referrals_excluded <- n_referrals_total - n_referrals_valid_ref_rx
+
+n_referrals_missing_dtt <- as.integer(summaryData |> filter(is.na(Ref_DTT)) |> nrow())
 
 n_tumours <- if ("TumourCount" %in% names(summaryData)) {
   as.integer(sum(summaryData$TumourCount, na.rm = TRUE))
@@ -542,9 +685,13 @@ mk_val <- function(name, x) {
   x
 }
 
-val_patients   <- mk_val("n_patients",   format(n_patients,  big.mark = ","))
-val_tumours    <- mk_val("n_tumours",    format(n_tumours,   big.mark = ","))
-val_referrals  <- mk_val("n_referrals",  format(n_referrals, big.mark = ","))
+val_referrals_total    <- mk_val("n_referrals_total",format(n_referrals_total, big.mark = ","))
+val_referrals_valid    <- mk_val("n_referrals_valid_ref_rx",format(n_referrals_valid_ref_rx, big.mark = ","))
+val_patients           <- mk_val("n_patients", format(n_patients, big.mark = ","))
+val_tumours            <- mk_val("n_tumours", format(n_tumours, big.mark = ","))
+val_referrals_excluded <- mk_val("n_referrals_excluded",format(n_referrals_excluded, big.mark = ","))
+val_referrals_missing_dtt <- mk_val("n_referrals_missing_dtt", format(n_referrals_missing_dtt, big.mark = ","))
+
 val_mean_refdtt <- mk_val("mean_Ref_DTT", sprintf("%.1f", mean(summaryData$Ref_DTT, na.rm = TRUE)))
 val_w10        <- mk_val("w10",  sprintf("%.1f", pct_within(summaryData$Ref_DTT, 10)))
 val_w21        <- mk_val("w21",  sprintf("%.1f", pct_within(summaryData$Ref_DTT, 21)))
@@ -557,9 +704,12 @@ val_w90        <- mk_val("w90",  sprintf("%.1f", pct_within(summaryData$Ref_RxDo
 
 summary_tbl <- tibble::tibble(
   Metric = c(
-    "Patients treated",
-    "Tumours treated",
-    "Referrals audited",
+    "Total Referrals Analysed",
+    "Valid Referrals: Total Treatments (w/Ref + Rx Dates)",
+    "Valid Referrals: Total Tumours Treated",
+    "Valid Referrals: Total Patients Treated",
+    "Excluded Referrals (missing Ref or Rx Date)",
+    "Referrals missing DTT date",
     "Mean Referral-to-DTT (days)",
     "% Referral-to-DTT \u2264 10 days",
     "% Referral-to-DTT \u2264 21 days",
@@ -571,7 +721,8 @@ summary_tbl <- tibble::tibble(
     "% Referral-to-Ablation \u2264 90 days"
   ),
   Value = c(
-    val_patients, val_tumours, val_referrals,
+    val_referrals_total, val_referrals_valid, val_tumours, val_patients,
+    val_referrals_excluded, val_referrals_missing_dtt,
     val_mean_refdtt, val_w10, val_w21,
     val_mean_dttrx, val_w31, val_w45, val_w60,
     val_mean_refrx, val_w90
@@ -587,44 +738,77 @@ summary_tbl |>
     bootstrap_options = c("striped", "condensed", "responsive"),
     full_width = FALSE
   )
-
-
 ```
 
 
 ## Ablation Referral to DTT Times
 
 ```{r ref_dtt_table}
+
 generateDTTTable <- function(doneData) {
+
+  # Handle completely empty year
+  if (nrow(doneData) == 0) {
+    return(
+      tibble(
+        Organ  = c("All Organs", table_organs),
+        n       = 0,
+        mean    = NA_real_,
+        sd      = NA_real_,
+        median  = NA_real_,
+        w10     = 0,
+        w21     = 0,
+        `w10%`  = NA_real_,
+        `w21%`  = NA_real_
+      )
+    )
+  }
+
   doneData |>
-    mutate(Ref_DTT = if_else(Ref_DTT < 0, NA_real_, Ref_DTT)) |>
     mutate(
-      within10 = ifelse(Ref_DTT <= 10, 1, 0),
-      within21 = ifelse(Ref_DTT <= 21, 1, 0)
+      Ref_DTT = if_else(Ref_DTT < 0, 0, Ref_DTT), # If negative, zero it
+      within10 = if_else(!is.na(Ref_DTT) & Ref_DTT <= 10, 1L, 0L),
+      within21 = if_else(!is.na(Ref_DTT) & Ref_DTT <= 21, 1L, 0L)
     ) |>
     overall_group("Organ") |>
     summarise(
-      n = sum(!is.na(Ref_DTT)),
-      mean = round(mean(Ref_DTT, na.rm = TRUE), 1),
+      n      = sum(!is.na(Ref_DTT)),
+      mean   = round(mean(Ref_DTT, na.rm = TRUE), 1),
+      sd     = round(sd(Ref_DTT, na.rm = TRUE), 1),
       median = round(median(Ref_DTT, na.rm = TRUE), 1),
-      w10 = sum(within10, na.rm = TRUE),
-      w21 = sum(within21, na.rm = TRUE),
-      "w10%" = round(sum(within10, na.rm = TRUE) / sum(!is.na(Ref_DTT)) * 100, 1),
-      "w21%" = round(sum(within21, na.rm = TRUE) / sum(!is.na(Ref_DTT)) * 100, 1)
+      w10    = sum(within10),
+      w21    = sum(within21),
+      `w10%` = ifelse(n == 0, NA_real_, round(100 * w10 / n, 1)),
+      `w21%` = ifelse(n == 0, NA_real_, round(100 * w21 / n, 1))
+    )  |>
+    mutate(
+      Organ = if_else(is.na(Organ), "All Organs", Organ)
     ) |>
-    mutate(Organ = if_else(is.na(Organ), "All Organs", Organ)) |>
     ungroup() |>
-    filter(Organ == "All Organs" | Organ %in% audit_organs)
+    tidyr::complete(
+      Organ = unique(c("All Organs", table_organs)),
+      fill = list(
+        n = 0,
+        mean = NA_real_,
+        sd = NA_real_,
+        median = NA_real_,
+        w10 = 0,
+        w21 = 0,
+        `w10%` = NA_real_,
+        `w21%` = NA_real_
+      )
+    )
 }
 
 if (nYears == 1) {
   # Single year: original simple table
   generateDTTTable(rxDoneAuditData) |>
     mutate(`Organ Treated` = paste0(Organ, " (N=", n, ")")) |>
-    select(`Organ Treated`, mean, median, `w10%`, `w21%`) |>
-    kbl(col.names = c("Organ Treated", "Mean time\n(days)", "Median\n(days)",
+    select(`Organ Treated`, mean, sd, median, `w10%`, `w21%`) |>
+    kbl(col.names = c("Organ Treated", "Mean time\n(SD)", "Median\n",
                       "% within 10 days\n(Local std.)", "% within 21 days\n(Local std.)")) |>
     add_header_above(data.frame(paste0("Time from Referral Received-to-DTT (", yearBasisText, ")\n", auditPeriodText), 5)) |>
+    footnote(missing_date_legend_by_organ(rxDoneAuditData, "Ref_DTT", "Missing Ref-to-DTT Dates:")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE)
 } else {
   # Multi-year: build wide comparison table
@@ -645,7 +829,7 @@ if (nYears == 1) {
   )
   
   col_headers <- c("Organ Treated",
-    rep(c("N", "Mean\n(days)", "Median\n(days)", "% <=10 days", "% <=21 days"), nYears))
+    rep(c("N", "Mean\n(SD)", "Median\n", "% <=10 days", "% <=21 days"), nYears))
   
   span_headers <- c(setNames(1, " "), setNames(rep(5, nYears), yearLabels))
 
@@ -653,13 +837,14 @@ if (nYears == 1) {
     select(any_of(display_cols)) |>
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
-    add_header_above(setNames(length(col_headers), paste0("Time from Referral Received-to-DTT (", yearBasisText, ")"))) |>
+    add_header_above(setNames(length(col_headers), paste0("Time from Referral Received-to-DTT (", yearBasisText, ")"))) |>      footnote(missing_date_legend_by_organ(rxDoneAuditData, "Ref_DTT", "Missing Ref-to-DTT Dates:")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
     add_year_separators(display_cols)
   }
 ```
 
-Mean, median (days) and percentage of referrals meeting defined time standards. Numbers in brackets show the preceding year's values. * t-test significant difference vs preceding year. + z-test significant difference vs preceding year.
+<strong>Table 1</strong>: Referral to Decision to Treat Time (days). Mean (SD), median (in days) and percentage of referrals meeting defined time standards. * Significant difference compared with the preceding year (two-sided independent samples t-test, p < 0.05).
+
 
 ```{r ref_dtt_boxplot, warning=FALSE}
 buildMultiYearBoxplot(
@@ -673,42 +858,81 @@ buildMultiYearBoxplot(
 )
 ```
 
+<strong>Plot 1</strong>: Referral received to Decision to Treat (DTT) Box-and-Whisker plot. Box represents the interquartile range (Q1–Q3). Horizontal line represents the median. Whiskers represent the highest and lowest values within 1.5×IQR of the upper and lower quartiles. Points beyond whiskers represent outliers. Labels show sample size (N) and mean value (days).
+
+
 ## Ablation DTT to Rx Times
 
-```{r dtt_rx_table}
+```{r dtt_rx_table, results='asis'}
 generateDTTtoRxTable <- function(doneData) {
+
+  # Empty year
+  if (nrow(doneData) == 0) {
+    return(
+      tibble(
+        Organ = c("All Organs", table_organs),
+        n = 0,
+        mean = NA_real_,
+        sd = NA_real_,
+        median = NA_real_,
+        w31 = 0,
+        w45 = 0,
+        w60 = 0,
+        `w31%` = NA_real_,
+        `w45%` = NA_real_,
+        `w60%` = NA_real_
+      )
+    )
+  }
+
   doneData |>
-    mutate(DTT_Rx = if_else(DTT_Rx < 0, NA_real_, DTT_Rx)) |>
     mutate(
-      within31 = ifelse(DTT_Rx <= 31, 1, 0),
-      within45 = ifelse(DTT_Rx <= 45, 1, 0),
-      within60 = ifelse(DTT_Rx <= 60, 1, 0)
+      DTT_Rx = if_else(DTT_Rx < 0, 0, DTT_Rx), # If negative, zero it
+      within31 = if_else(!is.na(DTT_Rx) & DTT_Rx <= 31, 1L, 0L),
+      within45 = if_else(!is.na(DTT_Rx) & DTT_Rx <= 45, 1L, 0L),
+      within60 = if_else(!is.na(DTT_Rx) & DTT_Rx <= 60, 1L, 0L)
     ) |>
     overall_group("Organ") |>
     summarise(
-      n = sum(!is.na(DTT_Rx)),
-      mean    = round(mean(DTT_Rx, na.rm = TRUE), 1),
-      median  = round(median(DTT_Rx, na.rm = TRUE), 1),
-      w31     = sum(within31, na.rm = TRUE),
-      w45     = sum(within45, na.rm = TRUE),
-      w60     = sum(within60, na.rm = TRUE),
-      "w31%"  = round(sum(within31, na.rm = TRUE) / n() * 100, 1),
-      "w45%"  = round(sum(within45, na.rm = TRUE) / n() * 100, 1),
-      "w60%"  = round(sum(within60, na.rm = TRUE) / n() * 100, 1)
+      n      = sum(!is.na(DTT_Rx)),
+      mean   = round(mean(DTT_Rx, na.rm = TRUE), 1),
+      sd     = round(sd(DTT_Rx, na.rm = TRUE), 1),
+      median = round(median(DTT_Rx, na.rm = TRUE), 1),
+      w31    = sum(within31),
+      w45    = sum(within45),
+      w60    = sum(within60),
+      `w31%` = ifelse(n == 0, NA_real_, round(100 * w31 / n, 1)),
+      `w45%` = ifelse(n == 0, NA_real_, round(100 * w45 / n, 1)),
+      `w60%` = ifelse(n == 0, NA_real_, round(100 * w60 / n, 1))
     ) |>
     mutate(Organ = if_else(is.na(Organ), "All Organs", Organ)) |>
     ungroup() |>
-    filter(Organ == "All Organs" | Organ %in% audit_organs)
+    tidyr::complete(
+      Organ = unique(c("All Organs", table_organs)),
+      fill = list(
+        n = 0,
+        mean = NA_real_,
+        sd = NA_real_,
+        median = NA_real_,
+        w31 = 0,
+        w45 = 0,
+        w60 = 0,
+        `w31%` = NA_real_,
+        `w45%` = NA_real_,
+        `w60%` = NA_real_
+      )
+    )
 }
 
 if (nYears == 1) {
   generateDTTtoRxTable(rxDoneAuditData) |>
     mutate(`Organ (n)` = paste0(Organ, " (N=", n, ")")) |>
     select(`Organ (n)`, mean, median, `w31%`, `w45%`, `w60%`) |>
-    kbl(col.names = c("Organ Treated", "Mean time\n(days)", "Median\n(days)",
+    kbl(col.names = c("Organ Treated", "Mean time\n(SD)", "Median\n",
                       "% within 31 days\n(Cancer std.)", "% within 45 days\n(Local std.)",
                       "% within 60 days\n(Local std.)")) |>
     add_header_above(data.frame(paste0("Time from DTT-to-Ablation (", yearBasisText, ")\n", auditPeriodText), 6)) |>
+    footnote(missing_date_legend_by_organ(rxDoneAuditData, "DTT_Rx", "Missing DTT-to-Rx Dates:")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE)
 } else
 {
@@ -728,7 +952,7 @@ if (nYears == 1) {
   )
   
   col_headers  <- c("Organ Treated",
-    rep(c("N", "Mean\n(days)", "Median\n(days)", "% <=31 days", "% <=45 days", "% <=60 days"), nYears))
+    rep(c("N", "Mean\n(SD)", "Median\n", "% <=31 days", "% <=45 days", "% <=60 days"), nYears))
   span_headers <- c(setNames(1, " "), setNames(rep(6, nYears), yearLabels))
 
   dttRxMulti |>
@@ -736,12 +960,13 @@ if (nYears == 1) {
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
     add_header_above(setNames(length(col_headers), paste0("Time from DTT-to-Ablation (", yearBasisText, ")"))) |>
+    footnote(missing_date_legend_by_organ(rxDoneAuditData, "DTT_Rx", "Missing DTT-to-Rx Dates:")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
     add_year_separators(display_cols)
 }
 ```
 
-Mean, median (days) and percentage of referrals meeting defined time standards from the decision to treat clinic date (DTT) and the day of ablation treatment.
+<strong>Table 2</strong>: Decision to Treat to Treatment Time (days). Mean (SD), median (in days) and percentage of referrals meeting defined time standards. * Significant difference compared with the preceding year (two-sided independent samples t-test, p < 0.05).
 
 ```{r dtt_rx_boxplot, warning=FALSE}
 buildMultiYearBoxplot(
@@ -756,33 +981,67 @@ buildMultiYearBoxplot(
 )
 ```
 
+<strong>Plot 2</strong>: Decision to Treat (DTT) to Treatment Date Box-and-Whisker plot. Box represents the interquartile range (Q1–Q3). Horizontal line represents the median. Whiskers represent the highest and lowest values within 1.5×IQR of the upper and lower quartiles. Points beyond whiskers represent outliers. Labels show sample size (N) and mean value (days).
+ \* Significant difference vs preceding year (t-test)
+ \+ Significant difference vs preceding year (z-test for proportions)
+ 
 ## Ablation Referral to Rx Times
 
-```{r ref_rx_table}
+```{r ref_rx_table, results='asis'}
 generateRefToRxTable <- function(doneData) {
+
+  # Handle completely empty year
+  if (nrow(doneData) == 0) {
+    return(
+      tibble(
+        Organ = c("All Organs", table_organs),
+        n = 0,
+        mean = NA_real_,
+        sd = NA_real_,
+        median = NA_real_,
+        w90 = 0,
+        `w90%` = NA_real_
+      )
+    )
+  }
+
   doneData |>
-    mutate(Ref_RxDone = if_else(Ref_RxDone < 0, NA_real_, Ref_RxDone)) |>
-    mutate(within90 = ifelse(Ref_RxDone <= 90, 1, 0)) |>
+    mutate(
+      Ref_RxDone = if_else(Ref_RxDone < 0, 0, Ref_RxDone), # If negative, zero it
+      within90 = if_else(!is.na(Ref_RxDone) & Ref_RxDone <= 90, 1L, 0L)
+    ) |>
     overall_group("Organ") |>
     summarise(
+      n      = sum(!is.na(Ref_RxDone)),
       mean   = round(mean(Ref_RxDone, na.rm = TRUE), 1),
+      sd     = round(sd(Ref_RxDone, na.rm = TRUE), 1),
       median = round(median(Ref_RxDone, na.rm = TRUE), 1),
-      w90    = sum(within90, na.rm = TRUE),
-      "w90%" = round(sum(within90, na.rm = TRUE) / n() * 100, 1),
-      n = n()
+      w90    =    sum(within90),
+      `w90%` = ifelse(n == 0, NA_real_, round(100 * w90 / n, 1))
     ) |>
     mutate(Organ = if_else(is.na(Organ), "All Organs", Organ)) |>
     ungroup() |>
-    filter(Organ == "All Organs" | Organ %in% audit_organs)
+    tidyr::complete(
+      Organ = unique(c("All Organs", table_organs)),
+      fill = list(
+        n = 0,
+        mean = NA_real_,
+        sd = NA_real_,
+        median = NA_real_,
+        w90 = 0,
+        `w90%` = NA_real_
+      )
+    )
 }
 
 if (nYears == 1) {
   generateRefToRxTable(rxDoneAuditData) |>
     mutate(`Organ (n)` = paste0(Organ, " (N=", n, ")")) |>
     select(`Organ (n)`, mean, median, `w90%`) |>
-    kbl(col.names = c("Organ Treated", "Mean time\n(days)", "Median\n(days)",
+    kbl(col.names = c("Organ Treated", "Mean time\n(SD)", "Median\n",
                       "% within 90 days\n(Local std.)")) |>
     add_header_above(data.frame(paste0("Time from Referral received-to-Ablation (", yearBasisText, ")\n", auditPeriodText), 4)) |>
+    footnote(missing_date_legend_by_organ(rxDoneAuditData, "Ref_RxDone", "Missing Ref-to-Rx Dates:")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE)
 } else {
   refRxMulti <- buildMultiYearTable(
@@ -799,7 +1058,7 @@ if (nYears == 1) {
     )))
   )
   
-  col_headers  <- c("Organ Treated", rep(c("N", "Mean\n(days)", "Median\n(days)", "% <=90 days"), nYears))
+  col_headers  <- c("Organ Treated", rep(c("N", "Mean\n(SD)", "Median\n", "% <=90 days"), nYears))
   span_headers <- c(setNames(1, " "), setNames(rep(4, nYears), yearLabels))
 
   refRxMulti |>
@@ -807,12 +1066,13 @@ if (nYears == 1) {
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
     add_header_above(setNames(length(col_headers), paste0("Time from Referral received-to-Ablation (", yearBasisText, ")"))) |>
+    footnote(missing_date_legend_by_organ(rxDoneAuditData, "Ref_RxDone", "Missing Ref-to-Rx Dates:")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
     add_year_separators(display_cols)
   }
 ```
 
-Mean, median (days) and percentage of referrals meeting defined time standard from the referral received date to treatment date overall.
+<strong>Table 3</strong>: Referral to Treatment Time (days). Mean (SD), median (in days) and percentage of referrals meeting defined time standards. * Significant difference compared with the preceding year (two-sided independent samples t-test, p < 0.05).
 
 ```{r ref_rx_boxplot, warning=FALSE}
 buildMultiYearBoxplot(
@@ -823,13 +1083,12 @@ buildMultiYearBoxplot(
 )
 ```
 
-* Numbers in brackets represent the results in the preceding year
-* \* Significant difference vs preceding year (t-test)
-* + Significant difference vs preceding year (z-test for proportions)
+<strong>Plot 3</strong>: Referral Date to Treatment Date Box-and-Whisker plot. Box represents the interquartile range (Q1–Q3). Horizontal line represents the median. Whiskers represent the highest and lowest values within 1.5×IQR of the upper and lower quartiles. Points beyond whiskers represent outliers. Labels show sample size (N) and mean value (days).
+ \* Significant difference vs preceding year (t-test)
+ \+ Significant difference vs preceding year (z-test for proportions)
 
 ## Clock Stops causing negative Referral to DTT and DTT to Rx times
 
-```{r negative_clockstop}
 ```{r negative_clockstop}
 negativeClockstop <- rxDoneAuditData |>
   filter(Ref_DTT < 0 | DTT_Rx < 0) |>
@@ -880,7 +1139,7 @@ rxDoneAuditData |>
   group_by(clockstopped) |>
   mutate(n = n(), clockstopped = paste0(clockstopped, " (N=", n, ")")) |>
   summarise(mean = round(mean(daysStopped), 1), median = round(median(daysStopped), 1)) |>
-  kbl(col.names = c("Clock Status", "Mean time\n(days)", "Median\n(days)")) |>
+  kbl(col.names = c("Clock Status", "Mean time\n(SD)", "Median\n")) |>
   kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE) |>
   column_spec(1, width = "30em") |>
   column_spec(2, width = "8em") |>
@@ -903,7 +1162,7 @@ rxDoneAuditData |>
   group_by(clockstopped) |>
   mutate(n = n(), clockstopped = paste0(clockstopped, " (N=", n, ")")) |>
   summarise(mean = round(mean(daysStopped), 1), median = round(median(daysStopped), 1)) |>
-  kbl(col.names = c("Clock Status", "Mean time\n(days)", "Median\n(days)")) |>
+  kbl(col.names = c("Clock Status", "Mean time\n(SD)", "Median\n(days)")) |>
   kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE) |>
   column_spec(1, width = "30em") |>
   column_spec(2, width = "8em") |>

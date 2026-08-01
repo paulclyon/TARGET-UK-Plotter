@@ -24,7 +24,9 @@ auditRxPathwayTab <- function(id = NULL) {
           value = Sys.Date()
         ),
         checkboxInput("auditFinancialYearStart", "Financial Year Start", FALSE),
-        checkboxInput("auditPrimaryCancersOnly", "Primary Cancers Only", FALSE)
+        checkboxInput("auditPrimaryCancersOnly", "Primary Cancers Only", FALSE),
+        checkboxInput("auditSplitPrimarySecondary", "Split 1o & 2o Cancers", FALSE)
+        
       ),
       column(
         width = 3,
@@ -61,12 +63,13 @@ getAuditParams <- function(input, currentAuditParams) {
   
   if (is.null(params)) {
     params <- list(
-      audit_start_date            = input$auditDate1,
-      audit_end_date              = input$auditDate2,
-      audit_financial_year        = input$auditFinancialYearStart,
-      audit_primary_cancers_only  = input$auditPrimaryCancersOnly,
-      audit_organs                = input$organAuditCheckbox,
-      audit_rx_pathway_anonymised = input$auditRxPathwayAnonymised
+      audit_start_date              = input$auditDate1,
+      audit_end_date                = input$auditDate2,
+      audit_financial_year          = input$auditFinancialYearStart,
+      audit_primary_cancers_only    = input$auditPrimaryCancersOnly,
+      audit_split_primary_secondary = input$auditSplitPrimarySecondary,
+      audit_organs                  = input$organAuditCheckbox,
+      audit_rx_pathway_anonymised   = input$auditRxPathwayAnonymised
     )
     currentAuditParams(params)
   }
@@ -117,7 +120,7 @@ auditServer <- function(input, output, session, api, plots)
   
   observeEvent(list(input$auditDate1, input$auditDate2, input$organAuditCheckbox, 
                     input$auditRxPathwayAnonymised, input$auditFinancialYearStart,
-                    input$auditPrimaryCancersOnly),
+                    input$auditPrimaryCancersOnly, input$auditSplitPrimarySecondary),
                { shinyjs::enable("buttonRunAuditPathwayReport") },
                ignoreInit = TRUE
   )
@@ -126,12 +129,13 @@ auditServer <- function(input, output, session, api, plots)
   observeEvent(input$buttonRunAuditPathwayReport, {
     
     currentAuditParams(list(
-      audit_start_date            = input$auditDate1,
-      audit_end_date              = input$auditDate2,
-      audit_financial_year        = input$auditFinancialYearStart,
-      audit_primary_cancers_only  = input$auditPrimaryCancersOnly,
-      audit_organs                = input$organAuditCheckbox,
-      audit_rx_pathway_anonymised = input$auditRxPathwayAnonymised
+      audit_start_date               = input$auditDate1,
+      audit_end_date                 = input$auditDate2,
+      audit_financial_year           = input$auditFinancialYearStart,
+      audit_primary_cancers_only     = input$auditPrimaryCancersOnly,
+      audit_split_primary_secondary  = input$auditSplitPrimarySecondary,
+      audit_organs                   = input$organAuditCheckbox,
+      audit_rx_pathway_anonymised    = input$auditRxPathwayAnonymised
     ))
     
     auditRefresh(auditRefresh() + 1)
@@ -170,6 +174,7 @@ auditServer <- function(input, output, session, api, plots)
                         envir = new.env(parent = globalenv()),
                         quiet = TRUE)
     }, error = function(e) { 
+      traceback()
       logger(conditionMessage(e), TRUE); 
       showNotification(conditionMessage(e)); 
       return(NULL)
