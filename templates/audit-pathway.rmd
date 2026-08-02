@@ -628,6 +628,62 @@ missing_date_legend_by_organ <- function(data, date_col, label_prefix = "Missing
     collapse = "\n"
   )
 }
+
+# Companion to missing_date_legend_by_organ() -- reports rows where value_col
+# is *present but negative* (a dating error e.g. Rx before referral, DTT
+# before referral), rather than genuinely missing. These are treated as
+# invalid/excluded data throughout the wait-time tables (NA'd, not zeroed),
+# so they must be surfaced here for transparency, in the same style as the
+# missing-date legend above.
+negative_value_legend_by_organ <- function(data, value_col, label_prefix = "Excluded (negative dates):") {
+
+  negative <- data |>
+    filter(!is.na(.data[[value_col]]) & .data[[value_col]] < 0) |>
+    select(ID, Organ)
+
+  if (nrow(negative) == 0) {
+    return(NULL)
+  }
+
+  legend_text <- negative |>
+    group_by(Organ) |>
+    summarise(
+      TreatmentIDs = paste(ID, collapse = ", "),
+      N = n(),
+      .groups = "drop"
+    ) |>
+    mutate(
+      legend = paste0(
+        Organ,
+        " (N=",
+        N,
+        "): ",
+        TreatmentIDs
+      )
+    ) |>
+    pull(legend)
+
+  paste(
+    c(
+      label_prefix,
+      legend_text
+    ),
+    collapse = "\n"
+  )
+}
+
+# Combines the missing-date and negative-value legends into a single
+# footnote string, so both exclusion reasons appear together under each
+# table. Returns NULL only if there is nothing to report at all.
+wait_time_exclusion_footnote <- function(data, value_col, missing_label, negative_label) {
+  parts <- c(
+    missing_date_legend_by_organ(data, value_col, missing_label),
+    negative_value_legend_by_organ(data, value_col, negative_label)
+  )
+  parts <- parts[!vapply(parts, is.null, logical(1))]
+  if (length(parts) == 0) return(NULL)
+  paste(parts, collapse = "\n\n")
+}
 ```
 
 **Audit Generated on:** `r format(Sys.time(), "%a %b %d %X %Y")`<br>
@@ -766,7 +822,7 @@ generateDTTTable <- function(doneData) {
 
   doneData |>
     mutate(
-      Ref_DTT = if_else(Ref_DTT < 0, 0, Ref_DTT), # If negative, zero it
+      Ref_DTT = if_else(Ref_DTT < 0, NA_real_, Ref_DTT), # Negative = data error, treat as missing/invalid, not a real 0-day wait
       within10 = if_else(!is.na(Ref_DTT) & Ref_DTT <= 10, 1L, 0L),
       within21 = if_else(!is.na(Ref_DTT) & Ref_DTT <= 21, 1L, 0L)
     ) |>
@@ -808,7 +864,7 @@ if (nYears == 1) {
     kbl(col.names = c("Organ Treated", "Mean time\n(SD)", "Median\n",
                       "% within 10 days\n(Local std.)", "% within 21 days\n(Local std.)")) |>
     add_header_above(data.frame(paste0("Time from Referral Received-to-DTT (", yearBasisText, ")\n", auditPeriodText), 5)) |>
-    footnote(missing_date_legend_by_organ(rxDoneAuditData, "Ref_DTT", "Missing Ref-to-DTT Dates:")) |>
+    footnote(wait_time_exclusion_footnote(rxDoneAuditData, "Ref_DTT", "Missing Ref-to-DTT Dates:", "Excluded (negative Ref-to-DTT):")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE)
 } else {
   # Multi-year: build wide comparison table
@@ -837,7 +893,8 @@ if (nYears == 1) {
     select(any_of(display_cols)) |>
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
-    add_header_above(setNames(length(col_headers), paste0("Time from Referral Received-to-DTT (", yearBasisText, ")"))) |>      footnote(missing_date_legend_by_organ(rxDoneAuditData, "Ref_DTT", "Missing Ref-to-DTT Dates:")) |>
+    add_header_above(setNames(length(col_headers), paste0("Time from Referral Received-to-DTT (", yearBasisText, ")"))) |>
+    footnote(wait_time_exclusion_footnote(rxDoneAuditData, "Ref_DTT", "Missing Ref-to-DTT Dates:", "Excluded (negative Ref-to-DTT):")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
     add_year_separators(display_cols)
   }
@@ -887,7 +944,7 @@ generateDTTtoRxTable <- function(doneData) {
 
   doneData |>
     mutate(
-      DTT_Rx = if_else(DTT_Rx < 0, 0, DTT_Rx), # If negative, zero it
+      DTT_Rx = if_else(DTT_Rx < 0, NA_real_, DTT_Rx), # Negative = data error, treat as missing/invalid, not a real 0-day wait
       within31 = if_else(!is.na(DTT_Rx) & DTT_Rx <= 31, 1L, 0L),
       within45 = if_else(!is.na(DTT_Rx) & DTT_Rx <= 45, 1L, 0L),
       within60 = if_else(!is.na(DTT_Rx) & DTT_Rx <= 60, 1L, 0L)
@@ -932,7 +989,7 @@ if (nYears == 1) {
                       "% within 31 days\n(Cancer std.)", "% within 45 days\n(Local std.)",
                       "% within 60 days\n(Local std.)")) |>
     add_header_above(data.frame(paste0("Time from DTT-to-Ablation (", yearBasisText, ")\n", auditPeriodText), 6)) |>
-    footnote(missing_date_legend_by_organ(rxDoneAuditData, "DTT_Rx", "Missing DTT-to-Rx Dates:")) |>
+    footnote(wait_time_exclusion_footnote(rxDoneAuditData, "DTT_Rx", "Missing DTT-to-Rx Dates:", "Excluded (negative DTT-to-Rx):")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE)
 } else
 {
@@ -960,7 +1017,7 @@ if (nYears == 1) {
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
     add_header_above(setNames(length(col_headers), paste0("Time from DTT-to-Ablation (", yearBasisText, ")"))) |>
-    footnote(missing_date_legend_by_organ(rxDoneAuditData, "DTT_Rx", "Missing DTT-to-Rx Dates:")) |>
+    footnote(wait_time_exclusion_footnote(rxDoneAuditData, "DTT_Rx", "Missing DTT-to-Rx Dates:", "Excluded (negative DTT-to-Rx):")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
     add_year_separators(display_cols)
 }
@@ -982,9 +1039,7 @@ buildMultiYearBoxplot(
 ```
 
 <strong>Plot 2</strong>: Decision to Treat (DTT) to Treatment Date Box-and-Whisker plot. Box represents the interquartile range (Q1–Q3). Horizontal line represents the median. Whiskers represent the highest and lowest values within 1.5×IQR of the upper and lower quartiles. Points beyond whiskers represent outliers. Labels show sample size (N) and mean value (days).
- \* Significant difference vs preceding year (t-test)
- \+ Significant difference vs preceding year (z-test for proportions)
- 
+
 ## Ablation Referral to Rx Times
 
 ```{r ref_rx_table, results='asis'}
@@ -1007,7 +1062,7 @@ generateRefToRxTable <- function(doneData) {
 
   doneData |>
     mutate(
-      Ref_RxDone = if_else(Ref_RxDone < 0, 0, Ref_RxDone), # If negative, zero it
+      Ref_RxDone = if_else(Ref_RxDone < 0, NA_real_, Ref_RxDone), # Negative = data error, treat as missing/invalid, not a real 0-day wait
       within90 = if_else(!is.na(Ref_RxDone) & Ref_RxDone <= 90, 1L, 0L)
     ) |>
     overall_group("Organ") |>
@@ -1041,7 +1096,7 @@ if (nYears == 1) {
     kbl(col.names = c("Organ Treated", "Mean time\n(SD)", "Median\n",
                       "% within 90 days\n(Local std.)")) |>
     add_header_above(data.frame(paste0("Time from Referral received-to-Ablation (", yearBasisText, ")\n", auditPeriodText), 4)) |>
-    footnote(missing_date_legend_by_organ(rxDoneAuditData, "Ref_RxDone", "Missing Ref-to-Rx Dates:")) |>
+    footnote(wait_time_exclusion_footnote(rxDoneAuditData, "Ref_RxDone", "Missing Ref-to-Rx Dates:", "Excluded (negative Ref-to-Rx):")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE)
 } else {
   refRxMulti <- buildMultiYearTable(
@@ -1066,7 +1121,7 @@ if (nYears == 1) {
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
     add_header_above(setNames(length(col_headers), paste0("Time from Referral received-to-Ablation (", yearBasisText, ")"))) |>
-    footnote(missing_date_legend_by_organ(rxDoneAuditData, "Ref_RxDone", "Missing Ref-to-Rx Dates:")) |>
+    footnote(wait_time_exclusion_footnote(rxDoneAuditData, "Ref_RxDone", "Missing Ref-to-Rx Dates:", "Excluded (negative Ref-to-Rx):")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
     add_year_separators(display_cols)
   }
@@ -1084,8 +1139,6 @@ buildMultiYearBoxplot(
 ```
 
 <strong>Plot 3</strong>: Referral Date to Treatment Date Box-and-Whisker plot. Box represents the interquartile range (Q1–Q3). Horizontal line represents the median. Whiskers represent the highest and lowest values within 1.5×IQR of the upper and lower quartiles. Points beyond whiskers represent outliers. Labels show sample size (N) and mean value (days).
- \* Significant difference vs preceding year (t-test)
- \+ Significant difference vs preceding year (z-test for proportions)
 
 ## Clock Stops causing negative Referral to DTT and DTT to Rx times
 
