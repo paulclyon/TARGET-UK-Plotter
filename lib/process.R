@@ -3,6 +3,7 @@ processData <- function()
 {
   # Initialise important data.frames
   aeData <<- data.frame(matrix(ncol = length(aeTableColNames), nrow = 0))
+  renalFn.df <<- data.frame(matrix(ncol = length(renalFnColNames), nrow = 0))
   dataIntegrity.df <<- data.frame(matrix(ncol = length(dataIntegrityColNames), nrow = 0))
   colnames(aeData) <<- aeTableColNames
   colnames(dataIntegrity.df) <<- dataIntegrityColNames
@@ -177,7 +178,7 @@ processData <- function()
     
     # Initialise patient-level max tumour size accumulator (was never updated in original)
     survival_max_tumour_size <- NA
-
+    
     # Get clinical status / last clinical follow-up
     clinicalfuJSON <- getDataEntry("fu_clinical_matrix", i)
     last_alive_date <- NA
@@ -186,7 +187,7 @@ processData <- function()
       clinicalfuMatrix <- jsonlite::fromJSON(clinicalfuJSON)
       clinicalfu.df <- as.data.frame(t(sapply(clinicalfuMatrix, unlist)))
       colnames(clinicalfu.df) <- clinicalfuColNames
-      clinicalfu.df <- clinicalfu.df[apply(clinicalfu.df, 1, function(row) any(row != "")), ]
+      clinicalfu.df <- clinicalfu.df[apply(clinicalfu.df, 1, function(row) any(row != "")), ] # Remove rows which are empty
       
       # For each row in the matrix, check if there is any clinical follow-up data , if so grab the last date of follow-up
       for (j in 1:nrow(clinicalfu.df))
@@ -510,12 +511,10 @@ processData <- function()
         if (!is.na(thisTumourType) && trimws(thisTumourType) != "")
         {
           thisTumourType <- substr(thisTumourType, 1, 1) # We will get back e.g. 'Secondary Cancer (radiological or histological diagnosis)' just want the first character
-          logger(paste0("FIXME: this tumour type = ",thisTumourType))
           if (thisTumourType %in% c("P", "S", "B", "U"))
           {
             diagnosis_type <- thisTumourType
             logger(paste0("FIXME: updating ********** this tumour type = ",thisTumourType))
-            
           }
           else
           {
@@ -1033,6 +1032,38 @@ processData <- function()
           addDataIntegrityError(ptID, refID=paste(iRef, "/", pt_ref_count, sep=""), date=ref_rx_date, error=paste("Referral info states patient is not for treatment but yet this referral has a treatment date - ignored from treatment data.", sep = ""))
         }
       }
+      
+      # The renal function follow-up data
+      thisRenalFn.df <- data.frame()
+      renalFnTableJSON <- getDataEntry("fu_renal_function_follow_up", i, F)
+      if (!is.na(renalFnTableJSON) && str_length(renalFnTableJSON) > 0)
+      {
+        renalFnMatrix <- jsonlite::fromJSON(renalFnTableJSON)
+        thisRenalFn.df <- do.call(rbind,lapply(renalFnMatrix, unlist))
+        thisRenalFn.df <- as.data.frame(thisRenalFn.df, stringsAsFactors = FALSE)
+        colnames(thisRenalFn.df) <- renalFnColNames
+        rownames(thisRenalFn.df) <- NULL
+        thisRenalFn.df <- thisRenalFn.df[apply(thisRenalFn.df, 1, function(row) any(!is.na(row) & trimws(row) != "")), ] # Remove rows which are empty
+        if (nrow(thisRenalFn.df) > 0)
+        {
+          renalFn.df <<- rbind(
+            renalFn.df,
+            cbind(
+              data.frame(
+                PtID = rep(ptID, nrow(thisRenalFn.df)),
+                Organ = rep(organForRx, nrow(thisRenalFn.df)),
+                DiagnosisType = rep(diagnosis_type, nrow(thisRenalFn.df)),
+                Diagnosis1o = rep(diagnosis_1o, nrow(thisRenalFn.df)),
+                Diagnosis2o = rep(diagnosis_2o, nrow(thisRenalFn.df)),
+                DiagnosisBn = rep(diagnosis_bn, nrow(thisRenalFn.df)),
+                DiagnosisUn = rep(diagnosis_un, nrow(thisRenalFn.df))
+              ),
+              thisRenalFn.df
+            )
+          )
+        }
+      }
+      
     } ########################## Ends the very long for loop for each referral for this patient
     
     diagnosis_1o_Factors <<- levels(factor(rxdone_diagnosis_1o_list))    

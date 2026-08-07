@@ -83,6 +83,7 @@ ui <- dashboardPage(
         icon = icon("table"),
         menuSubItem("Pathway Table",        tabName = "rxPathwayTab"),
         menuSubItem("Adverse Events Table", tabName = "aeTab"),
+        menuSubItem("Renal Function Table", tabName = "renalFnTab"),
         menuSubItem("Cancer Patient Table", tabName = "cancerPerPatientTab"),
         menuSubItem("Cancer Lesion Table",  tabName = "cancerPerLesionTab"),
         menuSubItem("Benign Table",         tabName = "benignTab")
@@ -104,7 +105,8 @@ ui <- dashboardPage(
         expandedName = "REPORTS & AUDIT",
         menuSubItem("Waiting List Report", tabName = "reportWaitingList"),
         menuSubItem("Treatment Time Audit", tabName = "auditRxPathway"),
-        menuSubItem("Cancer Outcomes Report", tabName = "cancerOutcomesReport")
+        menuSubItem("Cancer Outcomes Report", tabName = "cancerOutcomesReport"),
+        menuSubItem("Renal Function Report", tabName = "renalFunctionReport")
       ), id = "auditMenuItem")),
       hidden(tagAppendAttributes(menuItem(
         "Summary Data",
@@ -165,6 +167,7 @@ ui <- dashboardPage(
       tabItem("referralTciCalendar", referralTciCalendarTab()),
       tabItem("rxPathwayTab", pathwayTab()),
       tabItem("aeTab", aeTab()),
+      tabItem("renalFnTab", renalFnTab()),
       tabItem("cancerPerPatientTab", cancerPerPatientTab()),
       tabItem("cancerPerLesionTab", cancerPerLesionTab()),
       tabItem("benignTab", benignTab()),
@@ -173,6 +176,7 @@ ui <- dashboardPage(
       tabItem("reportWaitingList", reportWaitingListTab()),
       tabItem("auditRxPathway", auditRxPathwayTab()),
       tabItem("cancerOutcomesReport", cancerOutcomesReportTab()),
+      tabItem("renalFunctionReport", renalFunctionReportTab()),
       tabItem("rxPathwaySummary", pathwaySummaryTab()),
       tabItem("recurrenceSummary", "Recurrence Summary Data work in progress!"),
       tabItem("survivalSummary", survivalSummaryTab()),
@@ -282,6 +286,7 @@ server <- function(input, output, session) {
   operatorPlotServer(input, output, session, plots)
   volumePlotServer(input, output, session, api, tariff, plots)
   aeTableServer(input, output, session, isDocker, api)
+  renalFnTableServer(input, output, session, isDocker, api)
   recurrencePlotServer(input, output, session, api, plots)
   survivalPlotServer(input, output, session, api, plots)
   cancerPerPatientTableServer(input, output, session, isDocker, api)
@@ -298,6 +303,7 @@ server <- function(input, output, session) {
   reportServer(input, output, session, api, plots)
   auditServer(input, output, session, api, plots)
   cancerOutcomesReportServer(input, output, session, api, plots)
+  renalFunctionReportServer(input, output, session, api, plots)
   
   output$tableWait <- DT::renderDataTable({
     DT::datatable(rxWaitData)

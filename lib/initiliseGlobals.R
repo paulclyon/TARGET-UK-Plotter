@@ -24,6 +24,11 @@ initialiseGlobals <- function()
   Sys.setenv(CANCER_OUTCOMES_REPORT_PATHWAY_DOC = "targetuk_cancer_outcomes_report.doc")
   Sys.setenv(CANCER_OUTCOMES_REPORT_PATHWAY_PDF = "targetuk_cancer_outcomes_report.pdf")
   
+  Sys.setenv(RENAL_FUNCTION_REPORT_RMD = paste(Sys.getenv("AUDIT_REPORT_TEMPLATE_DIR"),.Platform$file.sep,"renal-function-report.rmd",sep=""))
+  Sys.setenv(RENAL_FUNCTION_REPORT_PATHWAY_MD = "renal-function-report.md")
+  Sys.setenv(RENAL_FUNCTION_REPORT_PATHWAY_DOC = "targetuk_renal_function_report.doc")
+  Sys.setenv(RENAL_FUNCTION_REPORT_PATHWAY_PDF = "targetuk_renal_function_report.pdf")
+  
   Sys.setenv(USERKEY_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"userkey.txt",sep=""))
   Sys.setenv(SECRET_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"secret.txt",sep=""))
   Sys.setenv(DEFAULT_STUDY_TXT = paste("..",.Platform$file.sep,"TARGET-UK-secret",.Platform$file.sep,"defaultstudy.txt",sep=""))
@@ -47,6 +52,7 @@ initialiseGlobals <- function()
     recurrenceColNames           <<- c("imaging.date","exam.type","ltp","new.in.target.organ","distant.progression","disease.status","ablated.organ")
   }
   
+  renalFnColNames                <<- c("Date","eGFR")
   clinicalfuColNames             <<- c("followup.date","clinician.type","clinician.name","impression","outcome")
   rxdone_diagnosis_type_list     <<- c()
   rxdone_diagnosis_1o_list       <<- c()
@@ -159,6 +165,7 @@ initialiseGlobals <- function()
   
   refclockstop.df                <<- NA
   recurrence.df                  <<- NA
+  renalFn.df                     <<- NA
   clinicalfu.df                  <<- NA
   refTciCalendar                 <<- NA
   rxdonePlot                     <<- ggplot()

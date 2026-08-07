@@ -349,6 +349,10 @@ postProcessData <- function()
       cancerPerLesionData <<- data.frame()
     }
   }
+ 
+  # Ensure we convert the renal data
+  renalFn.df$eGFR <- as.numeric(renalFn.df$eGFR)
+  renalFn.df$Date <- sapply(renalFn.df$Date, convertToDate)
 }
 
 # This is a useful function to change variations of anaesthetists names to a single common identifier

@@ -95,8 +95,8 @@ report_max_tumour_size          <- params$report_max_tumour_size
 report_include_ignore_first_ltp <- isTRUE(params$report_include_ignore_first_ltp)
 report_max_years_followup       <- as.numeric(params$report_max_years_followup)
 report_min_months_followup      <- as.numeric(params$report_min_months_followup)
-reportStart                     <- as.Date(report_start_date)
-reportEnd                       <- as.Date(report_end_date)
+reportStart                     <- as.Date(params$report_start_date)
+reportEnd                       <- as.Date(params$report_end_date)
 reportAnonymised                <- isTRUE(params$report_cancer_anonymised)
 
 if (is.null(report_modality) || length(report_modality) == 0)
@@ -120,7 +120,11 @@ DEBUG_MODE <- toupper(Sys.getenv("DEBUG_MODE", unset = "FALSE")) == "TRUE"
 
 debug_log <- function(...) {
   if (isTRUE(DEBUG_MODE)) {
-    cat(sprintf(...), "\n", file = stderr(), sep = "")
+    txt <- paste(
+      capture.output(...),
+      collapse = "\n"
+    )
+    cat(txt, "\n", file = stderr())
   }
 }
 
@@ -426,7 +430,6 @@ if (nrow(patient_data) > 0) {
     }
   }
   
-
   # Derive the bare patient ID (referral suffix stripped) unconditionally -
   # lesion_data and ae_data are keyed on PtID without the "-N" referral
   # suffix, so keep_ids must be in the same bare format to match correctly.
@@ -458,20 +461,6 @@ if (nrow(patient_data) > 0) {
       dplyr::mutate(PtID = as.character(sub("-[0-9]+$", "", ID))) |>
       dplyr::left_join(age_lookup, by = "PtID")
     
-  }
-
-  cat("\n===== AGE DIAGNOSTIC =====\n")
-  cat("cancerData exists:", exists("cancerData"), "\n")
-  if (exists("cancerData")) {
-    cat("cancerData is.data.frame:", is.data.frame(cancerData), "\n")
-    if (is.data.frame(cancerData)) {
-      cat("cancerData columns:", paste(names(cancerData), collapse = ", "), "\n")
-      cat("cancerData rows:", nrow(cancerData), "\n")
-    }
-  }
-  cat("AgeOnFirstRx in patient_data:", "AgeOnFirstRx" %in% names(patient_data), "\n")
-  if ("AgeOnFirstRx" %in% names(patient_data)) {
-    cat("Non-NA age count:", sum(!is.na(patient_data$AgeOnFirstRx)), "of", nrow(patient_data), "\n")
   }
 
   keep_ids <- unique(patient_data$PtID)
@@ -518,11 +507,6 @@ if (nrow(patient_data) > 0 && "TimeSurvival" %in% names(patient_data)) {
 if (nrow(patient_data) > 0 && "TimeLTPFOS" %in% names(patient_data)) {
   patient_data$TimeLTPFOS <- suppressWarnings(as.numeric(patient_data$TimeLTPFOS)) * 365.25
 }
-
-cat("\n===== AE DATA COLUMN NAMES =====\n")
-print(names(aeData))
-cat("NA names:", which(is.na(names(aeData))), "\n")
-cat("Blank names:", which(names(aeData) == ""), "\n")
 
 ae_data <- if (exists("aeData") && is.data.frame(aeData)) {
   filter_ae_rows(aeData)
@@ -747,25 +731,6 @@ fmt_param <- function(x) {
   if (length(x) == 0) "All" else paste(x, collapse = ", ")
 }
 
-anonymise_ptid <- function(x) {
-  vapply(as.character(x), function(id) {
-
-    parts <- strsplit(id, "-", fixed = TRUE)[[1]]
-
-    pt <- parts[1]
-    chars <- strsplit(pt, "", fixed = TRUE)[[1]]
-    chars[c(TRUE, FALSE)] <- "\\*"
-    pt_masked <- paste(chars, collapse = "")
-
-    if (length(parts) > 1) {
-      paste0(pt_masked, "-", paste(parts[-1], collapse = "-"))
-    } else {
-      pt_masked
-    }
-
-  }, character(1))
-}
-
 ```
 
 ## Report Parameters
@@ -780,8 +745,8 @@ anonymise_ptid <- function(x) {
 | **Tumour Size Range** | `r fmt_param(paste0(report_min_tumour_size, "-", report_max_tumour_size," mm"))` |
 | **Gender(s)** | `r paste(report_genders, collapse = ", ")` |
 | **Modality** | `r fmt_modality(report_modality, patient_data)` |
-| **Minimum follow-up** | `r report_min_months_followup` months |
-| **Maximum follow-up** | `r report_max_years_followup` years |
+| **Minimum follow-up(m)** | `r report_min_months_followup` months |
+| **Maximum follow-up(y)** | `r report_max_years_followup` years |
 | **Relaxed LTP definition** | `r if (report_include_ignore_first_ltp) "Included" else "Not included"` |
 
 ---
@@ -871,8 +836,8 @@ if (report_include_ignore_first_ltp)
 {
   overview_metrics <- c(
     overview_metrics,
-    paste0(report_max_years_followup, "-year LTP (per pt, relaxed rule)"),
-    paste0(report_max_years_followup, "-year LTP (per lesion, relaxed rule)"),
+    paste0(report_max_years_followup, "-year LTP-free (per pt, relaxed rule)"),
+    paste0(report_max_years_followup, "-year LTP-free (per lesion, relaxed rule)"),
     paste0(report_max_years_followup, "-year LTP-free OS (relaxed rule)"),
     paste0(report_max_years_followup, "-year LTP-free CSS (relaxed rule)")
   )

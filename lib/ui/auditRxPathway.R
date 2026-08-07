@@ -10,7 +10,7 @@ auditRxPathwayTab <- function(id = NULL) {
     fluidRow(tabPanel(
       "AuditPathway",
       column(
-        width = 3,
+        width = 4,
         dateInput(
           "auditDate1",
           "Treatment Start Date:",

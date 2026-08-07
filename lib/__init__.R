@@ -168,6 +168,25 @@ isChromeInstalled <- function(executable = FALSE) {
   TRUE
 }
 
+anonymise_ptid <- function(x) {
+  vapply(as.character(x), function(id) {
+    
+    parts <- strsplit(id, "-", fixed = TRUE)[[1]]
+    
+    pt <- parts[1]
+    chars <- strsplit(pt, "", fixed = TRUE)[[1]]
+    chars[c(TRUE, FALSE)] <- "*"
+    pt_masked <- paste(chars, collapse = "")
+    
+    if (length(parts) > 1) {
+      paste0(pt_masked, "-", paste(parts[-1], collapse = "-"))
+    } else {
+      pt_masked
+    }
+    
+  }, character(1))
+}
+
 #' Source all files in the current directory or provided directory
 #'
 #' These will be listed in an alphanumerical order - files starting with "_" will be read first.

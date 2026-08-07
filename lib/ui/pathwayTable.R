@@ -109,7 +109,7 @@ pathwayTableServer <- function(input, output, session, isDocker, api) {
       data <- data[data$Organ %in% input$pathwayTabSelectedOrgans, ]
     
     if (!is.null(input$pathwayTabSelectedModality) && input$pathwayTabSelectedModality != "All")
-      data <- data[data$Modality %in% input$pathwayTabSelectedModality, ]
+      data <- data[data$RxModality %in% input$pathwayTabSelectedModality, ]
     
     subtypes <- input$pathwayTabSelectedSubtypes
     if (is.null(subtypes)) subtypes <- c("All")
