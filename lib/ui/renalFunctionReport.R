@@ -27,7 +27,8 @@ renalFunctionReportTab <- function(id = NULL) {
           style = "display:flex; gap:10px;",
           numericInput("minMonthsFollowup", "MinFU(m)", value = 1, min = 1, max = 24, width = "60px"),
           numericInput("maxMonthsFollowup", "MaxFU(m)", value = 36, min = 1, max = 20, width = "60px")
-        )
+        ),
+        checkboxInput("renalFnReportAKIBin", "AKI (0-2m)", value = TRUE),
       ),
       column(
         width = 3,
@@ -62,6 +63,7 @@ renalFunctionReportTab <- function(id = NULL) {
       column(
         width = 3,
         checkboxInput("renalFnReportAnonymised", "Anonymise Report", value = TRUE),
+        checkboxInput("renalFnReportIndividualPtPlots", "Individual Patient Plots", value = FALSE),
         div(
           class = "report-buttons",
           actionButton(ns("buttonRunRenalFnReport"), "Generate Report", class = "btn-primary"),
@@ -186,7 +188,10 @@ renalFunctionReportServer <- function(input, output, session, api, plots)
       report_max_tumour_size          = input$RenalFnReportTumourSizeRange[2],
       report_min_months_followup      = input$minMonthsFollowup,
       report_max_months_followup      = input$maxMonthsFollowup,
-      report_renal_fn_anonymised      = input$renalFnReportAnonymised
+      report_include_aki_bin          = input$renalFnReportAKIBin,
+      report_renal_fn_anonymised      = input$renalFnReportAnonymised,
+      report_renal_fn_pt_plots        = input$renalFnReportIndividualPtPlots
+      
     ))
   }
   

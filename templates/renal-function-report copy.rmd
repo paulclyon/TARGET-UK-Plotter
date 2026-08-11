@@ -268,12 +268,6 @@ normalise_organs <- function(x) {
 report_organs <- normalise_organs(report_organs)
 
 filter_patient_rows <- function(df) {
-  
-debug_log("filter_patient_rows input columns:")
-  debug_log(names(df))
-
-  debug_log("Rows:")
-  debug_log(nrow(df))
 
   # initialise counters
   renal_filter_counts <<- list()
@@ -281,20 +275,20 @@ debug_log("filter_patient_rows input columns:")
   if (!is.data.frame(df) || nrow(df) == 0) return(df)
 
   # starting cohort
-d <- df |> 
-  filter(!is.na(TreatmentDate))
+  d <- df |> 
+    filter(!is.na(FirstRxDate))
 
   renal_filter_counts$start <- d %>%
-    distinct(TreatmentID, PtID) %>%
+    distinct(ID) %>%
     nrow()
 
   # report date filter
   d <- d |> 
-    filter(TreatmentDate >= reportStart,
-           TreatmentDate <= reportEnd)
+    filter(FirstRxDate >= reportStart,
+           FirstRxDate <= reportEnd)
 
   renal_filter_counts$report_period <- d %>%
-    distinct(TreatmentID, PtID) %>%
+    distinct(ID) %>%
     nrow()
 
   # organ filter
@@ -309,7 +303,7 @@ d <- df |>
     }
 
   renal_filter_counts$organ <- d %>%
-    distinct(TreatmentID, PtID) %>%
+    distinct(ID) %>%
     nrow()
 
   # diagnosis filter
@@ -323,9 +317,34 @@ d <- df |>
     distinct(ID) %>%
     nrow()
 
-renal_filter_counts$organ <- d %>%
-  distinct(TreatmentID, PtID) %>%
-  nrow()
+
+  # modality filter
+  if (!identical(report_organs, "All")) {
+  
+    d <- d |>
+      filter(
+        vapply(
+          Organ,
+          function(x) {
+  
+            if (is.na(x))
+              return(FALSE)
+  
+            organs <- trimws(
+              unlist(strsplit(x, ","))
+            )
+  
+            all(organs %in% report_organs)
+  
+          },
+          logical(1)
+        )
+      )
+  }
+
+  renal_filter_counts$modality <- d %>%
+    distinct(ID) %>%
+    nrow()
 
   d
 }
@@ -360,159 +379,50 @@ filter_lesion_rows <- function(df)
   d
 }
 
-
-# ------------------------------------------------------------
-# Apply renal report filters in a single reproducible pipeline
-# ------------------------------------------------------------
-
-apply_renal_filters <- function(df) {
-
-  if (!is.data.frame(df) || nrow(df) == 0) {
-    return(list(
-      raw = df,
-      date = df,
-      organ = df,
-      diagnosis = df,
-      modality = df,
-      final = df
-    ))
-  }
-
-
-  # Date filter
-  date_filtered <- df %>%
-    filter(
-      TreatmentDate >= reportStart,
-      TreatmentDate <= reportEnd
-    )
-
-
-  # Organ filter
-  if (identical(report_organs, "All")) {
-
-    organ_filtered <- date_filtered
-
-  } else {
-
-    organ_filtered <- date_filtered %>%
-      filter(
-        vapply(
-          Organ,
-          function(x) {
-
-            if (is.na(x))
-              return(FALSE)
-
-            organs <- trimws(
-              unlist(strsplit(x, ","))
-            )
-
-            all(organs %in% report_organs)
-
-          },
-          logical(1)
-        )
-      )
-  }
-
-
-  # Diagnosis filter
-  diagnosis_filtered <- filter_by_report_diagnosis(
-    organ_filtered,
-    report_diagnosis_type,
-    report_subtypes
-  )
-
-
-  # Modality filter
-  if (identical(report_modality, "All")) {
-
-    modality_filtered <- diagnosis_filtered
-
-  } else {
-
-    modality_filtered <- diagnosis_filtered %>%
-      filter(
-        vapply(
-          RxModality,
-          function(x) {
-
-            if (is.na(x))
-              return(FALSE)
-
-            any(
-              vapply(
-                report_modality,
-                function(m)
-                  grepl(m, x, fixed = TRUE),
-                logical(1)
-              )
-            )
-
-          },
-          logical(1)
-        )
-      )
-  }
-
-
-  list(
-    raw = df,
-    date = date_filtered,
-    organ = organ_filtered,
-    diagnosis = diagnosis_filtered,
-    modality = modality_filtered,
-    final = modality_filtered
-  )
-}
-
-
 # Get the filtered patient data and select only those where the MaxTumourSize is in reporting range
-treatment_data <- if (exists("rxDoneData") && is.data.frame(rxDoneData)) {
-
-  rxDoneData %>%
-    mutate(
-      TreatmentID = ID,
-      PtID = sub("-[0-9]+$", "", ID),
-      TreatmentDate = as.Date(RxDate)
-    )
-
+patient_data <- if (exists("cancerPerPatientData") && is.data.frame(cancerPerPatientData)) {
+  filter_patient_rows(cancerPerPatientData)
 } else {
   data.frame()
 }
-patient_data <- treatment_data
 
 # ------------------------------------------------------------------
 # Permanent renal cohort accounting counters for report summary
 # ------------------------------------------------------------------
 
-debug_log("renalFn.df columns:")
-debug_log(names(renalFn.df))
-
-debug_log("renalFn.df exists:", exists("renalFn.df"))
-debug_log("renalFn.df class:", class(renalFn.df))
-debug_log("renalFn.df names:", paste(names(renalFn.df), collapse=", "))
-debug_log("renalFn.df nrow:", nrow(renalFn.df))
-
-
 # All patients with eGFR entries
 renal_egfr_ids <- renalFn.df %>%
   filter(!is.na(eGFR)) %>%
-  mutate(
-    PtID = as.character(.data$PtID),
-    PtID = sub("-[0-9]+$", "", PtID)
-  ) %>%
+  mutate(PtID = sub("-[0-9]+$", "", PtID)) %>%
   distinct(PtID)
+
+n_egfr_patients_raw <- nrow(renal_egfr_ids)
+
 
 # Patients represented in cancerPerPatientData
 cancer_ids <- cancerPerPatientData %>%
   mutate(PtID = sub("-[0-9]+$", "", ID)) %>%
   distinct(PtID)
 
+n_egfr_patients_in_cancer <- renal_egfr_ids %>%
+  semi_join(cancer_ids, by = "PtID") %>%
+  nrow()
 
 # Patients surviving all report filters
 final_report_ids <- patient_data %>%
+  mutate(PtID = sub("-[0-9]+$", "", ID)) %>%
   distinct(PtID)
+
+n_egfr_patients_final <- renal_egfr_ids %>%
+  semi_join(final_report_ids, by = "PtID") %>%
+  nrow()
+
+n_egfr_patients_excluded <- 
+  n_egfr_patients_in_cancer - n_egfr_patients_final
+
+
+
+
 
 
 # ------------------------------------------------------------
@@ -532,19 +442,9 @@ if (isTRUE(DEBUG_MODE) &&
     distinct(PtID)
 
   # Start with all cancer patients
-  
-debug_log("cancerPerPatientData columns:")
-debug_log(names(cancerPerPatientData))
-debug_log("treatment_data columns:")
-debug_log(names(treatment_data))
+  test <- cancerPerPatientData %>%
+    mutate(PtID = sub("-[0-9]+$", "", ID))
 
-test <- cancerPerPatientData %>%
-  left_join(
-    treatment_data %>%
-      select(ID, TreatmentID, PtID, TreatmentDate, RxModality),
-    by = "ID"
-  ) 
-  
   renal_test <- test %>%
     semi_join(renal_ids, by = "PtID")
 
@@ -554,26 +454,23 @@ test <- cancerPerPatientData %>%
   )
 
   # ----------------------------------------------------------
-  # 1. TreatmentDate filter
+  # 1. FirstRxDate filter
   # ----------------------------------------------------------
 
-  debug_log("FIXME renal_test columns:")
-  debug_log(names(renal_test))
-
-  after_date <- test %>%
+  after_date <- renal_test %>%
     filter(
-      !is.na(TreatmentDate),
-      TreatmentDate >= reportStart,
-      TreatmentDate <= reportEnd
+      !is.na(FirstRxDate),
+      FirstRxDate >= reportStart,
+      FirstRxDate <= reportEnd
     )
 
   debug_log(
-    "After TreatmentDate/report-period filter:",
+    "After FirstRxDate/report-period filter:",
     n_distinct(after_date$PtID)
   )
 
   debug_log(
-    "Lost by TreatmentDate/report-period filter:",
+    "Lost by FirstRxDate/report-period filter:",
     n_distinct(renal_test$PtID) -
       n_distinct(after_date$PtID)
   )
@@ -651,8 +548,6 @@ test <- cancerPerPatientData %>%
       n_distinct(after_diagnosis$PtID)
   )
 
-
-
   # ----------------------------------------------------------
   # 4. Modality filter
   # ----------------------------------------------------------
@@ -666,7 +561,7 @@ test <- cancerPerPatientData %>%
     after_modality <- after_diagnosis %>%
       filter(
         vapply(
-          RxModality,
+          RxModalities,
           function(x) {
 
             if (is.na(x) || length(x) == 0)
@@ -685,7 +580,6 @@ test <- cancerPerPatientData %>%
         )
       )
   }
-
 
   debug_log(
     "After modality filter:",
@@ -741,22 +635,18 @@ if (nrow(patient_data) > 0) {
 # Derive the bare patient ID (referral suffix stripped) unconditionally -
 # lesion_data is keyed on PtID without the "-N" referral
 # suffix, so keep_ids must be in the same bare format to match correctly.
-treatment_data <- rxDoneData |>
-  dplyr::mutate(
-    TreatmentID = ID,
-    PtID = sub("-[0-9]+$", "", ID),
-    TreatmentDate = as.Date(RxDate)
-  )
+patient_data <- patient_data |>
+  dplyr::mutate(PtID = sub("-[0-9]+$", "", ID))
 
-# Apply modality filter to the treatment cohort before renal extraction
+# Apply modality filter to the patient cohort before renal extraction
 
 if (!identical(report_modality, "All") &&
-    "RxModality" %in% names(patient_data)) {
+    "RxModalities" %in% names(patient_data)) {
 
   patient_data <- patient_data %>%
     filter(
       vapply(
-        RxModality,
+        RxModalities,
         function(x) {
 
           if (is.na(x))
@@ -777,29 +667,22 @@ if (!identical(report_modality, "All") &&
     )
 }
 
+
+keep_ids <- patient_data %>%
+  distinct(PtID)
+
 lesion_data <- if (exists("cancerPerLesionData") &&
                    is.data.frame(cancerPerLesionData)) {
 
   cancerPerLesionData %>%
-    inner_join(
-      treatment_data %>%
-        select(
-          ID,
-          TreatmentID,
-          PtID,
-          TreatmentDate,
-        ),
-      by = "ID"
+    semi_join(
+      renal_egfr_ids_final,
+      by = "PtID"
     )
 
 } else {
   data.frame()
 }
-
-lesion_data <- lesion_data %>%
-  mutate(
-    TreatmentID = ID
-  )
 
 if (!identical(report_organs, "All")) {
   lesion_data <- lesion_data %>%
@@ -836,37 +719,21 @@ if (nrow(lesion_data) > 0 && "TumourSize" %in% names(lesion_data)) {
   lesion_data$TumourSize <- suppressWarnings(as.numeric(lesion_data$TumourSize))
 }
 
-renalFn_data <- if (exists("renalFn.df") &&
-                    is.data.frame(renalFn.df) &&
-                    "PtID" %in% names(renalFn.df)) {
 
-  renalFn.df |>
-    mutate(
-      PtID = as.character(PtID),
-      PtID = sub("-[0-9]+$", "", PtID)
-    ) |>
+renalFn_data <- if (exists("renalFn.df") && is.data.frame(renalFn.df))
+{
+  renalFn.df %>%
+    semi_join(keep_ids, by = "PtID") %>%
     left_join(
-      treatment_data |>
-        select(
-          TreatmentID,
-          PtID,
-          TreatmentDate
-        ),
+      patient_data %>%
+        select(any_of(c("PtID", "FirstRxDate"))) %>%
+        distinct(PtID, .keep_all = TRUE),
       by = "PtID"
     )
 
 } else {
-
-  warning("renalFn.df missing or PtID column missing")
   data.frame()
-
 }
-
-renalFn_data <- renalFn_data %>%
- mutate(
-   RxDate = TreatmentDate
- )
-
 
 renal_egfr_ids_final <- renalFn_data %>%
   filter(!is.na(eGFR)) %>%
@@ -878,12 +745,11 @@ if (nrow(renalFn_data) > 0) {
   renalFn_data <- renalFn_data %>%
     mutate(
       Date = as.Date(sapply(Date, convertToDate)),
-      TreatmentDate = as.Date(TreatmentDate),
+      FirstRxDate = as.Date(FirstRxDate),
       eGFR = as.numeric(eGFR),
-      DaysFromRx = as.numeric(Date - TreatmentDate),
+      DaysFromRx = as.numeric(Date - FirstRxDate),
       MonthsFromRx = DaysFromRx / 30.44
     ) %>%
-    
     # Restrict to the guaranteed minimum follow-up window: any reading taken
     # more than report_min_months_followup months AFTER treatment is dropped,
     # so every patient contributes an equal, unbiased follow-up window
@@ -1033,7 +899,7 @@ fmt_param <- function(x) {
 | **Maximum follow-up** | `r report_max_months_followup` months |
 | **AKI Bin (0..2wk) Included** | `r if(report_include_aki_bin) "Yes" else "No"` |
 | **Pt IDs anonymised** | `r if(reportAnonymised) "Yes" else "No"` |
-| **Individual Pt. Plots** | `r if(reportIndividualPtPlots) "Yes" else "No"` |
+| **Individual Pt. Plots** | `r if(reportAnonymised) "Yes" else "No"` |
 
 ---
 
@@ -1048,7 +914,6 @@ progress$set(
 )
 
 ```
-
 
 ## Outcome Summary
 ```{r overview-table, echo=FALSE, results='asis'}
@@ -1072,11 +937,25 @@ tumour_summary <- if (nrow(lesion_data) > 0 && "TumourSize" %in% names(lesion_da
 
 # --- Renal function data completeness metrics -----------------------------
 # Moved up from later in the report so these can feed the summary table.
-# "Baseline" = an eGFR reading in the 6 months (182.6 days) before TreatmentDate
+# "Baseline" = an eGFR reading in the 6 months (182.6 days) before FirstRxDate.
 # "Valid delta" = a patient who has both a baseline reading AND at least one
 # post-treatment reading (DaysFromRx >= 0), i.e. a genuine before/after
 # comparison rather than just a lone baseline value.
 
+baseline_ids <- renalFn_data %>%
+  filter(
+    DaysFromRx < 0,
+    DaysFromRx >= -182.6,
+    !is.na(eGFR)
+  ) %>%
+  distinct(PtID)
+
+renalFn_analysis <- renalFn_data %>%
+  semi_join(baseline_ids, by = "PtID")
+
+post_ids <- renalFn_analysis %>%
+  filter(DaysFromRx >= 0, !is.na(eGFR)) %>%
+  distinct(PtID)
 
 
 
@@ -1085,51 +964,107 @@ tumour_summary <- if (nrow(lesion_data) > 0 && "TumourSize" %in% names(lesion_da
 
 
 
+# ------------------------------------------------------------------
+# Renal-function cohort accounting using permanent filter counters
+# ------------------------------------------------------------------
+
+# Permanent counters were created in filter_patient_rows()
+# renal_filter_counts:
+# start
+# report_period
+# organ
+# diagnosis
+# modality
+
+n_egfr_raw <- n_egfr_patients_raw
+
+n_egfr_in_cancer <- n_egfr_patients_in_cancer
 # ------------------------------------------------------------------
 # Renal-function filter accounting
 # Recalculate from the actual patient cohort so values cannot be NA
 # ------------------------------------------------------------------
 
-renal_filter_ids <- treatment_data %>%
+renal_filter_ids <- cancerPerPatientData %>%
+  mutate(PtID = sub("-[0-9]+$", "", ID)) %>%
   semi_join(
     renal_egfr_ids,
     by = "PtID"
   ) %>%
-  distinct(TreatmentID, PtID, TreatmentDate, Organ, RxModality)
+  distinct(PtID, .keep_all = TRUE)
 
-# ------------------------------------------------------------------
-# Renal-function cohort accounting
-# ------------------------------------------------------------------
 
-renal_filter_results <- apply_renal_filters(
-  renal_filter_ids
-)
+# Date filter
+date_filtered <- renal_filter_ids %>%
+  filter(
+    FirstRxDate >= reportStart,
+    FirstRxDate <= reportEnd
+  )
 
-raw_filtered <- renal_filter_results$raw
-date_filtered <- renal_filter_results$date
-organ_filtered <- renal_filter_results$organ
-diagnosis_filtered <- renal_filter_results$diagnosis
-modality_filtered <- renal_filter_results$modality
 
-n_egfr_raw <- n_distinct(raw_filtered$PtID)
-n_egfr_in_cancer <- n_distinct(raw_filtered$PtID)
-n_after_date <- n_distinct(date_filtered$PtID)
-n_after_organ <- n_distinct(organ_filtered$PtID)
-n_after_diagnosis <- n_distinct(diagnosis_filtered$PtID)
-n_after_modality <- n_distinct(modality_filtered$PtID)
+# Organ filter (strict: only requested organs, e.g. Kidney matches Kidney,Kidney but not Kidney,Liver)
+if (identical(report_organs, "All")) {
 
-# Safety: modality cohort may not exist if RxModality is absent
-if ("modality" %in% names(renal_filter_results)) {
-  modality_filtered <- renal_filter_results$modality
+  organ_filtered <- date_filtered
+
 } else {
-  modality_filtered <- diagnosis_filtered
+
+  organ_filtered <- date_filtered %>%
+    filter(
+      vapply(
+        Organ,
+        function(x) {
+
+          if (is.na(x))
+            return(FALSE)
+
+          organs <- trimws(unlist(strsplit(x, ",")))
+
+          all(organs %in% report_organs)
+
+        },
+        logical(1)
+      )
+    )
 }
 
 
-# Patient counts after each filtering stage
-n_egfr_raw <- raw_filtered %>%
-  distinct(PtID) %>%
-  nrow()
+# Diagnosis filter
+diagnosis_filtered <- filter_by_report_diagnosis(
+  organ_filtered,
+  report_diagnosis_type,
+  report_subtypes
+)
+
+
+# Modality filter
+if (identical(report_modality, "All")) {
+
+  modality_filtered <- diagnosis_filtered
+
+} else {
+
+  modality_filtered <- diagnosis_filtered %>%
+    filter(
+      vapply(
+        RxModalities,
+        function(x) {
+
+          if (is.na(x))
+            return(FALSE)
+
+          any(
+            vapply(
+              report_modality,
+              function(m)
+                grepl(m, x, fixed = TRUE),
+              logical(1)
+            )
+          )
+        },
+        logical(1)
+      )
+    )
+}
 
 n_after_date <- date_filtered %>%
   distinct(PtID) %>%
@@ -1147,77 +1082,81 @@ n_after_modality <- modality_filtered %>%
   distinct(PtID) %>%
   nrow()
 
-n_egfr_raw <- raw_filtered %>%
-  distinct(PtID) %>%
-  nrow()
+n_final_renal <- n_after_modality
 
-
-# Final renal analysis cohort
-
-
-# Final renal analysis cohort
-final_patient_ids <- modality_filtered %>%
-  distinct(PtID)
-
-renalFn_analysis <- renalFn_data %>%
-  semi_join(
-    final_patient_ids,
-    by = "PtID"
+date_filtered <- renal_filter_ids %>%
+  filter(
+    FirstRxDate >= reportStart,
+    FirstRxDate <= reportEnd
   )
 
-renalFn_analysis <- renalFn_analysis %>%
-  arrange(PtID, TreatmentDate) %>%
-  group_by(PtID) %>%
-  mutate(
-    Rx_number = dense_rank(TreatmentDate)
-  ) %>%
-  ungroup()
 
-renalFn_analysis <- renalFn_analysis %>%
-  filter(
-    !is.na(eGFR),
-    !is.na(MonthsFromRx),
-    MonthsFromRx <= report_max_months_followup
-  )
+if (identical(report_organs, "All")) {
 
-# Baseline patients in FINAL cohort
-baseline_ids <- renalFn_analysis %>%
-  filter(
-    DaysFromRx < 0,
-    DaysFromRx >= -182.6,
-    !is.na(eGFR)
-  ) %>%
-  distinct(PtID)
+  organ_filtered <- date_filtered
 
-post_ids <- renalFn_analysis %>%
-  filter(DaysFromRx >= 0, !is.na(eGFR)) %>%
-  distinct(PtID)
+} else {
 
-# ------------------------------------------------------------
-# Paired baseline + post eGFR by treatment number
-# ------------------------------------------------------------
+  organ_filtered <- date_filtered %>%
+    filter(
+      vapply(
+        Organ,
+        function(x) {
+  
+          if (is.na(x))
+            return(FALSE)
+  
+          organs <- trimws(
+            unlist(strsplit(x, ","))
+          )
+  
+          all(organs %in% report_organs)
+  
+        },
+        logical(1)
+      )
+    )
 
-paired_rx <- renalFn_analysis %>%
-  filter(!is.na(eGFR)) %>%
-  group_by(TreatmentID, PtID) %>%
-  summarise(
-    Rx_number = first(Rx_number),
-    has_baseline = any(
-      DaysFromRx < 0 &
-      DaysFromRx >= -182.6
-    ),
-    has_post = any(
-      DaysFromRx >= 0
-    ),
-    .groups = "drop"
-  ) %>%
-  filter(
-    has_baseline,
-    has_post
-  ) %>%
-  count(Rx_number, name = "n_patients")
+}
 
-n_final_renal <- n_distinct(renalFn_analysis$PtID)
+diagnosis_filtered <- filter_by_report_diagnosis(
+  organ_filtered,
+  report_diagnosis_type,
+  report_subtypes
+)
+
+
+
+if (identical(report_modality, "All")) {
+
+  modality_filtered <- diagnosis_filtered
+
+} else {
+
+  modality_filtered <- diagnosis_filtered %>%
+    filter(
+      vapply(
+        RxModalities,
+        function(x) {
+          any(
+            vapply(
+              report_modality,
+              function(m)
+                grepl(m, x, fixed = TRUE),
+              logical(1)
+            )
+          )
+        },
+        logical(1)
+      )
+    )
+}
+
+n_final_renal <- n_after_modality
+
+# ------------------------------------------------------------------
+# Renal completeness
+# ------------------------------------------------------------------
 
 n_patients_baseline <- n_distinct(baseline_ids$PtID)
 
@@ -1228,186 +1167,68 @@ n_patients_valid_delta <- length(
   )
 )
 
-n_valid_delta_rx1 <- paired_rx %>%
-  filter(Rx_number == 1) %>%
-  pull(n_patients)
-
-n_valid_delta_rx2 <- paired_rx %>%
-  filter(Rx_number == 2) %>%
-  pull(n_patients)
-
-n_valid_delta_rx3 <- paired_rx %>%
-  filter(Rx_number >= 3) %>%
-  pull(n_patients)
-
-n_valid_delta_rx1 <- ifelse(length(n_valid_delta_rx1), n_valid_delta_rx1, 0)
-n_valid_delta_rx2 <- ifelse(length(n_valid_delta_rx2), n_valid_delta_rx2, 0)
-n_valid_delta_rx3 <- ifelse(length(n_valid_delta_rx3), n_valid_delta_rx3, 0)
-
-# Total eGFR readings after linking renal records to final report cohort
-n_patients_with_egfr <- renalFn_data %>%
-  semi_join(
-    final_patient_ids,
-    by="PtID"
-  ) %>%
+n_egfr_total <- renalFn_data %>%
   filter(!is.na(eGFR)) %>%
-  distinct(PtID) %>%
   nrow()
 
+n_egfr_included_analysis <- renalFn_analysis %>%
+  filter(!is.na(eGFR)) %>%
+  nrow()
 
-# eGFR measurements actually included in renal analysis
-# after all renal exclusions including follow-up window
-renal_analysis_measurements <- renalFn_analysis %>%
-  filter(
-    !is.na(eGFR),
-    !is.na(MonthsFromRx)
-  ) %>%
-  mutate(
-    FollowUp = cut(
-      MonthsFromRx,
-      breaks = followup_bins$breaks,
-      labels = followup_bins$labels,
-      include.lowest = TRUE,
-      right = FALSE
-    )
-  ) %>%
-  filter(!is.na(FollowUp))
-
-n_egfr_included_analysis <- nrow(renal_analysis_measurements)
-
-n_report_treatments <- n_distinct(treatment_data$ID)
-
-debug_log("Counts:")
-debug_log("renal eGFR patients:", n_distinct(renal_egfr_ids$PtID))
-debug_log("matching treatment patients:", n_distinct(renal_filter_ids$PtID))
-debug_log("after date:", n_distinct(date_filtered$PtID))
-debug_log("after organ:", n_distinct(organ_filtered$PtID))
-debug_log("after diagnosis:", n_distinct(diagnosis_filtered$PtID))
-debug_log("after modality:", n_distinct(modality_filtered$PtID))
-
+n_report_patients <- n_distinct(patient_data$PtID)
 
 # ------------------------------------------------------------------
 # Summary table
 # ------------------------------------------------------------------
 
 # ------------------------------------------------------------------
-# Ensure renal cohort accounting variables exist for summary table
+# Summary table
 # ------------------------------------------------------------------
-
-n_egfr_raw <- renalFn.df %>%
-  filter(!is.na(eGFR)) %>%
-  mutate(
-    PtID = sub("-[0-9]+$", "", as.character(PtID))
-  ) %>%
-  distinct(PtID) %>%
-  nrow()
-
-
-n_egfr_patients_in_cancer <- renalFn.df %>%
-  filter(!is.na(eGFR)) %>%
-  mutate(
-    PtID = sub("-[0-9]+$", "", as.character(PtID))
-  ) %>%
-  semi_join(
-    cancerPerPatientData %>%
-      mutate(
-        PtID = sub("-[0-9]+$", "", as.character(ID))
-      ) %>%
-      distinct(PtID),
-    by = "PtID"
-  ) %>%
-  distinct(PtID) %>%
-  nrow()
-
-# ------------------------------------------------------------------
-# Treatment number distribution in final report cohort
-# ------------------------------------------------------------------
-
-final_treatment_counts <- treatment_data %>%
-  filter(PtID %in% final_patient_ids$PtID) %>%
-  group_by(PtID) %>%
-  summarise(
-    n_treatments = n_distinct(TreatmentID),
-    .groups = "drop"
-  )
-
-n_single_treatment <- final_treatment_counts %>%
-  filter(n_treatments == 1) %>%
-  nrow()
-
-n_two_treatments <- final_treatment_counts %>%
-  filter(n_treatments == 2) %>%
-  nrow()
-
-n_three_plus_treatments <- final_treatment_counts %>%
-  filter(n_treatments >= 3) %>%
-  nrow()
-
 
 table1 <- tibble::tibble(
   Metric = c(
-    "No. Patients with eGFR measurement(s) in EDC (unfiltered)",
-    "...with matching cancer treatment data",
+
+    "No. Patients with eGFR(s) in EDC (unfiltered)",
+    "...with matching cancer treatment data", # i.e. cancerPerPatientData
     "...after report-period filter",
     "...after organ filter",
     "...after diagnosis filter",
     "...after modality filter",
-    "<b>Patients in final report cohort</b>",
-    "...with single treatment",
-    "...with two treatments",
-    "...with three or more treatments",
-    "<b>Tumours treated in final report cohort</b>",
-    "Number of tumours treated",
+    "Patients in final report cohort",
+    "Tumours treated",
     "Median tumour size (mm)",
     "SD tumour size (mm)"
   ),
   Value = c(
+
     format(n_egfr_raw, big.mark=","),
-    format(n_egfr_patients_in_cancer, big.mark=","),
+    format(n_egfr_in_cancer, big.mark=","),
     format(n_after_date, big.mark=","),
     format(n_after_organ, big.mark=","),
     format(n_after_diagnosis, big.mark=","),
     format(n_after_modality, big.mark=","),
-    "",
-    format(n_single_treatment, big.mark=","),
-    format(n_two_treatments, big.mark=","),
-    format(n_three_plus_treatments, big.mark=","),
-    "",
-   format(n_distinct(lesion_data$TreatmentID), big.mark=","),
-   format(tumour_summary$median, digits=1),
-   format(tumour_summary$sd, digits=1)
-    
+    format(n_final_renal, big.mark=","),
+    format(nrow(lesion_data), big.mark=","),
+    format(tumour_summary$median, digits=1),
+    format(tumour_summary$sd, digits=1)
   )
 )
 
+
 table2 <- tibble::tibble(
   Metric = c(
-    "<b>Renal function cohort</b>",
-    "Patients treated in final renal analysis (≥1 valid eGFR within follow-up window)",
-    "...with ≥1 eGFR measurement",
-    "...with baseline eGFR before ablation",
-    "...with paired eGFR on any treatment",
-    "...with paired eGFR on 1st treatment",
-    "...with paired eGFR on 2nd treatment",
-    "...with paired eGFR on 3rd+ treatment",
-    "",
-    "<b>eGFR measurements</b>",
-    "Total eGFR measurements available after cohort filtering",
-    "Total eGFR measurements included in renal analysis"
+    "Patients with eGFR",
+    "Patients with baseline eGFR",
+    "Patients with valid delta eGFR (baseline + post)",
+    "Total eGFR readings",
+    "Total eGFR readings included in analysis"
   ),
   Value = c(
-    "",
-    format(n_final_renal, big.mark=","),
-    format(n_patients_with_egfr, big.mark=","),
+    format(n_distinct(renalFn_data$PtID), big.mark=","),
     format(n_patients_baseline, big.mark=","),
     format(n_patients_valid_delta, big.mark=","),
-    format(n_valid_delta_rx1, big.mark=","),
-    format(n_valid_delta_rx2, big.mark=","),
-    format(n_valid_delta_rx3, big.mark=","),
-    "",
-    "",
-    format(nrow(renalFn_analysis %>% filter(!is.na(eGFR))), big.mark=","),
-    format(nrow(renal_analysis_measurements), big.mark=",")
+    format(n_egfr_total, big.mark=","),
+    format(n_egfr_included_analysis, big.mark=",")
   )
 )
 
@@ -1419,7 +1240,6 @@ table2 <- tibble::tibble(
 table1_html <- kable(
   table1,
   format = "html",
-  escape = FALSE,
   caption = "Cohort"
 ) |>
   kableExtra::kable_styling(
@@ -1431,7 +1251,6 @@ table1_html <- kable(
 table2_html <- kable(
   table2,
   format = "html",
-  escape = FALSE,
   caption = "Renal function"
 ) |>
   kableExtra::kable_styling(
@@ -1451,9 +1270,10 @@ cat(
   '</div>'
 )
 
+
 renalPatients <- renalFn_data %>%
-  arrange(TreatmentID, DaysFromRx) %>%
-  group_by(TreatmentID)
+  arrange(PtID, DaysFromRx) %>%
+  group_by(PtID)
 ```
 
 ```{r}
@@ -1465,73 +1285,49 @@ if (isTRUE(reportAnonymised)) {
 
 ```{r renal-summary-plot, fig.width=10, fig.height=5}
 
-renal.summary <- renalFn_analysis %>%
-  filter(
-    !is.na(MonthsFromRx),
-    !is.na(eGFR)
-  ) %>%
-  mutate(
-    FollowUp = cut(
-      MonthsFromRx,
-      breaks = followup_bins$breaks,
-      labels = followup_bins$labels,
-      include.lowest = TRUE,
-      right = FALSE
-    )
-  ) %>%
-  filter(!is.na(FollowUp)) %>%
-
-  # Patient-level mean within interval
-  group_by(TreatmentID, FollowUp) %>%
-  summarise(
-    eGFR = mean(eGFR, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-
-  # Summary across patients
-  group_by(FollowUp) %>%
-  summarise(
-    Mean = mean(eGFR, na.rm = TRUE),
-    Median = median(eGFR, na.rm = TRUE),
-    SD = sd(eGFR, na.rm = TRUE),
-    N_patients = n_distinct(TreatmentID),
-    SE = SD / sqrt(N_patients),
-    Lower = Mean - 1.96 * SE,
-    Upper = Mean + 1.96 * SE,
-    .groups = "drop"
-  ) %>%
-
-  # Add raw measurement counts separately
-  left_join(
+renal.summary <-
     renalFn_analysis %>%
-      filter(
+
+    filter(
         !is.na(MonthsFromRx),
         !is.na(eGFR)
-      ) %>%
-      mutate(
-        FollowUp = cut(
+    ) %>%
+
+    mutate(
+      FollowUp = cut(
           MonthsFromRx,
           breaks = followup_bins$breaks,
           labels = followup_bins$labels,
           include.lowest = TRUE,
           right = FALSE
         )
-      ) %>%
-      filter(!is.na(FollowUp)) %>%
-      group_by(FollowUp) %>%
-      summarise(
-        n_readings = n(),
+    ) %>%
+
+    filter(!is.na(FollowUp)) %>%
+
+    ## One eGFR per patient per interval
+    group_by(PtID, FollowUp) %>%
+    summarise(
+        eGFR = mean(eGFR, na.rm = TRUE),
         .groups = "drop"
-      ),
-    by = "FollowUp"
-  ) %>%
-  
-  mutate(
-    FollowUp = factor(
-      FollowUp,
-      levels = followup_bins$labels
+    ) %>%
+
+    ## Then summarise across patients
+    group_by(FollowUp) %>%
+    summarise(
+        Mean = mean(eGFR, na.rm = TRUE),
+        Median = median(eGFR, na.rm = TRUE),
+        SD = sd(eGFR, na.rm = TRUE),
+        N = n_distinct(PtID),
+        N_readings = n(),
+        SE = SD / sqrt(N),
+        Lower = Mean - 1.96 * SE,
+        Upper = Mean + 1.96 * SE,
+        .groups = "drop"
+    ) %>%
+    mutate(
+      FollowUp = factor(FollowUp, levels = followup_bins$labels)
     )
-  )
   
   baseline_mean <- renal.summary %>%
     filter(FollowUp == "Baseline") %>%
@@ -1568,17 +1364,12 @@ renal.summary <- renalFn_analysis %>%
   ) +
 
   geom_point(
-      aes(size = N_patients),
+      aes(size = N),
       colour = "#005BBB"
   ) +
 
   geom_text_repel(
-    aes(
-      label = paste0(
-        "N=", N_patients,
-        "\n(n=", n_readings, " readings)"
-      )
-    ),
+    aes(label = paste0("N=", N)),
     size = 3.8,
     colour = "black",
     fontface = "bold",
@@ -1626,7 +1417,7 @@ baseline <- renalFn_data %>%
     DaysFromRx >= -182.6,
     !is.na(eGFR)
   ) %>%
-  group_by(TreatmentID) %>%
+  group_by(PtID) %>%
   summarise(
     Baseline = mean(eGFR, na.rm = TRUE),
     .groups = "drop"
@@ -1640,7 +1431,7 @@ baseline <- renalFn_data %>%
 renal.delta <- renalFn_analysis %>%
   left_join(
     baseline,
-    by = "TreatmentID"
+    by = "PtID"
   ) %>%
   filter(!is.na(Baseline)) %>%
   
@@ -1670,7 +1461,7 @@ baseline.count <- renal.delta %>%
   ) %>%
   group_by(FollowUp) %>%
   summarise(
-    N_baseline = n_distinct(TreatmentID),
+    N_baseline = n_distinct(PtID),
     .groups = "drop"
   )
 
@@ -1679,50 +1470,55 @@ baseline.count <- renal.delta %>%
 # Average within patient then across patients
 #---------------------------------------
 
-# Raw reading counts per follow-up interval
+# Number of raw eGFR readings contributing to each interval
 reading.count <- renal.delta %>%
   filter(
     !is.na(Delta),
+    !is.na(PtID),
     !is.na(FollowUp)
   ) %>%
   group_by(FollowUp) %>%
   summarise(
-    n_readings = n(),
+    N_readings = n(),
     .groups = "drop"
   )
 
-
-# Patient-level averaging within interval
 renal.delta.summary <- renal.delta %>%
+
   filter(
     !is.na(Delta),
+    !is.na(PtID),
     !is.na(FollowUp)
   ) %>%
 
-  # flatten multiple readings per patient per interval
-  group_by(TreatmentID, FollowUp) %>%
+  # one delta value per patient per interval
+  group_by(PtID, FollowUp) %>%
   summarise(
     Delta = mean(Delta, na.rm = TRUE),
     .groups = "drop"
   ) %>%
 
-  # now calculate mean across patients
+  # then summarise across patients
   group_by(FollowUp) %>%
   summarise(
-    Mean = mean(Delta, na.rm = TRUE),
-    SD = sd(Delta, na.rm = TRUE),
-    N_patients = n_distinct(TreatmentID),
-    SE = SD / sqrt(N_patients),
-    Lower = Mean - 1.96 * SE,
-    Upper = Mean + 1.96 * SE,
+    Mean    = mean(Delta, na.rm = TRUE),
+    SD      = sd(Delta, na.rm = TRUE),
+    N_delta = n_distinct(PtID),
+    SE      = SD / sqrt(N_delta),
+    Lower   = Mean - 1.96 * SE,
+    Upper   = Mean + 1.96 * SE,
     .groups = "drop"
   ) %>%
 
   left_join(
+    baseline.count,
+    by = "FollowUp"
+  ) %>%
+  
+  left_join(
     reading.count,
     by = "FollowUp"
   )
-
 
 #---------------------------------------
 # Plot
@@ -1758,14 +1554,14 @@ geom_line(
 ) +
 
 geom_point(
-  aes(size = N_patients),
+  aes(size = N_delta),
   colour = "#005BBB"
 ) +
 
 geom_text_repel(
   aes(label = paste0(
-    "N=", N_patients,
-    "\n(", n_readings, " readings)"
+    "N=", N_delta,
+    "\n(", N_readings, " readings)"
   )),
   size = 3.8,
   colour = "black",
@@ -1778,7 +1574,7 @@ geom_text_repel(
 
 scale_size(
   range = c(3,10),
-  name = "Patients (N)"
+  name = "Patients"
 ) +
 
 labs(
@@ -1798,76 +1594,47 @@ theme(
 ```
 **Figure 2. Change in estimated glomerular filtration rate (Δ eGFR) from baseline over follow-up.** Baseline eGFR was defined as the mean of available eGFR measurements obtained within 6 months before treatment for each patient. Δ eGFR represents the difference between eGFR at each follow-up interval and the patient-specific baseline eGFR. Measurements were first averaged within patient and follow-up interval and then across patients. Points are scaled according to the number of patients contributing to each interval; Labels show the number of patients contributing ΔeGFR data to each interval mean (N) followed in parentheses by the number of individual eGFR measurements contributing to that mean. Shaded areas represent 95% confidence intervals. The dashed horizontal line indicates no change from baseline.
 
-```{r renal-patient-plots, results='asis', fig.width=12, fig.height=10}
+# All the individual patient plots for follow-up eGFR
+```{r renal-patient-plots, fig.width=12, fig.height=10}
 
 if (isTRUE(reportIndividualPtPlots))
 {
-  cat("## Individual patient plots for follow-up eGFR\n\n")
-
-  plots <- lapply(unique(renalFn_display$TreatmentID), function(pt) {
-
-  df <- renalFn_display %>%
-    filter(TreatmentID == pt) %>%
-    arrange(DaysFromRx)
-
-  # sensible y-axis limits
-  y_range <- range(df$eGFR, na.rm = TRUE)
-
-  if (length(unique(df$eGFR)) == 1) {
-    y_limits <- c(
-      y_range[1] - 5,
-      y_range[1] + 5
-    )
-  } else {
-    padding <- max(
-      5,
-      diff(y_range) * 0.15
-    )
-
-    y_limits <- c(
-      y_range[1] - padding,
-      y_range[2] + padding
-    )
-  }
-
-
-  ggplot(df,
-         aes(DaysFromRx, eGFR)) +
-
-    geom_vline(
-      xintercept = 0,
-      colour = "red",
-      linetype = 2
-    ) +
-
-    geom_line(linewidth = 0.5) +
-
-    geom_point(size = 1.5) +
-
-    scale_y_continuous(
-      limits = y_limits,
-      breaks = scales::pretty_breaks(n = 5),
-      labels = scales::label_number(
-        accuracy = 1
-      )
-    ) +
-
-    labs(
-      title = paste("Treatment ID:", pt),
-      x = "Days",
-      y = "eGFR"
-    ) +
-
-    theme_bw(base_size = 10) +
-
-    theme(
-      plot.title = element_text(size = 11, face = "bold"),
-      axis.title = element_text(size = 9, face = "bold"),
-      axis.text = element_text(size = 8)
-    )
-  })  
+  plots <- lapply(unique(renalFn_display$PtID), function(pt) {
   
-  page_size <- 12
+    df <- renalFn_display %>%
+      filter(PtID == pt) %>%
+      arrange(DaysFromRx)
+  
+    ggplot(df,
+           aes(DaysFromRx, eGFR)) +
+  
+      geom_vline(
+        xintercept = 0,
+        colour = "red",
+        linetype = 2
+      ) +
+  
+      geom_line(linewidth = 0.5) +
+  
+      geom_point(size = 1.5) +
+  
+      labs(
+        title = paste("Patient", pt),
+        x = "Days",
+        y = "eGFR"
+      ) +
+  
+      theme_bw(base_size = 10) +
+  
+      theme(
+        plot.title = element_text(size = 11, face = "bold"),
+        axis.title = element_text(size = 9, face = "bold"),
+        axis.text = element_text(size = 8)
+      )
+  })
+  
+  
+  page_size <- 9
   
   for(i in seq(1, length(plots), by = page_size)) {
   
@@ -1893,14 +1660,7 @@ if (isTRUE(reportIndividualPtPlots))
   }
 }
 ```
-`r if (isTRUE(reportIndividualPtPlots)) paste0(
-"**Figure 3. Individual patient eGFR trajectories.** ",
-"Each panel shows longitudinal eGFR measurements for an individual patient included in the renal function report. ",
-"The horizontal axis represents days relative to treatment, with day 0 indicating the date of treatment. ",
-"Points represent individual eGFR measurements and lines connect measurements chronologically. ",
-"The dashed vertical line indicates the treatment date. ",
-"Patient identifiers are anonymised where anonymisation has been selected for the report."
-) else ""`
+**Figure 3. Individual patient eGFR trajectories.** Each panel shows longitudinal eGFR measurements for an individual patient included in the renal function report. The horizontal axis represents days relative to treatment, with day 0 indicating the date of treatment. Points represent individual eGFR measurements and lines connect measurements chronologically. The dashed vertical line indicates the treatment date. Patient identifiers are anonymised where anonymisation has been selected for the report.
 
 
 ## Credits
