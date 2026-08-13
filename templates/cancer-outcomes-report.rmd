@@ -761,7 +761,6 @@ progress$set(
   message = "Setting things up..."
 )
 
-
 patient_ltp           <- reportRecurrencePlot(ltpAnalysisUnit = "patient", ignoreFirstLTP = FALSE)
 lesion_ltp            <- reportRecurrencePlot(ltpAnalysisUnit = "lesion", ignoreFirstLTP = FALSE)
 survival_os           <- reportSurvivalPlot(survivalType = 0, ignoreFirstLTP = FALSE)
@@ -788,104 +787,226 @@ progress$set(
   message = "Generating outcome summary ..."
 )
 
-patient_ltp_rate                   <- km_estimate(patient_ltp[[2]],                   report_max_years_followup)
-lesion_ltp_rate                    <- km_estimate(lesion_ltp[[2]],                    report_max_years_followup)
-survival_os_rate                   <- km_estimate(survival_os[[2]],                   report_max_years_followup)
-survival_css_rate                  <- km_estimate(survival_css[[2]],                  report_max_years_followup)
-survival_ltp_free_os_rate          <- km_estimate(survival_ltp_free_os[[2]],          report_max_years_followup)
-survival_ltp_free_css_rate         <- km_estimate(survival_ltp_free_css[[2]],         report_max_years_followup)
-if (report_include_ignore_first_ltp)
-{
-  patient_ltp_ignore_rate           <- km_estimate(patient_ltp_ignore[[2]],           report_max_years_followup)
-  lesion_ltp_ignore_rate            <- km_estimate(lesion_ltp_ignore[[2]],            report_max_years_followup)
-  survival_ltp_free_os_ignore_rate  <- km_estimate(survival_ltp_free_os_ignore[[2]],  report_max_years_followup)
-  survival_ltp_free_css_ignore_rate <- km_estimate(survival_ltp_free_css_ignore[[2]], report_max_years_followup)
-}
+# -------------------------------------------------------------------------
+# Calculate strict-rule KM estimates
+# -------------------------------------------------------------------------
 
-overview_metrics <- c(
-  "Patients",
-  "Tumours treated",
-  "Mean referrals per patient",
-  "Mean tumours treated per patient",
-  "Median tumour size (mm)",
-  "SD tumour size (mm)",
-  paste0(report_max_years_followup, "-year LTP-free (per patient)"),
-  paste0(report_max_years_followup, "-year LTP-free (per lesion)"),
-  paste0(report_max_years_followup, "-year OS"),
-  paste0(report_max_years_followup, "-year CSS"),
-  paste0(report_max_years_followup, "-year LTP-free OS"),
-  paste0(report_max_years_followup, "-year LTP-free CSS")
+patient_ltp_rate <- km_estimate(
+  patient_ltp[[2]],
+  report_max_years_followup
 )
 
-overview_values <- c(
-  nrow(patient_data),
-  nrow(lesion_data),
-  round(meanReferralsPerPatient, 2),
-  round(meanTumoursPerPatient, 2),
-  round(tumour_summary$median[1], 1),
-  round(tumour_summary$sd[1], 1),
-  km_risk_title(patient_ltp_rate),
-  km_risk_title(lesion_ltp_rate),
-  km_risk_title(survival_os_rate),
-  km_risk_title(survival_css_rate),
-  km_risk_title(survival_ltp_free_os_rate),
-  km_risk_title(survival_ltp_free_css_rate)
+lesion_ltp_rate <- km_estimate(
+  lesion_ltp[[2]],
+  report_max_years_followup
 )
 
-if (report_include_ignore_first_ltp)
-{
-  overview_metrics <- c(
-    overview_metrics,
-    paste0(report_max_years_followup, "-year LTP-free (per pt, relaxed rule)"),
-    paste0(report_max_years_followup, "-year LTP-free (per lesion, relaxed rule)"),
-    paste0(report_max_years_followup, "-year LTP-free OS (relaxed rule)"),
-    paste0(report_max_years_followup, "-year LTP-free CSS (relaxed rule)")
-  )
+survival_os_rate <- km_estimate(
+  survival_os[[2]],
+  report_max_years_followup
+)
 
-  overview_values <- c(
-    overview_values,
-    km_risk_title(patient_ltp_ignore_rate),
-    km_risk_title(lesion_ltp_ignore_rate),
-    km_risk_title(survival_ltp_free_os_ignore_rate),
-    km_risk_title(survival_ltp_free_css_ignore_rate)
-  )
-}
+survival_css_rate <- km_estimate(
+  survival_css[[2]],
+  report_max_years_followup
+)
+
+survival_ltp_free_os_rate <- km_estimate(
+  survival_ltp_free_os[[2]],
+  report_max_years_followup
+)
+
+survival_ltp_free_css_rate <- km_estimate(
+  survival_ltp_free_css[[2]],
+  report_max_years_followup
+)
+
+
+# -------------------------------------------------------------------------
+# Start the summary table
+# -------------------------------------------------------------------------
 
 overview_tbl <- tibble::tibble(
-  Metric = overview_metrics,
-  Value = overview_values
+  Section = c(
+    rep("Cohort and treatment", 6),
+    rep("Strict LTP rule", 4),
+    rep("Overall survival", 2)
+  ),
+
+  Metric = c(
+    "Patients",
+    "Tumours treated",
+    "Mean referrals per patient",
+    "Mean tumours treated per patient",
+    "Median tumour size (mm)",
+    "SD tumour size (mm)",
+
+    paste0(report_max_years_followup, "-year LTP-free per Patient"),
+    paste0(report_max_years_followup, "-year LTP-free per Lesion"),
+    paste0(report_max_years_followup, "-year LTP-free OS"),
+    paste0(report_max_years_followup, "-year LTP-free CSS"),
+
+    paste0(report_max_years_followup, "-year Overall Survival"),
+    paste0(report_max_years_followup, "-year Cancer-Specific Survival")
+  ),
+
+  Value = c(
+    nrow(patient_data),
+    nrow(lesion_data),
+    round(meanReferralsPerPatient, 2),
+    round(meanTumoursPerPatient, 2),
+    round(tumour_summary$median[1], 1),
+    round(tumour_summary$sd[1], 1),
+
+    km_risk_title(patient_ltp_rate),
+    km_risk_title(lesion_ltp_rate),
+    km_risk_title(survival_ltp_free_os_rate),
+    km_risk_title(survival_ltp_free_css_rate),
+
+    km_risk_title(survival_os_rate),
+    km_risk_title(survival_css_rate)
+  )
 )
 
 
-mid <- ceiling(nrow(overview_tbl) / 2)
+# -------------------------------------------------------------------------
+# Add relaxed-rule estimates if requested
+# -------------------------------------------------------------------------
 
-table1 <- overview_tbl[1:mid, ]
-table2 <- overview_tbl[(mid + 1):nrow(overview_tbl), ]
+if (report_include_ignore_first_ltp) {
 
-table1_html <- kable(
-  table1,
-  caption = "Cancer outcomes summary"
-) |>
-  kableExtra::kable_styling(full_width = FALSE) |>
-  as.character()
+  patient_ltp_ignore_rate <- km_estimate(
+    patient_ltp_ignore[[2]],
+    report_max_years_followup
+  )
 
-table2_html <- kable(
-  table2,
-  caption = ""
-) |>
-  kableExtra::kable_styling(full_width = FALSE) |>
-  as.character()
+  lesion_ltp_ignore_rate <- km_estimate(
+    lesion_ltp_ignore[[2]],
+    report_max_years_followup
+  )
 
-cat(
-  '<div style="display:flex; gap:25px; align-items:flex-start;">',
-  '<div style="flex:1;">',
-  table1_html,
-  '</div>',
-  '<div style="flex:1;">',
-  table2_html,
-  '</div>',
-  '</div>'
-)
+  survival_ltp_free_os_ignore_rate <- km_estimate(
+    survival_ltp_free_os_ignore[[2]],
+    report_max_years_followup
+  )
+
+  survival_ltp_free_css_ignore_rate <- km_estimate(
+    survival_ltp_free_css_ignore[[2]],
+    report_max_years_followup
+  )
+
+
+  # Insert relaxed-rule rows immediately before Overall survival
+  relaxed_tbl <- tibble::tibble(
+    Section = rep("Relaxed LTP rule", 4),
+
+    Metric = c(
+      paste0(report_max_years_followup, "-year LTP-free per Patient"),
+      paste0(report_max_years_followup, "-year LTP-free per Lesion"),
+      paste0(report_max_years_followup, "-year LTP-free OS"),
+      paste0(report_max_years_followup, "-year LTP-free CSS")
+    ),
+
+    Value = c(
+      km_risk_title(patient_ltp_ignore_rate),
+      km_risk_title(lesion_ltp_ignore_rate),
+      km_risk_title(survival_ltp_free_os_ignore_rate),
+      km_risk_title(survival_ltp_free_css_ignore_rate)
+    )
+  )
+
+
+  # First 10 rows are cohort + strict LTP.
+  # Last 2 rows are overall survival.
+  overview_tbl <- dplyr::bind_rows(
+    overview_tbl[1:10, ],
+    relaxed_tbl,
+    overview_tbl[11:12, ]
+  )
+}
+
+
+# -------------------------------------------------------------------------
+# Remove Section from the displayed columns
+# -------------------------------------------------------------------------
+
+display_tbl <- overview_tbl |>
+  dplyr::select(Metric, Value)
+
+
+# -------------------------------------------------------------------------
+# Render table
+# -------------------------------------------------------------------------
+
+overview_kable <- display_tbl |>
+  kable(
+    format = "html",
+    caption = "Cancer outcomes summary",
+    align = c("l", "c"),
+    escape = FALSE
+  ) |>
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    position = "left"
+  )
+
+
+# -------------------------------------------------------------------------
+# Add section headings
+#
+# Row positions refer to rows in display_tbl:
+#
+#   1-6   Cohort and treatment
+#   7-10  Strict LTP rule
+#   11-14 Relaxed LTP rule (if enabled)
+#   11-12 Overall survival (if relaxed rule disabled)
+#   15-16 Overall survival (if relaxed rule enabled)
+# -------------------------------------------------------------------------
+
+overview_kable <- overview_kable |>
+  kableExtra::group_rows(
+    "Cohort and treatment",
+    start_row = 1,
+    end_row = 6
+  ) |>
+  kableExtra::group_rows(
+    "Strict LTP rule",
+    start_row = 7,
+    end_row = 10
+  )
+
+
+if (report_include_ignore_first_ltp) {
+
+  overview_kable <- overview_kable |>
+    kableExtra::group_rows(
+      "Relaxed LTP rule",
+      start_row = 11,
+      end_row = 14
+    ) |>
+    kableExtra::group_rows(
+      "Overall survival",
+      start_row = 15,
+      end_row = 16
+    )
+
+} else {
+
+  overview_kable <- overview_kable |>
+    kableExtra::group_rows(
+      "Overall survival",
+      start_row = 11,
+      end_row = 12
+    )
+}
+
+
+# -------------------------------------------------------------------------
+# Output
+# -------------------------------------------------------------------------
+
+cat(as.character(overview_kable))
+
 ```
 
 ## Ablation Sessions per Year
@@ -1111,14 +1232,20 @@ progress$set(
 
 patient_ltp[[1]]
 if (report_include_ignore_first_ltp) {
-  patient_ltp_ignore[[1]]
+  print(patient_ltp_ignore[[1]])
 }
 ```
 
 ```{r ltp-lesion-plot, echo=FALSE, fig.height=4.8}
+
+progress$set(
+  value = 0.65,
+  message = "Generating LTP curves ..."
+)
+
 lesion_ltp[[1]]
 if (report_include_ignore_first_ltp) {
-  lesion_ltp_ignore[[1]]
+  print(lesion_ltp_ignore[[1]])
 }
 ```
 
@@ -1130,15 +1257,31 @@ progress$set(
   value = 0.7,
   message = "Generating survival curves ..."
 )
-survival_os[[1]]
-survival_css[[1]]
+print(survival_os[[1]])
+print(survival_css[[1]])
+
+progress$set(
+  value = 0.75,
+  message = "Generating survival curves ..."
+)
+
 survival_ltp_free_os[[1]]
+if (report_include_ignore_first_ltp)
+{
+  print(survival_ltp_free_os_ignore[[1]])  # This needs to be printed as they are in an if statement, its the way knit works
+}
+
+progress$set(
+  value = 0.775,
+  message = "Generating survival curves ..."
+)
+
 survival_ltp_free_css[[1]]
 if (report_include_ignore_first_ltp)
 {
-  survival_ltp_free_os_ignore[[1]]
-  survival_ltp_free_css_ignore[[1]]
+  print(survival_ltp_free_css_ignore[[1]]) # This needs to be printed as they are in an if statement, its the way knit works
 }
+
 ```
 
 ## Adverse events

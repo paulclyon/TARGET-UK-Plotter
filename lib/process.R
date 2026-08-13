@@ -1064,6 +1064,83 @@ processData <- function()
         }
       }
       
+      # The renal function follow-up data
+      thisRenalFn.df <- data.frame()
+      
+      # ############################################### FIXME this is a temporary hack whilst we migrate data from one table to another then can be deleted to end of fn
+      # Read both renal function follow-up tables
+      renalFnJSON_0 <- getDataEntry("fu_renal_function_follow_up", i, F)
+      renalFnJSON_1 <- getDataEntry("fu_renal_function_follow_up_1", i, F)
+      
+      renalFnTables <- list()
+      
+      for (renalFnJSON in list(renalFnJSON_0, renalFnJSON_1))
+      {
+        if (!is.na(renalFnJSON) && str_length(renalFnJSON) > 0)
+        {
+          renalFnMatrix <- jsonlite::fromJSON(renalFnJSON)
+          
+          if (length(renalFnMatrix) > 0)
+          {
+            tmp.df <- do.call(rbind, lapply(renalFnMatrix, unlist))
+            tmp.df <- as.data.frame(tmp.df, stringsAsFactors = FALSE)
+            
+            colnames(tmp.df) <- renalFnColNames
+            rownames(tmp.df) <- NULL
+            
+            # Remove completely empty rows
+            tmp.df <- tmp.df[
+              apply(
+                tmp.df,
+                1,
+                function(row)
+                  any(!is.na(row) & trimws(row) != "")
+              ),
+              ,
+              drop = FALSE
+            ]
+            
+            if (nrow(tmp.df) > 0)
+              renalFnTables[[length(renalFnTables) + 1]] <- tmp.df
+          }
+        }
+      }
+      
+      # Combine both follow-up tables
+      if (length(renalFnTables) > 0)
+      {
+        thisRenalFn.df <- do.call(rbind, renalFnTables)
+        rownames(thisRenalFn.df) <- NULL
+        
+        # Remove duplicate dates.
+        # If the same date occurs in both tables, keep the first occurrence.
+        if ("Date" %in% names(thisRenalFn.df))
+        {
+          thisRenalFn.df <- thisRenalFn.df[
+            !duplicated(thisRenalFn.df$Date),
+            ,
+            drop = FALSE
+          ]
+        }
+        
+        # Add patient / referral information
+        renalFn.df <<- rbind(
+          renalFn.df,
+          cbind(
+            data.frame(
+              PtID = rep(ptID, nrow(thisRenalFn.df)),
+              Organ = rep(organForRx, nrow(thisRenalFn.df)),
+              DiagnosisType = rep(diagnosis_type, nrow(thisRenalFn.df)),
+              Diagnosis1o = rep(diagnosis_1o, nrow(thisRenalFn.df)),
+              Diagnosis2o = rep(diagnosis_2o, nrow(thisRenalFn.df)),
+              DiagnosisBn = rep(diagnosis_bn, nrow(thisRenalFn.df)),
+              DiagnosisUn = rep(diagnosis_un, nrow(thisRenalFn.df))
+            ),
+            thisRenalFn.df
+          )
+        )
+      }
+      
     } ########################## Ends the very long for loop for each referral for this patient
     
     diagnosis_1o_Factors <<- levels(factor(rxdone_diagnosis_1o_list))    

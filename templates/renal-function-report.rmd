@@ -1404,6 +1404,36 @@ table1 <- tibble::tibble(
   )
 )
 
+baseline <- renalFn_analysis %>%
+  filter(DaysFromRx < 0, DaysFromRx >= -182.6, !is.na(eGFR)) %>%
+  group_by(TreatmentID) %>%
+  summarise(Baseline = mean(eGFR, na.rm = TRUE), .groups = "drop")
+
+egfr_window_delta <- renalFn_analysis %>%
+  left_join(baseline, by = "TreatmentID") %>%
+  filter(!is.na(eGFR), !is.na(Baseline), !is.na(DaysFromRx)) %>%
+  mutate(Delta = eGFR - Baseline)
+
+mean_baseline_egfr <- mean(baseline$Baseline, na.rm = TRUE)
+
+mean_delta_0_2wk <- egfr_window_delta %>%
+  filter(DaysFromRx >= 0, DaysFromRx <= 14) %>%
+  group_by(TreatmentID) %>%
+  summarise(Delta = mean(Delta, na.rm = TRUE), .groups = "drop") %>%
+  summarise(x = mean(Delta, na.rm = TRUE)) %>%
+  pull(x)
+
+mean_delta_6_12m <- egfr_window_delta %>%
+  filter(DaysFromRx >= 6 * 30.44, DaysFromRx <= 12 * 30.44) %>%
+  group_by(TreatmentID) %>%
+  summarise(Delta = mean(Delta, na.rm = TRUE), .groups = "drop") %>%
+  summarise(x = mean(Delta, na.rm = TRUE)) %>%
+  pull(x)
+
+mean_baseline_egfr <- ifelse(is.finite(mean_baseline_egfr), mean_baseline_egfr, NA_real_)
+mean_delta_0_2wk <- ifelse(is.finite(mean_delta_0_2wk), mean_delta_0_2wk, NA_real_)
+mean_delta_6_12m <- ifelse(is.finite(mean_delta_6_12m), mean_delta_6_12m, NA_real_)
+
 table2 <- tibble::tibble(
   Metric = c(
     "<b>Renal function cohort</b>",
@@ -1415,9 +1445,14 @@ table2 <- tibble::tibble(
     "...with paired eGFR on 2nd treatment",
     "...with paired eGFR on 3rd+ treatment",
     "",
-    "<b>eGFR measurements</b>",
-    "Total eGFR measurements available after cohort filtering",
-    "Total eGFR measurements included in renal analysis"
+    "<b>Renal function summary</b>",
+    "Mean baseline eGFR",
+    "Mean ΔeGFR 0–2 weeks",
+    "Mean ΔeGFR 6–12 months",
+    "",
+    "<b>Total Number of eGFR measurements</b>",
+    "...available after cohort filtering",
+    "...included in the final analysis"
   ),
   Value = c(
     "",
@@ -1428,6 +1463,11 @@ table2 <- tibble::tibble(
     format(n_valid_delta_rx1, big.mark=","),
     format(n_valid_delta_rx2, big.mark=","),
     format(n_valid_delta_rx3, big.mark=","),
+    "",
+    "",
+    format(round(mean_baseline_egfr, 1), nsmall=1),
+    format(round(mean_delta_0_2wk, 1), nsmall=1),
+    format(round(mean_delta_6_12m, 1), nsmall=1),
     "",
     "",
     format(nrow(renalFn_analysis %>% filter(!is.na(eGFR))), big.mark=","),
@@ -1697,7 +1737,6 @@ baseline.count <- renal.delta %>%
     N_baseline = n_distinct(TreatmentID),
     .groups = "drop"
   )
-
 
 #---------------------------------------
 # Average within patient then across patients
