@@ -52,7 +52,11 @@ V1.3 Koala       Fixed the per lesion LTP analysis code which is tough to get co
                  Other improvements eg. AE table and Cancer Outcome Report
                  Several improvements to survival and recurrence GUI including informational tool tip text
                  <br>
-
+V1.4 Leopard     Fully functional renal function report, allowing analysis of retreatments
+                 Minor further improvements to header for cancer and report reports
+                 Bug fixes to show all LTP relaxed rule plots
+                 Add volume plot in wait time audit + other fixes
+                 <br>
 </pre>
 
 Code Implementation by (PCL) unless otherwise specified<br>
