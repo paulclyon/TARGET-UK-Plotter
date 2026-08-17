@@ -69,12 +69,12 @@ library(lubridate)
 library(purrr)
 library(kableExtra)
 
-audit_start_date     <- params$audit_start_date
-audit_end_date       <- params$audit_end_date
-audit_financial_year <- isTRUE(params$audit_financial_year)
+audit_start_date      <- params$audit_start_date
+audit_end_date        <- params$audit_end_date
+audit_financial_year  <- isTRUE(params$audit_financial_year)
 splitPrimarySecondary <- isTRUE(params$audit_split_primary_secondary)
-audit_organs         <- params$audit_organs
-reportAnonymised     <- isTRUE(params$audit_rx_pathway_anonymised)
+audit_organs          <- params$audit_organs
+reportAnonymised      <- isTRUE(params$audit_rx_pathway_anonymised)
 
 auditStart <- as.Date(audit_start_date)
 auditEnd   <- as.Date(audit_end_date)
@@ -233,19 +233,25 @@ cleanBase <- function(data) {
     d <- d |> filter(DiagnosisType == "P")
   }
 
-  # Split selected organs into Primary / Secondary
+  # Split selected organs by diagnosis type
   if (isTRUE(splitPrimarySecondary) &&
       "DiagnosisType" %in% names(d)) {
-
+  
     d <- d |>
       mutate(
         Organ = paste0(
           Organ,
-          ifelse(DiagnosisType == "P", "-Primary", "-Secondary")
+          case_when(
+            DiagnosisType == "P" ~ "-Primary",
+            DiagnosisType == "S" ~ "-Secondary",
+            DiagnosisType == "B" ~ "-Benign",
+            DiagnosisType == "U" ~ "-Unknown",
+            TRUE ~ ""
+          )
         )
       )
   }
-
+  
   d
 }
 
@@ -1095,7 +1101,7 @@ if (nYears == 1) {
     select(`Organ (n)`, mean, median, `w90%`) |>
     kbl(col.names = c("Organ Treated", "Mean time\n(SD)", "Median\n",
                       "% within 90 days\n(Local std.)")) |>
-    add_header_above(data.frame(paste0("Time from Referral received-to-Ablation (", yearBasisText, ")\n", auditPeriodText), 4)) |>
+    add_header_above(data.frame(paste0("Time from Referral Received-to-Ablation (", yearBasisText, ")\n", auditPeriodText), 4)) |>
     footnote(wait_time_exclusion_footnote(rxDoneAuditData, "Ref_RxDone", "Missing Ref-to-Rx Dates:", "Excluded (negative Ref-to-Rx):")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), full_width = TRUE)
 } else {
@@ -1120,7 +1126,7 @@ if (nYears == 1) {
     select(any_of(display_cols)) |>
     kbl(col.names = col_headers) |>
     add_header_above(span_headers) |>
-    add_header_above(setNames(length(col_headers), paste0("Time from Referral received-to-Ablation (", yearBasisText, ")"))) |>
+    add_header_above(setNames(length(col_headers), paste0("Time from Referral Received-to-Ablation (", yearBasisText, ")"))) |>
     footnote(wait_time_exclusion_footnote(rxDoneAuditData, "Ref_RxDone", "Missing Ref-to-Rx Dates:", "Excluded (negative Ref-to-Rx):")) |>
     kable_styling(bootstrap_options = c("striped","condensed","responsive"), font_size = 9, full_width = TRUE) |>
     add_year_separators(display_cols)
@@ -1246,6 +1252,22 @@ rxDoneAuditData |>
 rxDoneAuditDataplot <- commonRxDonePlot(rxDoneAuditData) +
   ggtitle("Time to Treatment")
 rxDoneAuditDataplot
+```
+
+
+## Treatment Volume Plot
+
+```{r treatment_volume_plot, fig.height=6}
+# Use monthly bins for audit periods of up to 12 months; otherwise quarterly.
+monthlyEnd <- seq(auditStart, by = "1 year", length.out = 2)[2] - 1
+
+volumePlotDuration <- if (auditEnd <= monthlyEnd) {
+  "month"
+} else {
+  "quarter"
+}
+
+makeRxVolumePlot(rxDoneAuditData, volumePlotDuration)
 ```
 
 ## Organ Treatment Piechart

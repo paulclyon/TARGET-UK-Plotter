@@ -45,6 +45,7 @@ volumePlotTab <- function() {
             choices = c(
               "Weekly" = "week",
               "Monthly" = "month",
+              "Quarterly" = "quarter",
               "Yearly" = "year"),
             selected = "month"
           )
@@ -81,18 +82,6 @@ volumePlotServer <- function(input, output, session, api, tariff, plots) {
 
     # Work out the tariff
     tariff$theTotalTariff <<- calculateTotalTariff(filteredRxDoneData)
-
-    # We need to round up to get the bin to include the full month otherwise it looses treatmnet data
-    # p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y",
-    #                      limits = as.Date(c(input$volumePlotDate1, ceiling_date(input$volumePlotDate2,"month"))))
-
-    if (input$volumePlotDurationRadio == "week") {
-      p <- p + scale_x_date(date_breaks = "1 week", date_labels = "%e %b %y")
-    } else if (input$volumePlotDurationRadio == "month") {
-      p <- p + scale_x_date(date_breaks = "1 month", date_labels = "%b %y")
-    } else if (input$volumePlotDurationRadio == "year") {
-      p <- p + scale_x_date(date_breaks = "1 year", date_labels = "%Y")
-    }
 
     height <- detectedHeight(input, "plotVolume")
 

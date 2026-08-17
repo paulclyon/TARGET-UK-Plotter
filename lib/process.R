@@ -522,14 +522,24 @@ processData <- function()
                                   error=paste("Patient referral has invalid tumour type '",thisTumourType,"', ignoring.",  sep = ""))
           }
         }
+
+        # 5.3    ref_letter_date_1 :            date printed on referral letter (or date of discharge from last Rx if follow-on)
+        # 5.2.2  ref_date_imaging_available_1 : date ref letter received (if imaging not available, clock-stop it until it is) (the name is historical)
+        # 5.2.3  ref_date_recd_1 :              this is poorly named and means date referral was reviewed
         
         # Get the date of referral, if it is NA later on we set it as the treatment date, if that is set, as a bit of a hack
-        ref_date <- convertToDate(getDataEntry(paste("ref_date_recd_", as.integer(iRef), sep = ""), i))
+        ref_date <- convertToDate(getDataEntry(paste("ref_date_imaging_available_", as.integer(iRef), sep = ""), i,NA,TRUE))
         
         # If we don't have valid referral date received, use referral letter date as next best thing
         if (is.na(ref_date))
         {
-          ref_date <- convertToDate(getDataEntry(paste("ref_letter_date_", as.integer(iRef), sep = ""), i))
+          ref_date <- convertToDate(getDataEntry(paste("ref_letter_date_", as.integer(iRef), sep = ""), i,NA,TRUE))
+        }
+        
+        # If we don't have valid ref date rec'd or ref letter date, use referral review date as the last resort
+        if (is.na(ref_date))
+        {
+          ref_date <- convertToDate(getDataEntry(paste("ref_date_recd_", as.integer(iRef), sep = ""), i,NA,TRUE))
         }
         
         # Get the date of diagnosis which is the earliest referral date of all the referrals encountered
